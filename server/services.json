@@ -1,0 +1,26 @@
+[
+  {
+    "_id": 1,
+    "title": "Plombier",
+    "category": "maison",
+    "description": "Je répare vos fuites et canalisations.",
+    "price": "80",
+    "providerName": "Utilisateur Test",
+    "image": "https://i.pravatar.cc/100?img=4",
+    "verified": false,
+    "createdAt": "2026-05-02T10:48:13.738Z",
+    "updatedAt": "2026-05-02T10:48:13.738Z"
+  },
+  {
+    "_id": 2,
+    "title": "cours de piano",
+    "category": "cours",
+    "description": "je jouuuuuuuuuue",
+    "price": "77",
+    "providerName": "Utilisateur Test",
+    "image": "https://i.pravatar.cc/100?img=4",
+    "verified": false,
+    "createdAt": "2026-05-02T12:52:23.999Z",
+    "updatedAt": "2026-05-02T12:52:23.999Z"
+  }
+]
