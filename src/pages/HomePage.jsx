@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import Header from '../components/Header'
 import API_URL from '../config'
+import { Home, Smile, BookOpen, Wrench, PartyPopper, Dog, ShieldCheck } from 'lucide-react'
 
 export default function HomePage() {
   const [allServices, setAllServices] = useState([])
@@ -58,23 +59,26 @@ export default function HomePage() {
       <section className="max-w-6xl mx-auto px-4 py-12">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
           {[
-            { emoji: "🏠", label: "Maison", color: "from-blue-400 to-blue-500" },
-            { emoji: "💆", label: "Bien-être", color: "from-pink-400 to-rose-500" },
-            { emoji: "📚", label: "Cours", color: "from-yellow-400 to-amber-500" },
-            { emoji: "🔧", label: "Tech & Réparation", color: "from-purple-400 to-violet-500" },
-            { emoji: "🎉", label: "Événements", color: "from-green-400 to-emerald-500" },
-            { emoji: "🐾", label: "Animaux", color: "from-orange-400 to-red-500" },
-          ].map((cat) => (
-            <div
-              key={cat.label}
-              className="bg-card backdrop-blur-sm rounded-2xl p-4 text-center hover:scale-105 transition cursor-pointer border border-border"
-            >
-              <div className={`w-12 h-12 mx-auto mb-2 rounded-full bg-gradient-to-br ${cat.color} flex items-center justify-center text-2xl`}>
-                {cat.emoji}
+            { icon: Home, label: "Maison", color: "from-blue-400 to-blue-500" },
+            { icon: Smile, label: "Bien-être", color: "from-pink-400 to-rose-500" },
+            { icon: BookOpen, label: "Cours", color: "from-yellow-400 to-amber-500" },
+            { icon: Wrench, label: "Tech & Réparation", color: "from-purple-400 to-violet-500" },
+            { icon: PartyPopper, label: "Événements", color: "from-green-400 to-emerald-500" },
+            { icon: Dog, label: "Animaux", color: "from-orange-400 to-red-500" },
+          ].map((cat) => {
+            const Icon = cat.icon
+            return (
+              <div
+                key={cat.label}
+                className="bg-card backdrop-blur-sm rounded-2xl p-4 text-center hover:scale-105 transition cursor-pointer border border-border"
+              >
+                <div className={`w-12 h-12 mx-auto mb-2 rounded-full bg-gradient-to-br ${cat.color} flex items-center justify-center`}>
+                  <Icon size={24} className="text-white" />
+                </div>
+                <p className="font-semibold text-sm">{cat.label}</p>
               </div>
-              <p className="font-semibold text-sm">{cat.label}</p>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </section>
 
@@ -105,7 +109,7 @@ export default function HomePage() {
                 <div>
                   <p className="font-bold">{service.title}</p>
                   <span className="flex items-center text-xs text-primary">
-                    <span className="mr-1">🛡️</span> {service.verified ? 'Vérifié' : 'Non vérifié'}
+                    <ShieldCheck size={14} className="mr-1" /> {service.verified ? 'Vérifié' : 'Non vérifié'}
                   </span>
                 </div>
               </div>

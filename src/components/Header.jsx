@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { ShieldCheck, PlusCircle, ListChecks, LogOut, LogIn } from 'lucide-react'
 
 export default function Header() {
   const { user, logout } = useAuth()
@@ -13,13 +14,17 @@ export default function Header() {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-card/80 backdrop-blur-md border-b border-border">
       <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
-        <Link to="/" className="text-2xl font-extrabold tracking-tight">ServLocal</Link>
+        <Link to="/" className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">
+          🛠️ ServLocal
+        </Link>
         <div className="flex gap-3 items-center">
-          <Link to="/add-service" className="text-sm text-muted-foreground hover:text-foreground transition">
+          <Link to="/add-service" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
+            <PlusCircle size={16} />
             Proposer un service
           </Link>
           {user && (
-            <Link to="/my-services" className="text-sm text-muted-foreground hover:text-foreground transition">
+            <Link to="/my-services" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
+              <ListChecks size={16} />
               Mes services
             </Link>
           )}
@@ -28,16 +33,18 @@ export default function Header() {
               <span className="text-sm text-muted-foreground">{user.name}</span>
               <button
                 onClick={handleLogout}
-                className="border border-primary text-primary px-4 py-2 rounded-full font-semibold hover:bg-primary hover:text-primary-foreground transition"
+                className="flex items-center gap-1 border border-primary text-primary px-4 py-2 rounded-full font-semibold hover:bg-primary hover:text-primary-foreground transition"
               >
+                <LogOut size={16} />
                 Déconnexion
               </button>
             </div>
           ) : (
             <Link
               to="/login"
-              className="border border-primary text-primary px-4 py-2 rounded-full font-semibold hover:bg-primary hover:text-primary-foreground transition"
+              className="flex items-center gap-1 border border-primary text-primary px-4 py-2 rounded-full font-semibold hover:bg-primary hover:text-primary-foreground transition"
             >
+              <LogIn size={16} />
               Connexion
             </Link>
           )}
