@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { ShieldCheck, PlusCircle, ListChecks, LogOut, LogIn } from 'lucide-react'
+import { PlusCircle, ListChecks, LogOut, LogIn } from 'lucide-react'
 
 export default function Header() {
   const { user, logout } = useAuth()
@@ -14,8 +14,9 @@ export default function Header() {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-card/80 backdrop-blur-md border-b border-border">
       <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
-        <Link to="/" className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">
-          🛠️ ServLocal
+        <Link to="/" className="flex items-center gap-2">
+          <img src="/LOGO MYRA.png" alt="Myra" className="h-10 w-auto" />
+          <span className="text-2xl font-extrabold tracking-tight">Myra</span>
         </Link>
         <div className="flex gap-3 items-center">
           <Link to="/add-service" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">

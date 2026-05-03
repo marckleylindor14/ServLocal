@@ -128,7 +128,7 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer className="py-8 text-center text-muted-foreground border-t border-border">
-        ServLocal — La confiance au coin de votre rue
+        Myra — La confiance au coin de votre rue
       </footer>
     </div>
   )
