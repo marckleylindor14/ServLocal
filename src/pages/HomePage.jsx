@@ -3,10 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Header from '../components/Header'
 import API_URL from '../config'
-import {
-  Home, Smile, BookOpen, Wrench, PartyPopper, Dog, ShieldCheck,
-  Search, UserPlus, Star, MapPin, CheckCircle, ChevronDown
-} from 'lucide-react'
+import {Home, Smile, BookOpen, Wrench, PartyPopper, Dog, ShieldCheck,Search, UserPlus, Star, MapPin, CheckCircle, ChevronDown} from 'lucide-react'
 
 export default function HomePage() {
   const { user } = useAuth()
@@ -15,7 +12,7 @@ export default function HomePage() {
 
   useEffect(() => {
     fetch(`${API_URL}/api/services`)
-      .then(res => res.json())
+      .then(res => res.json())     
       .then(data => setAllServices(data))
       .catch(err => console.error('Erreur chargement services:', err))
   }, [])
