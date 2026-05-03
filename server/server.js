@@ -6,7 +6,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 8080;
 const DATA_FILE = path.join(__dirname, 'services.json');
 const USERS_FILE = path.join(__dirname, 'users.json');
 const DEFAULT_IMAGE = 'https://i.pravatar.cc/100?img=4';
@@ -82,6 +82,7 @@ app.get('/api/services', async (req, res) => {
     res.status(500).json({ error: 'Erreur interne' });
   }
 });
+
 app.get('/api/services/:id', async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -94,6 +95,7 @@ app.get('/api/services/:id', async (req, res) => {
     res.status(500).json({ error: 'Erreur interne' });
   }
 });
+
 app.post('/api/services', async (req, res) => {
   try {
     const errors = validateServiceInput(req.body);
@@ -118,7 +120,9 @@ app.post('/api/services', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: 'Erreur interne' });
   }
-});// PUT update service
+});
+
+// PUT update service (UN SEUL)
 app.put('/api/services/:id', async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -146,7 +150,7 @@ app.put('/api/services/:id', async (req, res) => {
   }
 });
 
-// DELETE service
+// DELETE service (UN SEUL)
 app.delete('/api/services/:id', async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -157,558 +161,11 @@ app.delete('/api/services/:id', async (req, res) => {
     services.splice(index, 1);
     await writeJSON(DATA_FILE, services);
     res.json({ message: 'Service supprimé' });
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
-});// PUT update service
-app.put('/api/services/:id', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'ID invalide' });
-    const errors = validateServiceInput(req.body);
-    if (errors.length) return res.status(400).json({ error: 'Validation échouée', details: errors });
-    const services = await readJSON(DATA_FILE);
-    const index = services.findIndex(s => Number(s._id) === id);
-    if (index === -1) return res.status(404).json({ error: 'Service non trouvé' });
-    const body = req.body;
-    services[index] = {
-      ...services[index],
-      title: String(body.title).trim(),
-      category: String(body.category).trim(),
-      description: String(body.description).trim(),
-      price: body.price != null && body.price !== '' ? String(body.price) : services[index].price,
-      providerName: body.providerName || services[index].providerName,
-      image: body.image || services[index].image,
-      updatedAt: new Date().toISOString()
-    };
-    await writeJSON(DATA_FILE, services);
-    res.json(services[index]);
   } catch (error) {
     res.status(500).json({ error: 'Erreur interne' });
   }
 });
 
-// DELETE service
-app.delete('/api/services/:id', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'ID invalide' });
-    const services = await readJSON(DATA_FILE);
-    const index = services.findIndex(s => Number(s._id) === id);
-    if (index === -1) return res.status(404).json({ error: 'Service non trouvé' });
-    services.splice(index, 1);
-    await writeJSON(DATA_FILE, services);
-    res.json({ message: 'Service supprimé' });
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
-});// PUT update service
-app.put('/api/services/:id', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'ID invalide' });
-    const errors = validateServiceInput(req.body);
-    if (errors.length) return res.status(400).json({ error: 'Validation échouée', details: errors });
-    const services = await readJSON(DATA_FILE);
-    const index = services.findIndex(s => Number(s._id) === id);
-    if (index === -1) return res.status(404).json({ error: 'Service non trouvé' });
-    const body = req.body;
-    services[index] = {
-      ...services[index],
-      title: String(body.title).trim(),
-      category: String(body.category).trim(),
-      description: String(body.description).trim(),
-      price: body.price != null && body.price !== '' ? String(body.price) : services[index].price,
-      providerName: body.providerName || services[index].providerName,
-      image: body.image || services[index].image,
-      updatedAt: new Date().toISOString()
-    };
-    await writeJSON(DATA_FILE, services);
-    res.json(services[index]);
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
-});
-
-// DELETE service
-app.delete('/api/services/:id', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'ID invalide' });
-    const services = await readJSON(DATA_FILE);
-    const index = services.findIndex(s => Number(s._id) === id);
-    if (index === -1) return res.status(404).json({ error: 'Service non trouvé' });
-    services.splice(index, 1);
-    await writeJSON(DATA_FILE, services);
-    res.json({ message: 'Service supprimé' });
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
-});
-// PUT update service
-app.put('/api/services/:id', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'ID invalide' });
-    const errors = validateServiceInput(req.body);
-    if (errors.length) return res.status(400).json({ error: 'Validation échouée', details: errors });
-    const services = await readJSON(DATA_FILE);
-    const index = services.findIndex(s => Number(s._id) === id);
-    if (index === -1) return res.status(404).json({ error: 'Service non trouvé' });
-    const body = req.body;
-    services[index] = {
-      ...services[index],
-      title: String(body.title).trim(),
-      category: String(body.category).trim(),
-      description: String(body.description).trim(),
-      price: body.price != null && body.price !== '' ? String(body.price) : services[index].price,
-      providerName: body.providerName || services[index].providerName,
-      image: body.image || services[index].image,
-      updatedAt: new Date().toISOString()
-    };
-    await writeJSON(DATA_FILE, services);
-    res.json(services[index]);
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
-});
-
-// DELETE service
-app.delete('/api/services/:id', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'ID invalide' });
-    const services = await readJSON(DATA_FILE);
-    const index = services.findIndex(s => Number(s._id) === id);
-    if (index === -1) return res.status(404).json({ error: 'Service non trouvé' });
-    services.splice(index, 1);
-    await writeJSON(DATA_FILE, services);
-    res.json({ message: 'Service supprimé' });
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
-});// PUT update service
-app.put('/api/services/:id', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'ID invalide' });
-    const errors = validateServiceInput(req.body);
-    if (errors.length) return res.status(400).json({ error: 'Validation échouée', details: errors });
-    const services = await readJSON(DATA_FILE);
-    const index = services.findIndex(s => Number(s._id) === id);
-    if (index === -1) return res.status(404).json({ error: 'Service non trouvé' });
-    const body = req.body;
-    services[index] = {
-      ...services[index],
-      title: String(body.title).trim(),
-      category: String(body.category).trim(),
-      description: String(body.description).trim(),
-      price: body.price != null && body.price !== '' ? String(body.price) : services[index].price,
-      providerName: body.providerName || services[index].providerName,
-      image: body.image || services[index].image,
-      updatedAt: new Date().toISOString()
-    };
-    await writeJSON(DATA_FILE, services);
-    res.json(services[index]);
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
-});
-
-// DELETE service
-app.delete('/api/services/:id', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'ID invalide' });
-    const services = await readJSON(DATA_FILE);
-    const index = services.findIndex(s => Number(s._id) === id);
-    if (index === -1) return res.status(404).json({ error: 'Service non trouvé' });
-    services.splice(index, 1);
-    await writeJSON(DATA_FILE, services);
-    res.json({ message: 'Service supprimé' });
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
-});// PUT update service
-app.put('/api/services/:id', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'ID invalide' });
-    const errors = validateServiceInput(req.body);
-    if (errors.length) return res.status(400).json({ error: 'Validation échouée', details: errors });
-    const services = await readJSON(DATA_FILE);
-    const index = services.findIndex(s => Number(s._id) === id);
-    if (index === -1) return res.status(404).json({ error: 'Service non trouvé' });
-    const body = req.body;
-    services[index] = {
-      ...services[index],
-      title: String(body.title).trim(),
-      category: String(body.category).trim(),
-      description: String(body.description).trim(),
-      price: body.price != null && body.price !== '' ? String(body.price) : services[index].price,
-      providerName: body.providerName || services[index].providerName,
-      image: body.image || services[index].image,
-      updatedAt: new Date().toISOString()
-    };
-    await writeJSON(DATA_FILE, services);
-    res.json(services[index]);
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
-});
-
-// DELETE service
-app.delete('/api/services/:id', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'ID invalide' });
-    const services = await readJSON(DATA_FILE);
-    const index = services.findIndex(s => Number(s._id) === id);
-    if (index === -1) return res.status(404).json({ error: 'Service non trouvé' });
-    services.splice(index, 1);
-    await writeJSON(DATA_FILE, services);
-    res.json({ message: 'Service supprimé' });
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
-});// PUT update service
-app.put('/api/services/:id', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'ID invalide' });
-    const errors = validateServiceInput(req.body);
-    if (errors.length) return res.status(400).json({ error: 'Validation échouée', details: errors });
-    const services = await readJSON(DATA_FILE);
-    const index = services.findIndex(s => Number(s._id) === id);
-    if (index === -1) return res.status(404).json({ error: 'Service non trouvé' });
-    const body = req.body;
-    services[index] = {
-      ...services[index],
-      title: String(body.title).trim(),
-      category: String(body.category).trim(),
-      description: String(body.description).trim(),
-      price: body.price != null && body.price !== '' ? String(body.price) : services[index].price,
-      providerName: body.providerName || services[index].providerName,
-      image: body.image || services[index].image,
-      updatedAt: new Date().toISOString()
-    };
-    await writeJSON(DATA_FILE, services);
-    res.json(services[index]);
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
-});
-
-// DELETE service
-app.delete('/api/services/:id', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'ID invalide' });
-    const services = await readJSON(DATA_FILE);
-    const index = services.findIndex(s => Number(s._id) === id);
-    if (index === -1) return res.status(404).json({ error: 'Service non trouvé' });
-    services.splice(index, 1);
-    await writeJSON(DATA_FILE, services);
-    res.json({ message: 'Service supprimé' });
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
-});// PUT update service
-app.put('/api/services/:id', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'ID invalide' });
-    const errors = validateServiceInput(req.body);
-    if (errors.length) return res.status(400).json({ error: 'Validation échouée', details: errors });
-    const services = await readJSON(DATA_FILE);
-    const index = services.findIndex(s => Number(s._id) === id);
-    if (index === -1) return res.status(404).json({ error: 'Service non trouvé' });
-    const body = req.body;
-    services[index] = {
-      ...services[index],
-      title: String(body.title).trim(),
-      category: String(body.category).trim(),
-      description: String(body.description).trim(),
-      price: body.price != null && body.price !== '' ? String(body.price) : services[index].price,
-      providerName: body.providerName || services[index].providerName,
-      image: body.image || services[index].image,
-      updatedAt: new Date().toISOString()
-    };
-    await writeJSON(DATA_FILE, services);
-    res.json(services[index]);
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
-});
-
-// DELETE service
-app.delete('/api/services/:id', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'ID invalide' });
-    const services = await readJSON(DATA_FILE);
-    const index = services.findIndex(s => Number(s._id) === id);
-    if (index === -1) return res.status(404).json({ error: 'Service non trouvé' });
-    services.splice(index, 1);
-    await writeJSON(DATA_FILE, services);
-    res.json({ message: 'Service supprimé' });
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
-});// PUT update service
-app.put('/api/services/:id', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'ID invalide' });
-    const errors = validateServiceInput(req.body);
-    if (errors.length) return res.status(400).json({ error: 'Validation échouée', details: errors });
-    const services = await readJSON(DATA_FILE);
-    const index = services.findIndex(s => Number(s._id) === id);
-    if (index === -1) return res.status(404).json({ error: 'Service non trouvé' });
-    const body = req.body;
-    services[index] = {
-      ...services[index],
-      title: String(body.title).trim(),
-      category: String(body.category).trim(),
-      description: String(body.description).trim(),
-      price: body.price != null && body.price !== '' ? String(body.price) : services[index].price,
-      providerName: body.providerName || services[index].providerName,
-      image: body.image || services[index].image,
-      updatedAt: new Date().toISOString()
-    };
-    await writeJSON(DATA_FILE, services);
-    res.json(services[index]);
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
-});
-
-// DELETE service
-app.delete('/api/services/:id', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'ID invalide' });
-    const services = await readJSON(DATA_FILE);
-    const index = services.findIndex(s => Number(s._id) === id);
-    if (index === -1) return res.status(404).json({ error: 'Service non trouvé' });
-    services.splice(index, 1);
-    await writeJSON(DATA_FILE, services);
-    res.json({ message: 'Service supprimé' });
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
-});// PUT update service
-app.put('/api/services/:id', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'ID invalide' });
-    const errors = validateServiceInput(req.body);
-    if (errors.length) return res.status(400).json({ error: 'Validation échouée', details: errors });
-    const services = await readJSON(DATA_FILE);
-    const index = services.findIndex(s => Number(s._id) === id);
-    if (index === -1) return res.status(404).json({ error: 'Service non trouvé' });
-    const body = req.body;
-    services[index] = {
-      ...services[index],
-      title: String(body.title).trim(),
-      category: String(body.category).trim(),
-      description: String(body.description).trim(),
-      price: body.price != null && body.price !== '' ? String(body.price) : services[index].price,
-      providerName: body.providerName || services[index].providerName,
-      image: body.image || services[index].image,
-      updatedAt: new Date().toISOString()
-    };
-    await writeJSON(DATA_FILE, services);
-    res.json(services[index]);
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
-});
-
-// DELETE service
-app.delete('/api/services/:id', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'ID invalide' });
-    const services = await readJSON(DATA_FILE);
-    const index = services.findIndex(s => Number(s._id) === id);
-    if (index === -1) return res.status(404).json({ error: 'Service non trouvé' });
-    services.splice(index, 1);
-    await writeJSON(DATA_FILE, services);
-    res.json({ message: 'Service supprimé' });
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
-});
-// PUT update service
-app.put('/api/services/:id', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'ID invalide' });
-    const errors = validateServiceInput(req.body);
-    if (errors.length) return res.status(400).json({ error: 'Validation échouée', details: errors });
-    const services = await readJSON(DATA_FILE);
-    const index = services.findIndex(s => Number(s._id) === id);
-    if (index === -1) return res.status(404).json({ error: 'Service non trouvé' });
-    const body = req.body;
-    services[index] = {
-      ...services[index],
-      title: String(body.title).trim(),
-      category: String(body.category).trim(),
-      description: String(body.description).trim(),
-      price: body.price != null && body.price !== '' ? String(body.price) : services[index].price,
-      providerName: body.providerName || services[index].providerName,
-      image: body.image || services[index].image,
-      updatedAt: new Date().toISOString()
-    };
-    await writeJSON(DATA_FILE, services);
-    res.json(services[index]);
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
-});
-
-// DELETE service
-app.delete('/api/services/:id', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'ID invalide' });
-    const services = await readJSON(DATA_FILE);
-    const index = services.findIndex(s => Number(s._id) === id);
-    if (index === -1) return res.status(404).json({ error: 'Service non trouvé' });
-    services.splice(index, 1);
-    await writeJSON(DATA_FILE, services);
-    res.json({ message: 'Service supprimé' });
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
-});// PUT update service
-app.put('/api/services/:id', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'ID invalide' });
-    const errors = validateServiceInput(req.body);
-    if (errors.length) return res.status(400).json({ error: 'Validation échouée', details: errors });
-    const services = await readJSON(DATA_FILE);
-    const index = services.findIndex(s => Number(s._id) === id);
-    if (index === -1) return res.status(404).json({ error: 'Service non trouvé' });
-    const body = req.body;
-    services[index] = {
-      ...services[index],
-      title: String(body.title).trim(),
-      category: String(body.category).trim(),
-      description: String(body.description).trim(),
-      price: body.price != null && body.price !== '' ? String(body.price) : services[index].price,
-      providerName: body.providerName || services[index].providerName,
-      image: body.image || services[index].image,
-      updatedAt: new Date().toISOString()
-    };
-    await writeJSON(DATA_FILE, services);
-    res.json(services[index]);
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
-});
-
-// DELETE service
-app.delete('/api/services/:id', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'ID invalide' });
-    const services = await readJSON(DATA_FILE);
-    const index = services.findIndex(s => Number(s._id) === id);
-    if (index === -1) return res.status(404).json({ error: 'Service non trouvé' });
-    services.splice(index, 1);
-    await writeJSON(DATA_FILE, services);
-    res.json({ message: 'Service supprimé' });
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
-});// PUT update service
-app.put('/api/services/:id', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'ID invalide' });
-    const errors = validateServiceInput(req.body);
-    if (errors.length) return res.status(400).json({ error: 'Validation échouée', details: errors });
-    const services = await readJSON(DATA_FILE);
-    const index = services.findIndex(s => Number(s._id) === id);
-    if (index === -1) return res.status(404).json({ error: 'Service non trouvé' });
-    const body = req.body;
-    services[index] = {
-      ...services[index],
-      title: String(body.title).trim(),
-      category: String(body.category).trim(),
-      description: String(body.description).trim(),
-      price: body.price != null && body.price !== '' ? String(body.price) : services[index].price,
-      providerName: body.providerName || services[index].providerName,
-      image: body.image || services[index].image,
-      updatedAt: new Date().toISOString()
-    };
-    await writeJSON(DATA_FILE, services);
-    res.json(services[index]);
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
-});
-
-// DELETE service
-app.delete('/api/services/:id', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'ID invalide' });
-    const services = await readJSON(DATA_FILE);
-    const index = services.findIndex(s => Number(s._id) === id);
-    if (index === -1) return res.status(404).json({ error: 'Service non trouvé' });
-    services.splice(index, 1);
-    await writeJSON(DATA_FILE, services);
-    res.json({ message: 'Service supprimé' });
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
-});// PUT update service
-app.put('/api/services/:id', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'ID invalide' });
-    const errors = validateServiceInput(req.body);
-    if (errors.length) return res.status(400).json({ error: 'Validation échouée', details: errors });
-    const services = await readJSON(DATA_FILE);
-    const index = services.findIndex(s => Number(s._id) === id);
-    if (index === -1) return res.status(404).json({ error: 'Service non trouvé' });
-    const body = req.body;
-    services[index] = {
-      ...services[index],
-      title: String(body.title).trim(),
-      category: String(body.category).trim(),
-      description: String(body.description).trim(),
-      price: body.price != null && body.price !== '' ? String(body.price) : services[index].price,
-      providerName: body.providerName || services[index].providerName,
-      image: body.image || services[index].image,
-      updatedAt: new Date().toISOString()
-    };
-    await writeJSON(DATA_FILE, services);
-    res.json(services[index]);
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
-});
-
-// DELETE service
-app.delete('/api/services/:id', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'ID invalide' });
-    const services = await readJSON(DATA_FILE);
-    const index = services.findIndex(s => Number(s._id) === id);
-    if (index === -1) return res.status(404).json({ error: 'Service non trouvé' });
-    services.splice(index, 1);
-    await writeJSON(DATA_FILE, services);
-    res.json({ message: 'Service supprimé' });
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
-});
 // Routes auth
 app.post('/api/auth/register', async (req, res) => {
   try {
@@ -731,6 +188,7 @@ app.post('/api/auth/register', async (req, res) => {
     res.status(500).json({ error: 'Erreur interne' });
   }
 });
+
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -746,6 +204,7 @@ app.post('/api/auth/login', async (req, res) => {
     res.status(500).json({ error: 'Erreur interne' });
   }
 });
+
 app.get('/api/auth/me', authenticateToken, async (req, res) => {
   try {
     const users = await readJSON(USERS_FILE);
