@@ -1,21 +1,19 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import Header from '../components/Header'
+import API_URL from '../config'
 
 export default function HomePage() {
   const [allServices, setAllServices] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
- 
 
-  // Charge TOUS les services une seule fois au démarrage
   useEffect(() => {
-    fetch('http://localhost:3001/api/services')
+    fetch(`${API_URL}/api/services`)
       .then(res => res.json())
       .then(data => setAllServices(data))
       .catch(err => console.error('Erreur chargement services:', err))
   }, [])
 
-  // Filtrage local selon searchTerm
   const filteredServices = allServices.filter(service => {
     if (searchTerm.trim() === '') return true
     const term = searchTerm.toLowerCase()
@@ -28,8 +26,8 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans">
-      {/* Header */}
       <Header />
+      <div className="pt-20"></div>
 
       {/* Hero */}
       <section className="max-w-4xl mx-auto px-4 py-12 text-center">
@@ -60,12 +58,12 @@ export default function HomePage() {
       <section className="max-w-6xl mx-auto px-4 py-12">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
           {[
-            { emoji: '🏠', label: 'Maison', color: 'from-blue-400 to-blue-500' },
-            { emoji: '💆', label: 'Bien-être', color: 'from-pink-400 to-rose-500' },
-            { emoji: '📚', label: 'Cours', color: 'from-yellow-400 to-amber-500' },
-            { emoji: '🔧', label: 'Tech & Réparation', color: 'from-purple-400 to-violet-500' },
-            { emoji: '🎉', label: 'Événements', color: 'from-green-400 to-emerald-500' },
-            { emoji: '🐾', label: 'Animaux', color: 'from-orange-400 to-red-500' },
+            { emoji: "🏠", label: "Maison", color: "from-blue-400 to-blue-500" },
+            { emoji: "💆", label: "Bien-être", color: "from-pink-400 to-rose-500" },
+            { emoji: "📚", label: "Cours", color: "from-yellow-400 to-amber-500" },
+            { emoji: "🔧", label: "Tech & Réparation", color: "from-purple-400 to-violet-500" },
+            { emoji: "🎉", label: "Événements", color: "from-green-400 to-emerald-500" },
+            { emoji: "🐾", label: "Animaux", color: "from-orange-400 to-red-500" },
           ].map((cat) => (
             <div
               key={cat.label}
