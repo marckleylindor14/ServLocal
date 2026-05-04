@@ -1,0 +1,142 @@
+import { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
+import Header from '../components/Header'
+import API_URL from '../config'
+
+export default function AdminPage() {
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const [stats, setStats] = useState(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!user || user.email !== 'Marckley.lindor14@gmail.com') {
+      navigate('/login')
+      return
+    }
+    fetch(`${API_URL}/api/admin/stats`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    })
+      .then(res => {
+        if (res.status === 403) { setError('Accès refusé. Vous devez être administrateur.'); return null }
+        return res.json()
+      })
+      .then(data => data && setStats(data))
+      .catch(err => setError('Impossible de charger les statistiques.'))
+  }, [user, navigate])
+
+  const handleVerify = async (serviceId) => {
+    await fetch(`${API_URL}/api/admin/services/${serviceId}/verify`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    })
+    setStats(prev => ({
+      ...prev,
+      services: prev.services.map(s => s._id === serviceId ? { ...s, verified: true } : s)
+    }))
+  }
+
+  const handleDeleteService = async (serviceId) => {
+    if (!confirm('Supprimer ce service ?')) return
+    await fetch(`${API_URL}/api/admin/services/${serviceId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    })
+    setStats(prev => ({
+      ...prev,
+      services: prev.services.filter(s => s._id !== serviceId),
+      totalServices: prev.totalServices - 1
+    }))
+  }
+
+  const handleDeleteUser = async (userId) => {
+    if (!confirm('Supprimer cet utilisateur ?')) return
+    await fetch(`${API_URL}/api/admin/users/${userId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    })
+    setStats(prev => ({
+      ...prev,
+      users: prev.users.filter(u => u._id !== userId),
+      totalUsers: prev.totalUsers - 1
+    }))
+  }
+
+  if (!user || user.email !== 'Marckley.lindor14@gmail.com') return null
+
+  return (
+    <div className="min-h-screen bg-background text-foreground font-sans">
+      <Header />
+      <div className="pt-20"></div>
+      <main className="max-w-6xl mx-auto px-4 py-8">
+        <h2 className="text-3xl font-extrabold mb-2">Administration Myra</h2>
+        <p className="text-muted-foreground mb-8">Supervision globale de la plateforme</p>
+        {error && <p className="text-red-400 mb-4">{error}</p>}
+
+        {stats && (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+              <StatCard label="Services" value={stats.totalServices} />
+              <StatCard label="Utilisateurs" value={stats.totalUsers} />
+              <StatCard label="Réservations" value={stats.totalBookings} />
+              <StatCard label="Avis" value={stats.totalReviews} />
+            </div>
+
+            <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6 mb-8">
+              <h3 className="text-xl font-bold mb-4">Services</h3>
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {stats.services.map(service => (
+                  <div key={service._id} className="flex justify-between items-center border-b border-border pb-2">
+                    <div>
+                      <p className="font-medium">{service.title} <span className="text-xs text-muted-foreground">par {service.providerName}</span></p>
+                      <span className={`text-xs ${service.verified ? 'text-green-400' : 'text-yellow-400'}`}>
+                        {service.verified ? 'Vérifié' : 'Non vérifié'}
+                      </span>
+                    </div>
+                    <div className="flex gap-2">
+                      {!service.verified && (
+                        <button onClick={() => handleVerify(service._id)} className="text-xs border border-primary text-primary px-3 py-1 rounded-full hover:bg-primary hover:text-primary-foreground transition">
+                          Vérifier
+                        </button>
+                      )}
+                      <button onClick={() => handleDeleteService(service._id)} className="text-xs border border-red-400 text-red-400 px-3 py-1 rounded-full hover:bg-red-400 hover:text-white transition">
+                        Supprimer
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6">
+              <h3 className="text-xl font-bold mb-4">Utilisateurs</h3>
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {stats.users.map(u => (
+                  <div key={u._id} className="flex justify-between items-center border-b border-border pb-2">
+                    <div>
+                      <p className="font-medium">{u.name}</p>
+                      <p className="text-xs text-muted-foreground">{u.email}</p>
+                    </div>
+                    <button onClick={() => handleDeleteUser(u._id)} className="text-xs border border-red-400 text-red-400 px-3 py-1 rounded-full hover:bg-red-400 hover:text-white transition">
+                      Supprimer
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+      </main>
+    </div>
+  )
+}
+
+function StatCard({ label, value }) {
+  return (
+    <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 text-center">
+      <p className="text-3xl font-bold">{value}</p>
+      <p className="text-sm text-muted-foreground mt-1">{label}</p>
+    </div>
+  )
+}
