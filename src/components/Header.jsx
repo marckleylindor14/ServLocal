@@ -18,7 +18,7 @@ export default function Header() {
     <header className="fixed top-0 left-0 right-0 z-50 bg-card/80 backdrop-blur-md border-b border-border">
       <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
         <Link to="/" className="flex items-center gap-2">
-          <img src="/MyraLogo" alt="Myra" className="h-8 md:h-10 w-auto" />
+        <img src="/LOGO MYRA.png" alt="Myra" className="h-8 md:h-10 w-auto" />
           <span className="text-xl md:text-2xl font-extrabold tracking-tight">Myra</span>
         </Link>
 
