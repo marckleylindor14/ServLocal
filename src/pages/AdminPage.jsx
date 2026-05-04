@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Header from '../components/Header'
 import API_URL from '../config'
@@ -19,11 +19,11 @@ export default function AdminPage() {
       headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
     })
       .then(res => {
-        if (res.status === 403) { setError('Accès refusé. Vous devez être administrateur.'); return null }
+        if (res.status === 403) { setError('Accès refusé.'); return null }
         return res.json()
       })
       .then(data => data && setStats(data))
-      .catch(err => setError('Impossible de charger les statistiques.'))
+      .catch(() => setError('Impossible de charger les statistiques.'))
   }, [user, navigate])
 
   const handleVerify = async (serviceId) => {
@@ -68,33 +68,33 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-background text-foreground font-sans">
       <Header />
-      <div className="pt-20"></div>
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        <h2 className="text-3xl font-extrabold mb-2">Administration Myra</h2>
-        <p className="text-muted-foreground mb-8">Supervision globale de la plateforme</p>
+      <div className="pt-16 md:pt-20"></div>
+      <main className="max-w-6xl mx-auto px-4 py-6 md:py-8">
+        <h2 className="text-2xl md:text-3xl font-extrabold mb-2">Administration Myra</h2>
+        <p className="text-sm text-muted-foreground mb-6 md:mb-8">Supervision globale de la plateforme</p>
         {error && <p className="text-red-400 mb-4">{error}</p>}
 
         {stats && (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
               <StatCard label="Services" value={stats.totalServices} />
               <StatCard label="Utilisateurs" value={stats.totalUsers} />
               <StatCard label="Réservations" value={stats.totalBookings} />
               <StatCard label="Avis" value={stats.totalReviews} />
             </div>
 
-            <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6 mb-8">
-              <h3 className="text-xl font-bold mb-4">Services</h3>
+            <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6 mb-6 md:mb-8">
+              <h3 className="text-lg md:text-xl font-bold mb-4">Services</h3>
               <div className="space-y-3 max-h-96 overflow-y-auto">
                 {stats.services.map(service => (
-                  <div key={service._id} className="flex justify-between items-center border-b border-border pb-2">
+                  <div key={service._id} className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 border-b border-border pb-2">
                     <div>
-                      <p className="font-medium">{service.title} <span className="text-xs text-muted-foreground">par {service.providerName}</span></p>
+                      <p className="font-medium text-sm md:text-base">{service.title} <span className="text-xs text-muted-foreground">par {service.providerName}</span></p>
                       <span className={`text-xs ${service.verified ? 'text-green-400' : 'text-yellow-400'}`}>
                         {service.verified ? 'Vérifié' : 'Non vérifié'}
                       </span>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 self-end sm:self-auto">
                       {!service.verified && (
                         <button onClick={() => handleVerify(service._id)} className="text-xs border border-primary text-primary px-3 py-1 rounded-full hover:bg-primary hover:text-primary-foreground transition">
                           Vérifier
@@ -110,15 +110,15 @@ export default function AdminPage() {
             </div>
 
             <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6">
-              <h3 className="text-xl font-bold mb-4">Utilisateurs</h3>
+              <h3 className="text-lg md:text-xl font-bold mb-4">Utilisateurs</h3>
               <div className="space-y-3 max-h-96 overflow-y-auto">
                 {stats.users.map(u => (
-                  <div key={u._id} className="flex justify-between items-center border-b border-border pb-2">
+                  <div key={u._id} className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 border-b border-border pb-2">
                     <div>
-                      <p className="font-medium">{u.name}</p>
+                      <p className="font-medium text-sm md:text-base">{u.name}</p>
                       <p className="text-xs text-muted-foreground">{u.email}</p>
                     </div>
-                    <button onClick={() => handleDeleteUser(u._id)} className="text-xs border border-red-400 text-red-400 px-3 py-1 rounded-full hover:bg-red-400 hover:text-white transition">
+                    <button onClick={() => handleDeleteUser(u._id)} className="text-xs border border-red-400 text-red-400 px-3 py-1 rounded-full hover:bg-red-400 hover:text-white transition self-end sm:self-auto">
                       Supprimer
                     </button>
                   </div>
@@ -134,9 +134,9 @@ export default function AdminPage() {
 
 function StatCard({ label, value }) {
   return (
-    <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 text-center">
-      <p className="text-3xl font-bold">{value}</p>
-      <p className="text-sm text-muted-foreground mt-1">{label}</p>
+    <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-3 md:p-4 text-center">
+      <p className="text-2xl md:text-3xl font-bold">{value}</p>
+      <p className="text-xs md:text-sm text-muted-foreground mt-1">{label}</p>
     </div>
   )
 }

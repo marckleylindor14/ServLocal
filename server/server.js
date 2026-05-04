@@ -452,7 +452,27 @@ app.delete('/api/admin/users/:id', authenticateAdmin, async (req, res) => {
     res.json({ message: 'Utilisateur supprimé' });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
+// ---------- NOTIFICATIONS (badges) ----------
+app.get('/api/notifications', authenticateToken, async (req, res) => {
+  try {
+    const bookings = await readJSON(BOOKINGS_FILE);
+    // Réservations en attente où l'utilisateur est prestataire
+    const pendingProvider = bookings.filter(
+      b => b.providerName === req.user.name && b.status === 'pending'
+    ).length;
+    // Réservations en attente où l'utilisateur est client (retour)
+    const pendingClient = bookings.filter(
+      b => b.clientId === req.user.id && b.status === 'pending'
+    ).length;
 
+    res.json({
+      pendingBookings: pendingProvider + pendingClient,
+      // unreadMessages: 0 // pour une future étape
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Erreur interne' });
+  }
+});
 // ---------- 404 ----------
 app.use((req, res) => res.status(404).json({ error: `Route ${req.method} ${req.originalUrl} non trouvée` }));
 app.use((err, req, res, next) => {

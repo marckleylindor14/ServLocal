@@ -12,9 +12,13 @@ export function AuthProvider({ children }) {
       fetch(`${API_URL}/api/auth/me`, {
         headers: { Authorization: `Bearer ${token}` }
       })
-        .then(res => res.json())
+        .then(res => {
+          // Si l'admin est reconnu, le serveur renvoie 200 ; sinon, on déconnecte
+          if (!res.ok) throw new Error('Token invalide')
+          return res.json()
+        })
         .then(data => {
-          if (data.id) setUser(data)
+          if (data.id !== undefined) setUser(data)
           else logout()
         })
         .catch(() => logout())
