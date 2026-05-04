@@ -1,0 +1,11 @@
+[
+  {
+    "_id": 1,
+    "serviceId": 2,
+    "userId": 1,
+    "userName": "klemar",
+    "rating": 5,
+    "comment": "une belle bite",
+    "createdAt": "2026-05-03T23:03:41.745Z"
+  }
+]

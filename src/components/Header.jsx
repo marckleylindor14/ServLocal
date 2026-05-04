@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { PlusCircle, ListChecks, LogOut, LogIn } from 'lucide-react'
+import { PlusCircle, ListChecks, LogOut, LogIn, Calendar } from 'lucide-react'
 
 export default function Header() {
   const { user, logout } = useAuth()
@@ -24,10 +24,16 @@ export default function Header() {
             Proposer un service
           </Link>
           {user && (
-            <Link to="/my-services" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
-              <ListChecks size={16} />
-              Mes services
-            </Link>
+            <>
+              <Link to="/my-services" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
+                <ListChecks size={16} />
+                Mes services
+              </Link>
+              <Link to="/my-bookings" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
+                <Calendar size={16} />
+                Mes réservations
+              </Link>
+            </>
           )}
           {user ? (
             <div className="flex gap-3 items-center">

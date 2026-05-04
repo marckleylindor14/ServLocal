@@ -9,6 +9,8 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 const DATA_FILE = path.join(__dirname, 'services.json');
 const USERS_FILE = path.join(__dirname, 'users.json');
+const REVIEWS_FILE = path.join(__dirname, 'reviews.json');
+const BOOKINGS_FILE = path.join(__dirname, 'bookings.json');   // <-- nouveau
 const DEFAULT_IMAGE = 'https://i.pravatar.cc/100?img=4';
 const JWT_SECRET = 'servlocal_secret_2026';
 
@@ -73,7 +75,7 @@ function authenticateToken(req, res, next) {
   });
 }
 
-// Routes services
+// ---------- Routes services ----------
 app.get('/api/services', async (req, res) => {
   try {
     const services = await readJSON(DATA_FILE);
@@ -122,7 +124,6 @@ app.post('/api/services', async (req, res) => {
   }
 });
 
-// PUT update service (UN SEUL)
 app.put('/api/services/:id', async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -150,7 +151,6 @@ app.put('/api/services/:id', async (req, res) => {
   }
 });
 
-// DELETE service (UN SEUL)
 app.delete('/api/services/:id', async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -166,7 +166,7 @@ app.delete('/api/services/:id', async (req, res) => {
   }
 });
 
-// Routes auth
+// ---------- Routes auth ----------
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -216,7 +216,117 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
   }
 });
 
-// 404
+// ---------- Routes avis ----------
+app.get('/api/services/:id/reviews', async (req, res) => {
+  try {
+    const serviceId = Number(req.params.id);
+    const reviews = await readJSON(REVIEWS_FILE);
+    const serviceReviews = reviews.filter(r => r.serviceId === serviceId);
+    const averageRating = serviceReviews.length
+      ? (serviceReviews.reduce((sum, r) => sum + r.rating, 0) / serviceReviews.length).toFixed(1)
+      : 0;
+    res.json({ reviews: serviceReviews, averageRating: Number(averageRating) });
+  } catch (error) {
+    res.status(500).json({ error: 'Erreur interne' });
+  }
+});
+
+app.post('/api/services/:id/reviews', authenticateToken, async (req, res) => {
+  try {
+    const serviceId = Number(req.params.id);
+    const { rating, comment } = req.body;
+    if (!rating || !Number.isInteger(rating) || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'La note doit être un entier entre 1 et 5.' });
+    }
+    const services = await readJSON(DATA_FILE);
+    const service = services.find(s => Number(s._id) === serviceId);
+    if (!service) return res.status(404).json({ error: 'Service non trouvé' });
+    const reviews = await readJSON(REVIEWS_FILE);
+    const alreadyReviewed = reviews.find(r => r.serviceId === serviceId && r.userId === req.user.id);
+    if (alreadyReviewed) {
+      return res.status(409).json({ error: 'Vous avez déjà laissé un avis pour ce service.' });
+    }
+    const newReview = {
+      _id: nextId(reviews),
+      serviceId,
+      userId: req.user.id,
+      userName: req.user.name,
+      rating,
+      comment: comment ? String(comment).trim() : '',
+      createdAt: new Date().toISOString()
+    };
+    reviews.push(newReview);
+    await writeJSON(REVIEWS_FILE, reviews);
+    const serviceReviews = reviews.filter(r => r.serviceId === serviceId);
+    const averageRating = (serviceReviews.reduce((sum, r) => sum + r.rating, 0) / serviceReviews.length).toFixed(1);
+    res.status(201).json({ review: newReview, averageRating: Number(averageRating) });
+  } catch (error) {
+    res.status(500).json({ error: 'Erreur interne' });
+  }
+});
+
+// ---------- NOUVELLES ROUTES RÉSERVATION ----------
+
+// Obtenir toutes les réservations d'un utilisateur (client)
+app.get('/api/bookings', authenticateToken, async (req, res) => {
+  try {
+    const bookings = await readJSON(BOOKINGS_FILE);
+    const userBookings = bookings.filter(b => b.clientId === req.user.id);
+    res.json(userBookings);
+  } catch (error) {
+    res.status(500).json({ error: 'Erreur interne' });
+  }
+});
+
+// Obtenir les réservations pour les services d'un prestataire
+app.get('/api/bookings/provider', authenticateToken, async (req, res) => {
+  try {
+    const bookings = await readJSON(BOOKINGS_FILE);
+    // On suppose que les services ont un champ providerName, mais nous n'avons pas d'ID unique
+    // Pour simplifier, on filtre par providerName = req.user.name
+    const providerBookings = bookings.filter(b => b.providerName === req.user.name);
+    res.json(providerBookings);
+  } catch (error) {
+    res.status(500).json({ error: 'Erreur interne' });
+  }
+});
+
+// Créer une réservation
+app.post('/api/services/:id/bookings', authenticateToken, async (req, res) => {
+  try {
+    const serviceId = Number(req.params.id);
+    const { date, timeSlot, message } = req.body;
+    if (!date || !timeSlot) {
+      return res.status(400).json({ error: 'Date et créneau horaire requis.' });
+    }
+    const services = await readJSON(DATA_FILE);
+    const service = services.find(s => Number(s._id) === serviceId);
+    if (!service) return res.status(404).json({ error: 'Service non trouvé' });
+
+    const bookings = await readJSON(BOOKINGS_FILE);
+    const newBooking = {
+      _id: nextId(bookings),
+      serviceId,
+      serviceTitle: service.title,
+      serviceCategory: service.category,
+      providerName: service.providerName,
+      clientId: req.user.id,
+      clientName: req.user.name,
+      date,
+      timeSlot,
+      message: message ? String(message).trim() : '',
+      status: 'pending', // pending, confirmed, cancelled
+      createdAt: new Date().toISOString()
+    };
+    bookings.push(newBooking);
+    await writeJSON(BOOKINGS_FILE, bookings);
+    res.status(201).json(newBooking);
+  } catch (error) {
+    res.status(500).json({ error: 'Erreur interne' });
+  }
+});
+
+// ---------- 404 & Error handler ----------
 app.use((req, res) => res.status(404).json({ error: `Route ${req.method} ${req.originalUrl} non trouvée` }));
 app.use((err, req, res, next) => {
   console.error('Erreur non gérée:', err.message);
@@ -224,5 +334,5 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`✅ Serveur démarré sur le port ${PORT}`);
+  console.log(`✅ Serveur Myra démarré sur le port ${PORT}`);
 });
