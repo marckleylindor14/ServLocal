@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 8080;
 const DATA_FILE = path.join(__dirname, 'services.json');
 const USERS_FILE = path.join(__dirname, 'users.json');
 const REVIEWS_FILE = path.join(__dirname, 'reviews.json');
-const BOOKINGS_FILE = path.join(__dirname, 'bookings.json');   // <-- nouveau
+const BOOKINGS_FILE = path.join(__dirname, 'bookings.json');
 const DEFAULT_IMAGE = 'https://i.pravatar.cc/100?img=4';
 const JWT_SECRET = 'servlocal_secret_2026';
 
@@ -265,9 +265,7 @@ app.post('/api/services/:id/reviews', authenticateToken, async (req, res) => {
   }
 });
 
-// ---------- NOUVELLES ROUTES RÉSERVATION ----------
-
-// Obtenir toutes les réservations d'un utilisateur (client)
+// ---------- Routes réservation ----------
 app.get('/api/bookings', authenticateToken, async (req, res) => {
   try {
     const bookings = await readJSON(BOOKINGS_FILE);
@@ -278,12 +276,9 @@ app.get('/api/bookings', authenticateToken, async (req, res) => {
   }
 });
 
-// Obtenir les réservations pour les services d'un prestataire
 app.get('/api/bookings/provider', authenticateToken, async (req, res) => {
   try {
     const bookings = await readJSON(BOOKINGS_FILE);
-    // On suppose que les services ont un champ providerName, mais nous n'avons pas d'ID unique
-    // Pour simplifier, on filtre par providerName = req.user.name
     const providerBookings = bookings.filter(b => b.providerName === req.user.name);
     res.json(providerBookings);
   } catch (error) {
@@ -291,7 +286,6 @@ app.get('/api/bookings/provider', authenticateToken, async (req, res) => {
   }
 });
 
-// Créer une réservation
 app.post('/api/services/:id/bookings', authenticateToken, async (req, res) => {
   try {
     const serviceId = Number(req.params.id);
@@ -315,12 +309,40 @@ app.post('/api/services/:id/bookings', authenticateToken, async (req, res) => {
       date,
       timeSlot,
       message: message ? String(message).trim() : '',
-      status: 'pending', // pending, confirmed, cancelled
+      status: 'pending',
       createdAt: new Date().toISOString()
     };
     bookings.push(newBooking);
     await writeJSON(BOOKINGS_FILE, bookings);
     res.status(201).json(newBooking);
+  } catch (error) {
+    res.status(500).json({ error: 'Erreur interne' });
+  }
+});
+
+// NOUVELLE ROUTE : Accepter ou refuser une réservation
+app.put('/api/bookings/:id', authenticateToken, async (req, res) => {
+  try {
+    const bookingId = Number(req.params.id);
+    if (!Number.isInteger(bookingId) || bookingId < 1) return res.status(400).json({ error: 'ID invalide' });
+
+    const { status } = req.body;
+    if (!status || !['confirmed', 'cancelled'].includes(status)) {
+      return res.status(400).json({ error: 'Statut invalide. Utilisez "confirmed" ou "cancelled".' });
+    }
+
+    const bookings = await readJSON(BOOKINGS_FILE);
+    const index = bookings.findIndex(b => Number(b._id) === bookingId);
+    if (index === -1) return res.status(404).json({ error: 'Réservation non trouvée' });
+
+    // Vérifier que le demandeur est bien le prestataire du service
+    if (bookings[index].providerName !== req.user.name) {
+      return res.status(403).json({ error: 'Vous n\'êtes pas le prestataire de cette réservation.' });
+    }
+
+    bookings[index].status = status;
+    await writeJSON(BOOKINGS_FILE, bookings);
+    res.json(bookings[index]);
   } catch (error) {
     res.status(500).json({ error: 'Erreur interne' });
   }

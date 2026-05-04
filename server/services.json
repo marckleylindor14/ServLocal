@@ -22,5 +22,17 @@
     "verified": false,
     "createdAt": "2026-05-02T12:52:23.999Z",
     "updatedAt": "2026-05-02T12:52:23.999Z"
+  },
+  {
+    "_id": 3,
+    "title": "hugybjh",
+    "category": "Événements",
+    "description": "ygyuggujknkjnjnkjnkjnk",
+    "price": "88",
+    "providerName": "klemar",
+    "image": "https://i.pravatar.cc/100?img=4",
+    "verified": false,
+    "createdAt": "2026-05-04T00:29:51.500Z",
+    "updatedAt": "2026-05-04T00:29:51.500Z"
   }
 ]

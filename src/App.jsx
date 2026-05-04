@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import MyServicesPage from './pages/MyServicesPage'
 import MyBookingsPage from './pages/MyBookingsPage'
+import ProviderDashboardPage from './pages/ProviderDashboardPage'
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/my-services" element={<MyServicesPage />} />
       <Route path="/my-bookings" element={<MyBookingsPage />} />
+      <Route path="/dashboard" element={<ProviderDashboardPage />} />
     </Routes>
   )
 }
