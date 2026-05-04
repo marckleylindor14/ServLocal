@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { PlusCircle, ListChecks, LogOut, LogIn, Calendar, LayoutDashboard } from 'lucide-react'
+import { PlusCircle, ListChecks, LogOut, LogIn, Calendar, LayoutDashboard, MessageSquare } from 'lucide-react'
 
 export default function Header() {
   const { user, logout } = useAuth()
@@ -36,6 +36,10 @@ export default function Header() {
               <Link to="/dashboard" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
                 <LayoutDashboard size={16} />
                 Dashboard
+              </Link>
+              <Link to="/messages" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
+                <MessageSquare size={16} />
+                Messages
               </Link>
             </>
           )}

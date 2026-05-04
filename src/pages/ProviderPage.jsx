@@ -16,7 +16,7 @@ export default function ProviderPage() {
   const [comment, setComment] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
-  // Champs réservation
+  // Champs réservation (inchangés)
   const [bookingDate, setBookingDate] = useState('')
   const [bookingTime, setBookingTime] = useState('')
   const [bookingMessage, setBookingMessage] = useState('')
@@ -113,6 +113,36 @@ export default function ProviderPage() {
     }
   }
 
+  const startConversation = async () => {
+    if (!user) {
+      navigate('/login')
+      return
+    }
+    try {
+      const res = await fetch(`${API_URL}/api/conversations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          recipientId: pro._id, // à terme, remplacer par l'ID unique du prestataire lorsqu'il sera ajouté
+          recipientName: pro.providerName,
+          serviceId: pro._id,
+          serviceTitle: pro.title
+        })
+      })
+      if (res.ok) {
+        navigate('/messages')
+      } else {
+        const data = await res.json()
+        alert(data.error || 'Erreur lors de la création de la conversation.')
+      }
+    } catch (err) {
+      alert('Impossible de contacter le serveur.')
+    }
+  }
+
   if (!pro) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
@@ -150,12 +180,15 @@ export default function ProviderPage() {
             <h3 className="text-xl font-semibold">Tarif</h3>
             <p className="text-primary font-medium">{pro.price || 'Non spécifié'}</p>
           </div>
-          <button className="w-full bg-primary text-primary-foreground font-semibold py-3 px-6 rounded-full hover:bg-primary/90 transition">
-            Contacter le prestataire
+          <button
+            onClick={startConversation}
+            className="w-full bg-primary text-primary-foreground font-semibold py-3 px-6 rounded-full hover:bg-primary/90 transition"
+          >
+            Envoyer un message
           </button>
         </div>
 
-        {/* Réservation */}
+        {/* Réservation (bloc inchangé) */}
         <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-6 md:p-8">
           <h3 className="text-2xl font-bold mb-4">Réserver ce service</h3>
           {user ? (
@@ -211,7 +244,7 @@ export default function ProviderPage() {
           )}
         </div>
 
-        {/* Avis */}
+        {/* Avis (bloc inchangé) */}
         <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-6 md:p-8">
           <h3 className="text-2xl font-bold mb-4">Avis</h3>
           {reviews.length === 0 && (

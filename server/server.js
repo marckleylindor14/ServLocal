@@ -11,6 +11,8 @@ const DATA_FILE = path.join(__dirname, 'services.json');
 const USERS_FILE = path.join(__dirname, 'users.json');
 const REVIEWS_FILE = path.join(__dirname, 'reviews.json');
 const BOOKINGS_FILE = path.join(__dirname, 'bookings.json');
+const CONVERSATIONS_FILE = path.join(__dirname, 'conversations.json');
+const MESSAGES_FILE = path.join(__dirname, 'messages.json');
 const DEFAULT_IMAGE = 'https://i.pravatar.cc/100?img=4';
 const JWT_SECRET = 'servlocal_secret_2026';
 
@@ -296,7 +298,6 @@ app.post('/api/services/:id/bookings', authenticateToken, async (req, res) => {
     const services = await readJSON(DATA_FILE);
     const service = services.find(s => Number(s._id) === serviceId);
     if (!service) return res.status(404).json({ error: 'Service non trouvé' });
-
     const bookings = await readJSON(BOOKINGS_FILE);
     const newBooking = {
       _id: nextId(bookings),
@@ -320,29 +321,112 @@ app.post('/api/services/:id/bookings', authenticateToken, async (req, res) => {
   }
 });
 
-// NOUVELLE ROUTE : Accepter ou refuser une réservation
 app.put('/api/bookings/:id', authenticateToken, async (req, res) => {
   try {
     const bookingId = Number(req.params.id);
     if (!Number.isInteger(bookingId) || bookingId < 1) return res.status(400).json({ error: 'ID invalide' });
-
     const { status } = req.body;
     if (!status || !['confirmed', 'cancelled'].includes(status)) {
       return res.status(400).json({ error: 'Statut invalide. Utilisez "confirmed" ou "cancelled".' });
     }
-
     const bookings = await readJSON(BOOKINGS_FILE);
     const index = bookings.findIndex(b => Number(b._id) === bookingId);
     if (index === -1) return res.status(404).json({ error: 'Réservation non trouvée' });
-
-    // Vérifier que le demandeur est bien le prestataire du service
     if (bookings[index].providerName !== req.user.name) {
       return res.status(403).json({ error: 'Vous n\'êtes pas le prestataire de cette réservation.' });
     }
-
     bookings[index].status = status;
     await writeJSON(BOOKINGS_FILE, bookings);
     res.json(bookings[index]);
+  } catch (error) {
+    res.status(500).json({ error: 'Erreur interne' });
+  }
+});
+
+// ---------- NOUVELLES ROUTES MESSAGERIE ----------
+
+app.get('/api/conversations', authenticateToken, async (req, res) => {
+  try {
+    const conversations = await readJSON(CONVERSATIONS_FILE);
+    const userConversations = conversations.filter(c =>
+      c.participants.includes(req.user.id)
+    );
+    res.json(userConversations);
+  } catch (error) {
+    res.status(500).json({ error: 'Erreur interne' });
+  }
+});
+
+app.post('/api/conversations', authenticateToken, async (req, res) => {
+  try {
+    const { recipientId, recipientName, serviceId, serviceTitle } = req.body;
+    if (!recipientId || !recipientName || !serviceId || !serviceTitle) {
+      return res.status(400).json({ error: 'Informations manquantes.' });
+    }
+    const conversations = await readJSON(CONVERSATIONS_FILE);
+    let conversation = conversations.find(c =>
+      c.serviceId === serviceId &&
+      c.participants.includes(req.user.id) &&
+      c.participants.includes(recipientId)
+    );
+    if (!conversation) {
+      conversation = {
+        _id: nextId(conversations),
+        participants: [req.user.id, recipientId],
+        participantsNames: [req.user.name, recipientName],
+        serviceId,
+        serviceTitle,
+        createdAt: new Date().toISOString()
+      };
+      conversations.push(conversation);
+      await writeJSON(CONVERSATIONS_FILE, conversations);
+    }
+    res.status(201).json(conversation);
+  } catch (error) {
+    res.status(500).json({ error: 'Erreur interne' });
+  }
+});
+
+app.get('/api/conversations/:id/messages', authenticateToken, async (req, res) => {
+  try {
+    const conversationId = Number(req.params.id);
+    const messages = await readJSON(MESSAGES_FILE);
+    const conversationMessages = messages.filter(m => m.conversationId === conversationId);
+    const conversations = await readJSON(CONVERSATIONS_FILE);
+    const conversation = conversations.find(c => c._id === conversationId);
+    if (!conversation || !conversation.participants.includes(req.user.id)) {
+      return res.status(403).json({ error: 'Accès refusé.' });
+    }
+    res.json(conversationMessages);
+  } catch (error) {
+    res.status(500).json({ error: 'Erreur interne' });
+  }
+});
+
+app.post('/api/conversations/:id/messages', authenticateToken, async (req, res) => {
+  try {
+    const conversationId = Number(req.params.id);
+    const { text } = req.body;
+    if (!text || !String(text).trim()) {
+      return res.status(400).json({ error: 'Le message ne peut pas être vide.' });
+    }
+    const conversations = await readJSON(CONVERSATIONS_FILE);
+    const conversation = conversations.find(c => c._id === conversationId);
+    if (!conversation || !conversation.participants.includes(req.user.id)) {
+      return res.status(403).json({ error: 'Accès refusé.' });
+    }
+    const messages = await readJSON(MESSAGES_FILE);
+    const newMessage = {
+      _id: nextId(messages),
+      conversationId,
+      senderId: req.user.id,
+      senderName: req.user.name,
+      text: String(text).trim(),
+      createdAt: new Date().toISOString()
+    };
+    messages.push(newMessage);
+    await writeJSON(MESSAGES_FILE, messages);
+    res.status(201).json(newMessage);
   } catch (error) {
     res.status(500).json({ error: 'Erreur interne' });
   }
