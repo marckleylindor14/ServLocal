@@ -100,3 +100,9 @@
     @apply bg-background text-foreground;
   }
 }
+/* Empêche le zoom automatique sur les inputs en mobile */
+@media (max-width: 640px) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+}
