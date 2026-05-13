@@ -9,6 +9,7 @@ import MyBookingsPage from './pages/MyBookingsPage'
 import ProviderDashboardPage from './pages/ProviderDashboardPage'
 import MessagesPage from './pages/MessagesPage'
 import AdminPage from './pages/AdminPage'
+import PaymentSuccessPage from './pages/PaymentSuccessPage'
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
       <Route path="/dashboard" element={<ProviderDashboardPage />} />
       <Route path="/messages" element={<MessagesPage />} />
       <Route path="/admin" element={<AdminPage />} />
+      <Route path="/payment-success" element={<PaymentSuccessPage />} />
     </Routes>
   )
 }

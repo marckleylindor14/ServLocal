@@ -3,6 +3,9 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Header from '../components/Header'
 import API_URL from '../config'
+import { loadStripe } from '@stripe/stripe-js'
+
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
 
 export default function MyBookingsPage() {
   const { user } = useAuth()
@@ -18,6 +21,27 @@ export default function MyBookingsPage() {
       .then(data => setBookings(data))
       .catch(err => console.error('Erreur chargement réservations:', err))
   }, [user, navigate])
+
+  const handlePay = async (serviceId, bookingId) => {
+    try {
+      const res = await fetch(`${API_URL}/api/create-checkout-session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ serviceId, bookingId })
+      })
+      const data = await res.json()
+      if (data.url) {
+        window.location.href = data.url
+      } else {
+        alert(data.error || 'Impossible de créer la session de paiement.')
+      }
+    } catch (error) {
+      alert('Erreur réseau.')
+    }
+  }
 
   if (!user) return null
 
@@ -39,11 +63,12 @@ export default function MyBookingsPage() {
                   <p className="text-sm text-muted-foreground">{booking.serviceCategory} – par {booking.providerName}</p>
                 </div>
                 <span className={`text-xs px-3 py-1 rounded-full font-medium self-start ${
-                  booking.status === 'confirmed' ? 'bg-green-400/20 text-green-400' :
+                  booking.paymentStatus === 'paid' ? 'bg-green-400/20 text-green-400' :
+                  booking.status === 'confirmed' ? 'bg-blue-400/20 text-blue-400' :
                   booking.status === 'cancelled' ? 'bg-red-400/20 text-red-400' :
                   'bg-yellow-400/20 text-yellow-400'
                 }`}>
-                  {booking.status === 'pending' ? 'En attente' : booking.status === 'confirmed' ? 'Confirmé' : 'Annulé'}
+                  {booking.paymentStatus === 'paid' ? 'Payé' : booking.status === 'pending' ? 'En attente' : booking.status === 'confirmed' ? 'Confirmé' : 'Annulé'}
                 </span>
               </div>
               <div className="mt-2 text-sm text-muted-foreground">
@@ -51,6 +76,14 @@ export default function MyBookingsPage() {
               </div>
               {booking.message && (
                 <p className="mt-2 text-sm text-muted-foreground">💬 {booking.message}</p>
+              )}
+              {booking.status === 'pending' && booking.paymentStatus !== 'paid' && (
+                <button
+                  onClick={() => handlePay(booking.serviceId, booking._id)}
+                  className="mt-4 w-full sm:w-auto bg-green-600 text-white px-6 py-2 rounded-full font-semibold hover:bg-green-700 transition text-sm"
+                >
+                  Payer
+                </button>
               )}
             </div>
           ))}

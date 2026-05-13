@@ -11,16 +11,13 @@ export default function ProviderDashboardPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (!user) {
-      navigate('/login')
-      return
-    }
+    if (!user) { navigate('/login'); return }
     fetch(`${API_URL}/api/bookings/provider`, {
       headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
     })
       .then(res => res.json())
       .then(data => setBookings(data))
-      .catch(err => setError('Impossible de charger les réservations.'))
+      .catch(() => setError('Impossible de charger les réservations.'))
   }, [user, navigate])
 
   const handleStatusChange = async (bookingId, newStatus) => {
@@ -40,9 +37,7 @@ export default function ProviderDashboardPage() {
         const data = await res.json()
         alert(data.error || 'Erreur lors de la mise à jour.')
       }
-    } catch (err) {
-      alert('Impossible de contacter le serveur.')
-    }
+    } catch (err) { alert('Impossible de contacter le serveur.') }
   }
 
   if (!user) return null
@@ -50,24 +45,22 @@ export default function ProviderDashboardPage() {
   return (
     <div className="min-h-screen bg-background text-foreground font-sans">
       <Header />
-      <div className="pt-20"></div>
-
-      <main className="max-w-5xl mx-auto px-4 py-12">
-        <h2 className="text-3xl font-extrabold mb-6">Tableau de bord prestataire</h2>
-        <p className="text-muted-foreground mb-8">Gérez les réservations pour vos services.</p>
-
+      <div className="pt-16 md:pt-20"></div>
+      <main className="max-w-5xl mx-auto px-4 py-6 md:py-12">
+        <h2 className="text-2xl md:text-3xl font-extrabold mb-2 md:mb-6">Tableau de bord prestataire</h2>
+        <p className="text-sm text-muted-foreground mb-6 md:mb-8">Gérez les réservations pour vos services.</p>
         {error && <p className="text-red-400 mb-4">{error}</p>}
 
         {bookings.length === 0 && !error && (
-          <p className="text-muted-foreground">Aucune réservation reçue pour le moment.</p>
+          <p className="text-muted-foreground text-sm md:text-base">Aucune réservation reçue pour le moment.</p>
         )}
 
         <div className="space-y-4">
           {bookings.map((booking) => (
             <div key={booking._id} className="bg-card backdrop-blur-md border border-border rounded-2xl p-4">
-              <div className="flex justify-between items-start">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                 <div>
-                  <h3 className="text-xl font-bold">{booking.serviceTitle}</h3>
+                  <h3 className="text-lg md:text-xl font-bold">{booking.serviceTitle}</h3>
                   <p className="text-sm text-muted-foreground">
                     Réservé par <span className="font-medium text-foreground">{booking.clientName}</span> pour le {booking.date} de {booking.timeSlot}
                   </p>
@@ -75,7 +68,7 @@ export default function ProviderDashboardPage() {
                     <p className="mt-1 text-sm text-muted-foreground">💬 {booking.message}</p>
                   )}
                 </div>
-                <span className={`text-xs px-3 py-1 rounded-full font-medium ${
+                <span className={`text-xs px-3 py-1 rounded-full font-medium self-start ${
                   booking.status === 'confirmed' ? 'bg-green-400/20 text-green-400' :
                   booking.status === 'cancelled' ? 'bg-red-400/20 text-red-400' :
                   'bg-yellow-400/20 text-yellow-400'
@@ -88,13 +81,13 @@ export default function ProviderDashboardPage() {
                 <div className="flex gap-3 mt-4">
                   <button
                     onClick={() => handleStatusChange(booking._id, 'confirmed')}
-                    className="bg-green-500/80 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-green-500 transition"
+                    className="flex-1 sm:flex-none bg-green-500/80 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-green-500 transition"
                   >
                     Accepter
                   </button>
                   <button
                     onClick={() => handleStatusChange(booking._id, 'cancelled')}
-                    className="bg-red-500/80 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-red-500 transition"
+                    className="flex-1 sm:flex-none bg-red-500/80 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-red-500 transition"
                   >
                     Refuser
                   </button>

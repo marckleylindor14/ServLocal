@@ -1,17 +1,19 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Header from '../components/Header'
 import API_URL from '../config'
 import {
   Home, Smile, BookOpen, Wrench, PartyPopper, Dog, ShieldCheck,
-  Search, UserPlus, Star, MapPin, CheckCircle, ChevronDown
+  Search, UserPlus, Star, MapPin, CheckCircle, ChevronDown, X
 } from 'lucide-react'
 
 export default function HomePage() {
   const { user } = useAuth()
   const [allServices, setAllServices] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const searchRef = useRef(null)
 
   useEffect(() => {
     fetch(`${API_URL}/api/services`)
@@ -20,15 +22,34 @@ export default function HomePage() {
       .catch(err => console.error('Erreur chargement services:', err))
   }, [])
 
-  const filteredServices = allServices.filter(service => {
-    if (searchTerm.trim() === '') return true
-    const term = searchTerm.toLowerCase()
-    return (
-      service.title?.toLowerCase().includes(term) ||
-      service.category?.toLowerCase().includes(term) ||
-      service.description?.toLowerCase().includes(term)
+  // Fermer les suggestions quand on clique à l'extérieur
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchRef.current && !searchRef.current.contains(e.target)) {
+        setShowSuggestions(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const filteredServices = searchTerm.trim() === ''
+    ? []
+    : allServices.filter(service =>
+        service.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        service.category?.toLowerCase().includes(searchTerm.toLowerCase())
+      ).slice(0, 6) // max 6 suggestions
+
+  // Mise en surbrillance du texte recherché dans les suggestions
+  const highlightMatch = (text) => {
+    if (!searchTerm.trim()) return text
+    const parts = text.split(new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'))
+    return parts.map((part, i) =>
+      part.toLowerCase() === searchTerm.toLowerCase()
+        ? <span key={i} className="text-primary font-semibold">{part}</span>
+        : part
     )
-  })
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans scroll-smooth">
@@ -120,7 +141,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* RECHERCHE & SERVICES */}
+      {/* RECHERCHE AVEC SUGGESTIONS */}
       <div id="search-section" className="pt-4 md:pt-8">
         <section className="max-w-4xl mx-auto px-4 py-8 md:py-12 text-center">
           <h2 className="text-2xl md:text-4xl font-extrabold mb-4">
@@ -129,7 +150,7 @@ export default function HomePage() {
           <p className="text-sm md:text-base text-muted-foreground mb-6 md:mb-8">
             Tous les services, en confiance, à deux pas
           </p>
-          <div className="relative max-w-xl mx-auto">
+          <div ref={searchRef} className="relative max-w-xl mx-auto">
             <div className="flex items-center bg-card backdrop-blur-md border border-border rounded-full shadow-lg shadow-primary/20 overflow-hidden">
               <span className="pl-4 md:pl-5 text-muted-foreground">🔍</span>
               <input
@@ -137,12 +158,57 @@ export default function HomePage() {
                 placeholder="Ex : coiffeur, réparation vélo..."
                 className="w-full py-3 md:py-4 px-3 md:px-4 bg-transparent text-foreground placeholder-muted-foreground outline-none text-sm md:text-base"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value)
+                  setShowSuggestions(true)
+                }}
+                onFocus={() => {
+                  if (searchTerm.trim()) setShowSuggestions(true)
+                }}
               />
+              {searchTerm && (
+                <button
+                  onClick={() => { setSearchTerm(''); setShowSuggestions(false) }}
+                  className="pr-3 text-muted-foreground hover:text-foreground transition"
+                >
+                  <X size={18} />
+                </button>
+              )}
               <button className="hidden sm:block bg-primary text-primary-foreground font-semibold px-5 py-2 m-1 rounded-full hover:bg-primary/90 transition text-sm">
                 Rechercher
               </button>
             </div>
+
+            {/* Panneau de suggestions */}
+            {showSuggestions && searchTerm.trim() && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-card backdrop-blur-md border border-border rounded-2xl shadow-2xl overflow-hidden z-50">
+                {filteredServices.length > 0 ? (
+                  filteredServices.map(service => (
+                    <Link
+                      key={service._id}
+                      to={`/provider/${service._id}`}
+                      onClick={() => { setShowSuggestions(false); setSearchTerm('') }}
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition border-b border-border last:border-0"
+                    >
+                      <img
+                        src={service.image || 'https://i.pravatar.cc/100?img=4'}
+                        alt={service.title}
+                        className="w-10 h-10 rounded-full object-cover"
+                      />
+                      <div className="text-left min-w-0">
+                        <p className="text-sm font-medium truncate">{highlightMatch(service.title)}</p>
+                        <p className="text-xs text-muted-foreground">{service.category}</p>
+                      </div>
+                      <span className="ml-auto text-xs text-primary font-medium whitespace-nowrap">{service.price || 'Gratuit'}</span>
+                    </Link>
+                  ))
+                ) : (
+                  <p className="px-4 py-3 text-sm text-muted-foreground text-center">
+                    Aucun service trouvé pour "{searchTerm}"
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </section>
 
@@ -161,6 +227,7 @@ export default function HomePage() {
               return (
                 <div
                   key={cat.label}
+                  onClick={() => { setSearchTerm(cat.label); setShowSuggestions(true) }}
                   className="bg-card backdrop-blur-sm rounded-2xl p-3 md:p-4 text-center hover:scale-105 transition cursor-pointer border border-border"
                 >
                   <div className={`w-10 h-10 md:w-12 md:h-12 mx-auto mb-1 md:mb-2 rounded-full bg-gradient-to-br ${cat.color} flex items-center justify-center`}>
@@ -180,12 +247,12 @@ export default function HomePage() {
             <div className="h-1 w-16 bg-primary mt-2 rounded-full"></div>
           </div>
 
-          {filteredServices.length === 0 && (
+          {allServices.length === 0 && (
             <p className="text-muted-foreground text-sm md:text-base">Aucun service pour le moment.</p>
           )}
 
           <div className="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory scrollbar-hide">
-            {filteredServices.map((service) => (
+            {allServices.map((service) => (
               <Link
                 to={`/provider/${service._id}`}
                 key={service._id}
