@@ -13,7 +13,7 @@ export default function PaymentSuccessPage() {
   }, [navigate])
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans">
+    <div className="min-h-screen bg-background text-foreground font-sans page-enter">
       <Header />
       <div className="pt-20 flex items-center justify-center">
         <div className="text-center bg-card backdrop-blur-md border border-border rounded-2xl p-8 max-w-md">

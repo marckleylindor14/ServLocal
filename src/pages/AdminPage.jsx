@@ -66,7 +66,7 @@ export default function AdminPage() {
   if (!user || user.email !== 'Marckley.lindor14@gmail.com') return null
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans">
+    <div className="min-h-screen bg-background text-foreground font-sans page-enter">
       <Header />
       <div className="pt-16 md:pt-20"></div>
       <main className="max-w-6xl mx-auto px-4 py-6 md:py-8">

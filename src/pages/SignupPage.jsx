@@ -30,7 +30,7 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans flex items-center justify-center">
+    <div className="min-h-screen bg-background text-foreground font-sans flex items-center justify-center page-enter">
       <form onSubmit={handleSubmit} className="bg-card backdrop-blur-md border border-border rounded-2xl p-8 w-full max-w-md space-y-4">
         <h2 className="text-2xl font-bold text-center">Inscription</h2>
         {error && <p className="text-red-400 text-sm">{error}</p>}

@@ -65,7 +65,7 @@ export default function MessagesPage() {
   if (!user) return null
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans">
+    <div className="min-h-screen bg-background text-foreground font-sans page-enter">
       <Header />
       <div className="pt-20"></div>
       <main className="max-w-6xl mx-auto px-4 py-8">

@@ -43,7 +43,7 @@ export default function ProviderDashboardPage() {
   if (!user) return null
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans">
+    <div className="min-h-screen bg-background text-foreground font-sans page-enter">
       <Header />
       <div className="pt-16 md:pt-20"></div>
       <main className="max-w-5xl mx-auto px-4 py-6 md:py-12">
