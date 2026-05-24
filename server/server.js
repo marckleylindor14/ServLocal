@@ -439,6 +439,7 @@ app.get('/api/notifications', authenticateToken, async (req, res) => {
     res.json({ pendingBookings: pendingProvider + pendingClient });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
+app.get('/', (req, res) => res.status(200).send('OK'))
 
 // ---------- 404 & Error handler ----------
 app.use((req, res) => res.status(404).json({ error: `Route ${req.method} ${req.originalUrl} non trouvée` }));
