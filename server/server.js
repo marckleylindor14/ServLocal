@@ -446,6 +446,7 @@ app.use((err, req, res, next) => {
   console.error('Erreur non gérée:', err.message);
   res.status(500).json({ error: 'Erreur interne' });
 });
+console.log('PORT fourni par Railway :', process.env.PORT)
 
 app.listen(PORT, () => {
   console.log(`✅ Serveur Myra démarré sur le port ${PORT}`);
