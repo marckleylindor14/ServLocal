@@ -56,11 +56,6 @@ export default function LoginPage() {
             {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
           </button>
         </div>
-        <div className="flex justify-end">
-          <Link to="/forgot-password" className="text-xs text-primary hover:underline">
-            Mot de passe oublié ?
-          </Link>
-        </div>
         <button type="submit" disabled={loading}
           className="w-full bg-primary text-primary-foreground py-3 rounded-full font-semibold hover:bg-primary/90 transition flex items-center justify-center gap-2 disabled:opacity-70">
           {loading && <Loader2 size={18} className="animate-spin" />}
