@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { PlusCircle, ListChecks, LogOut, LogIn, Calendar, LayoutDashboard, MessageSquare, Menu, X, Shield } from 'lucide-react'
+import { PlusCircle, ListChecks, LogOut, LogIn, Calendar, LayoutDashboard, MessageSquare, Menu, X, Shield, User } from 'lucide-react'
 import API_URL from '../config'
 
 export default function Header() {
@@ -121,6 +121,9 @@ export default function Header() {
               )}
               <div className="flex justify-between items-center pt-2 border-t border-border">
                 <span className="text-sm text-muted-foreground">{user.name}</span>
+                <Link to="/account" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
+  <User size={16} /> Mon compte
+</Link>
                 <button onClick={handleLogout} className="text-primary text-sm font-semibold">Déconnexion</button>
               </div>
             </>
