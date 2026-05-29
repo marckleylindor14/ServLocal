@@ -2,17 +2,20 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import API_URL from '../config'
+import { Loader2 } from 'lucide-react'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    setLoading(true)
     try {
       const res = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
@@ -26,8 +29,10 @@ export default function LoginPage() {
       } else {
         setError(data.error || 'Erreur de connexion')
       }
-    } catch (err) {
+    } catch {
       setError('Impossible de contacter le serveur')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -42,8 +47,10 @@ export default function LoginPage() {
         <input type="password" placeholder="Mot de passe" required value={password}
           onChange={e => setPassword(e.target.value)}
           className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 outline-none focus:border-primary" />
-        <button type="submit" className="w-full bg-primary text-primary-foreground py-3 rounded-full font-semibold hover:bg-primary/90">
-          Se connecter
+        <button type="submit" disabled={loading}
+          className="w-full bg-primary text-primary-foreground py-3 rounded-full font-semibold hover:bg-primary/90 transition flex items-center justify-center gap-2 disabled:opacity-70">
+          {loading && <Loader2 size={18} className="animate-spin" />}
+          {loading ? 'Connexion...' : 'Se connecter'}
         </button>
         <p className="text-sm text-center text-muted-foreground">
           Pas encore de compte ? <Link to="/signup" className="text-primary hover:underline">S'inscrire</Link>

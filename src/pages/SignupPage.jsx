@@ -1,17 +1,20 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import API_URL from '../config'
+import { Loader2 } from 'lucide-react'
 
 export default function SignupPage() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    setLoading(true)
     try {
       const res = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
@@ -24,8 +27,10 @@ export default function SignupPage() {
       } else {
         setError(data.error || 'Erreur inscription')
       }
-    } catch (err) {
+    } catch {
       setError('Impossible de contacter le serveur')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -43,8 +48,10 @@ export default function SignupPage() {
         <input type="password" placeholder="Mot de passe" required value={password}
           onChange={e => setPassword(e.target.value)}
           className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 outline-none focus:border-primary" />
-        <button type="submit" className="w-full bg-primary text-primary-foreground py-3 rounded-full font-semibold hover:bg-primary/90">
-          Créer mon compte
+        <button type="submit" disabled={loading}
+          className="w-full bg-primary text-primary-foreground py-3 rounded-full font-semibold hover:bg-primary/90 transition flex items-center justify-center gap-2 disabled:opacity-70">
+          {loading && <Loader2 size={18} className="animate-spin" />}
+          {loading ? 'Inscription...' : 'Créer mon compte'}
         </button>
         <p className="text-sm text-center text-muted-foreground">
           Déjà un compte ? <Link to="/login" className="text-primary hover:underline">Se connecter</Link>

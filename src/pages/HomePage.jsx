@@ -8,6 +8,24 @@ import {
   Search, UserPlus, Star, MapPin, CheckCircle, ChevronDown, X, Navigation
 } from 'lucide-react'
 
+function SkeletonCard() {
+  return (
+    <div className="min-w-[260px] bg-card backdrop-blur-md border border-border rounded-2xl p-4 animate-pulse">
+      <div className="flex items-center gap-3 mb-3">
+        <div className="w-12 h-12 rounded-full bg-muted" />
+        <div className="flex-1 space-y-2">
+          <div className="h-4 bg-muted rounded w-3/4" />
+          <div className="h-3 bg-muted rounded w-1/2" />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <div className="h-3 bg-muted rounded w-full" />
+        <div className="h-3 bg-muted rounded w-5/6" />
+      </div>
+    </div>
+  )
+}
+
 export default function HomePage() {
   const { user } = useAuth()
   const [allServices, setAllServices] = useState([])
@@ -17,13 +35,21 @@ export default function HomePage() {
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [detectingCity, setDetectingCity] = useState(false)
   const [geoMessage, setGeoMessage] = useState('')
+  const [loading, setLoading] = useState(true)
   const searchRef = useRef(null)
+  const serviceRefs = useRef([])
 
   useEffect(() => {
     fetch(`${API_URL}/api/services`)
       .then(res => res.json())
-      .then(data => setAllServices(Array.isArray(data) ? data : []))
-      .catch(() => setAllServices([]))
+      .then(data => {
+        setAllServices(Array.isArray(data) ? data : [])
+        setLoading(false)
+      })
+      .catch(() => {
+        setAllServices([])
+        setLoading(false)
+      })
 
     fetch(`${API_URL}/api/cities`)
       .then(res => res.json())
@@ -60,6 +86,26 @@ export default function HomePage() {
       { timeout: 5000 }
     )
   }, [cities])
+
+  // Animation au scroll
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('animate-in')
+          }
+        })
+      },
+      { threshold: 0.1 }
+    )
+
+    serviceRefs.current.forEach(ref => {
+      if (ref) observer.observe(ref)
+    })
+
+    return () => observer.disconnect()
+  }, [allServices, loading])
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -338,35 +384,43 @@ export default function HomePage() {
             <div className="h-1 w-16 bg-primary mt-2 rounded-full"></div>
           </div>
 
-          {filteredServices.length === 0 && (
-            <p className="text-muted-foreground text-base">Aucun service trouvé.</p>
-          )}
-
           <div className="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory scrollbar-hide">
-            {filteredServices.map((service) => (
-              <Link
-                to={`/provider/${service._id}`}
-                key={service._id}
-                className="min-w-[260px] bg-card backdrop-blur-md border border-border rounded-2xl p-4 snap-start card-hover"
-              >
-                <div className="flex items-center gap-3 mb-3">
-                  <img src={service.image || 'https://i.pravatar.cc/100?img=4'} alt={service.title} className="w-12 h-12 rounded-full object-cover" />
-                  <div>
-                    <p className="font-bold text-base">{service.title}</p>
-                    <span className="flex items-center text-xs text-primary">
-                      <ShieldCheck size={14} className="mr-1" /> {service.verified ? 'Vérifié' : 'Non vérifié'}
-                    </span>
+            {loading ? (
+              <>
+                <SkeletonCard />
+                <SkeletonCard />
+                <SkeletonCard />
+              </>
+            ) : filteredServices.length === 0 ? (
+              <p className="text-muted-foreground text-base">Aucun service trouvé.</p>
+            ) : (
+              filteredServices.map((service, index) => (
+                <Link
+                  to={`/provider/${service._id}`}
+                  key={service._id}
+                  ref={el => serviceRefs.current[index] = el}
+                  className="min-w-[260px] bg-card backdrop-blur-md border border-border rounded-2xl p-4 snap-start card-hover opacity-0 translate-y-4 transition-all duration-500 ease-out"
+                  style={{ transitionDelay: `${index * 100}ms` }}
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <img src={service.image || 'https://i.pravatar.cc/100?img=4'} alt={service.title} className="w-12 h-12 rounded-full object-cover" />
+                    <div>
+                      <p className="font-bold text-base">{service.title}</p>
+                      <span className="flex items-center text-xs text-primary">
+                        <ShieldCheck size={14} className="mr-1" /> {service.verified ? 'Vérifié' : 'Non vérifié'}
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center mb-2">
-                  {[...Array(5)].map((_, i) => <span key={i} className="text-primary text-sm">⭐</span>)}
-                  <span className="ml-2 text-muted-foreground text-sm">5.0</span>
-                </div>
-                <p className="text-muted-foreground text-sm">{service.category}</p>
-                <p className="text-sm mt-1">{service.price || 'Gratuit'}</p>
-                {service.city && <p className="text-xs text-muted-foreground mt-1"><MapPin size={12} className="inline mr-1" />{service.city}</p>}
-              </Link>
-            ))}
+                  <div className="flex items-center mb-2">
+                    {[...Array(5)].map((_, i) => <span key={i} className="text-primary text-sm">⭐</span>)}
+                    <span className="ml-2 text-muted-foreground text-sm">5.0</span>
+                  </div>
+                  <p className="text-muted-foreground text-sm">{service.category}</p>
+                  <p className="text-sm mt-1">{service.price || 'Gratuit'}</p>
+                  {service.city && <p className="text-xs text-muted-foreground mt-1"><MapPin size={12} className="inline mr-1" />{service.city}</p>}
+                </Link>
+              ))
+            )}
           </div>
         </section>
       </div>
@@ -374,6 +428,14 @@ export default function HomePage() {
       <footer className="py-8 text-center text-muted-foreground border-t border-border text-sm">
         Myra — La confiance au coin de votre rue
       </footer>
+
+      {/* Style pour l'animation au scroll */}
+      <style>{`
+        .animate-in {
+          opacity: 1 !important;
+          transform: translateY(0) !important;
+        }
+      `}</style>
     </div>
   )
 }
