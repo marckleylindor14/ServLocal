@@ -4,6 +4,7 @@ import Header from '../components/Header'
 import StarRating from '../components/StarRating'
 import { useAuth } from '../context/AuthContext'
 import API_URL from '../config'
+import { X } from 'lucide-react'
 
 export default function ProviderPage() {
   const { id } = useParams()
@@ -22,6 +23,9 @@ export default function ProviderPage() {
   const [bookingError, setBookingError] = useState('')
   const [bookingSuccess, setBookingSuccess] = useState('')
 
+  // État pour la lightbox
+  const [lightboxImage, setLightboxImage] = useState(null)
+
   useEffect(() => {
     fetch(`${API_URL}/api/services/${id}`)
       .then(res => res.json())
@@ -36,11 +40,88 @@ export default function ProviderPage() {
       .catch(err => console.error('Erreur chargement avis:', err))
   }, [id])
 
-  const handleReviewSubmit = async (e) => { /* inchangé, tout le code existant */ }
-  const handleBookingSubmit = async (e) => { /* inchangé */ }
-  const startConversation = async () => { /* inchangé */ }
+  const handleReviewSubmit = async (e) => {
+    e.preventDefault()
+    if (!user) return setErrorMessage('Vous devez être connecté.')
+    try {
+      const res = await fetch(`${API_URL}/api/services/${id}/reviews`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ rating: newRating, comment })
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setSuccessMessage('Avis publié !')
+        setErrorMessage('')
+        setNewRating(0)
+        setComment('')
+        setReviews(prev => [...prev, data.review])
+        setAverageRating(data.averageRating)
+      } else {
+        setErrorMessage(data.error || 'Erreur')
+        setSuccessMessage('')
+      }
+    } catch (err) {
+      setErrorMessage('Impossible de contacter le serveur.')
+    }
+  }
 
-  // Redirige vers la section réservation
+  const handleBookingSubmit = async (e) => {
+    e.preventDefault()
+    if (!user) return setBookingError('Vous devez être connecté.')
+    try {
+      const res = await fetch(`${API_URL}/api/services/${id}/bookings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ date: bookingDate, timeSlot: bookingTime, message: bookingMessage })
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setBookingSuccess('Réservation effectuée !')
+        setBookingError('')
+        setBookingDate('')
+        setBookingTime('')
+        setBookingMessage('')
+      } else {
+        setBookingError(data.error || 'Erreur')
+        setBookingSuccess('')
+      }
+    } catch (err) {
+      setBookingError('Impossible de contacter le serveur.')
+    }
+  }
+
+  const startConversation = async () => {
+    if (!user) { navigate('/login'); return }
+    try {
+      const res = await fetch(`${API_URL}/api/conversations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          recipientId: pro._id,
+          recipientName: pro.providerName,
+          serviceId: pro._id,
+          serviceTitle: pro.title
+        })
+      })
+      const data = await res.json()
+      if (data._id) {
+        navigate('/messages')
+      }
+    } catch (err) {
+      alert('Impossible de démarrer la conversation.')
+    }
+  }
+
   const handlePay = () => {
     if (!user) {
       navigate('/login')
@@ -56,6 +137,7 @@ export default function ProviderPage() {
       <Header />
       <div className="pt-16 md:pt-20"></div>
       <main className="max-w-3xl mx-auto px-4 py-6 md:py-8 space-y-6">
+        {/* Infos service */}
         <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-4">
             <img src={pro.image || 'https://i.pravatar.cc/100?img=4'} alt={pro.title} className="w-16 h-16 md:w-20 md:h-20 rounded-full object-cover border-2 border-primary" />
@@ -83,6 +165,26 @@ export default function ProviderPage() {
           </div>
         </div>
 
+        {/* Galerie portfolio */}
+        {pro.gallery && pro.gallery.length > 0 && (
+          <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6">
+            <h3 className="text-lg md:text-xl font-bold mb-4">Galerie d'exemples</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {pro.gallery.map((imgUrl, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => setLightboxImage(imgUrl)}
+                  className="rounded-lg overflow-hidden cursor-pointer h-32 md:h-40 relative group"
+                >
+                  <img src={imgUrl} alt={`portfolio ${idx}`} className="w-full h-full object-cover transition group-hover:scale-105" />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Réservation */}
         <div id="booking-section" className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6">
           <h3 className="text-lg md:text-2xl font-bold mb-4">Réserver ce service</h3>
           {user ? (
@@ -114,6 +216,7 @@ export default function ProviderPage() {
           )}
         </div>
 
+        {/* Avis */}
         <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6">
           <h3 className="text-lg md:text-2xl font-bold mb-4">Avis</h3>
           {reviews.length === 0 && <p className="text-muted-foreground text-sm">Aucun avis pour le moment.</p>}
@@ -137,6 +240,27 @@ export default function ProviderPage() {
           )}
         </div>
       </main>
+
+      {/* Lightbox */}
+      {lightboxImage && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setLightboxImage(null)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white bg-black/40 rounded-full p-2"
+            onClick={() => setLightboxImage(null)}
+          >
+            <X size={24} />
+          </button>
+          <img
+            src={lightboxImage}
+            alt="Vue agrandie"
+            className="max-w-full max-h-full rounded-xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   )
 }

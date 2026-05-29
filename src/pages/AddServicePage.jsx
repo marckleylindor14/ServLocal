@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Header from '../components/Header'
 import API_URL from '../config'
@@ -11,25 +11,46 @@ export default function AddServicePage() {
   const [description, setDescription] = useState('')
   const [price, setPrice] = useState('')
   const [city, setCity] = useState('')
-  const [imageFile, setImageFile] = useState(null)
-  const [imagePreview, setImagePreview] = useState(null)
+
+  // Photo de profil (avatar)
+  const [avatarFile, setAvatarFile] = useState(null)
+  const [avatarPreview, setAvatarPreview] = useState(null)
+  const fileAvatarRef = useRef(null)
+
+  // Galerie (portfolio)
+  const [galleryFiles, setGalleryFiles] = useState([])
+  const [galleryPreviews, setGalleryPreviews] = useState([])
+  const fileGalleryRef = useRef(null)
+
   const [uploading, setUploading] = useState(false)
-  const fileInputRef = useRef(null)
   const { user } = useAuth()
   const navigate = useNavigate()
 
-  const handleImageChange = (e) => {
+  // Gestion avatar
+  const handleAvatarChange = (e) => {
     const file = e.target.files[0]
     if (file) {
-      setImageFile(file)
-      setImagePreview(URL.createObjectURL(file))
+      setAvatarFile(file)
+      setAvatarPreview(URL.createObjectURL(file))
     }
   }
+  const clearAvatar = () => {
+    setAvatarFile(null)
+    setAvatarPreview(null)
+    if (fileAvatarRef.current) fileAvatarRef.current.value = ''
+  }
 
-  const clearImage = () => {
-    setImageFile(null)
-    setImagePreview(null)
-    if (fileInputRef.current) fileInputRef.current.value = ''
+  // Gestion galerie
+  const handleGalleryChange = (e) => {
+    const files = Array.from(e.target.files).slice(0, 5) // max 5
+    setGalleryFiles(files)
+    const previews = files.map(f => URL.createObjectURL(f))
+    setGalleryPreviews(previews)
+  }
+  const clearGallery = () => {
+    setGalleryFiles([])
+    setGalleryPreviews([])
+    if (fileGalleryRef.current) fileGalleryRef.current.value = ''
   }
 
   const handleSubmit = async (e) => {
@@ -41,33 +62,45 @@ export default function AddServicePage() {
     }
 
     try {
-      let imageUrl = null
+      setUploading(true)
 
-      // 1) Upload de l'image si sélectionnée
-      if (imageFile) {
-        setUploading(true)
+      // 1) Upload avatar si présent
+      let avatarUrl = null
+      if (avatarFile) {
         const formData = new FormData()
-        formData.append('image', imageFile)
-
-        const uploadRes = await fetch(`${API_URL}/api/upload`, {
+        formData.append('image', avatarFile)
+        const res = await fetch(`${API_URL}/api/upload`, {
           method: 'POST',
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          },
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
           body: formData
         })
-
-        if (!uploadRes.ok) {
-          const errData = await uploadRes.json()
-          throw new Error(errData.error || 'Échec upload image')
+        if (!res.ok) {
+          const err = await res.json()
+          throw new Error(err.error || 'Échec upload avatar')
         }
-
-        const uploadData = await uploadRes.json()
-        imageUrl = uploadData.url
-        setUploading(false)
+        const data = await res.json()
+        avatarUrl = data.url
       }
 
-      // 2) Créer le service
+      // 2) Upload galerie si fichiers présents
+      let galleryUrls = []
+      if (galleryFiles.length > 0) {
+        const formData = new FormData()
+        galleryFiles.forEach(file => formData.append('gallery', file))
+        const res = await fetch(`${API_URL}/api/upload-gallery`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+          body: formData
+        })
+        if (!res.ok) {
+          const err = await res.json()
+          throw new Error(err.error || 'Échec upload galerie')
+        }
+        const data = await res.json()
+        galleryUrls = data.urls
+      }
+
+      // 3) Créer le service
       const priceNumber = price.trim() === '' ? null : Number(price.replace(',', '.').replace(/[^0-9.]/g, ''))
 
       const response = await fetch(`${API_URL}/api/services`, {
@@ -80,7 +113,8 @@ export default function AddServicePage() {
           city,
           price: priceNumber,
           providerName: user.name,
-          image: imageUrl || undefined // si pas d'image, le serveur mettra l'image par défaut
+          image: avatarUrl || undefined,
+          gallery: galleryUrls
         })
       })
 
@@ -93,12 +127,15 @@ export default function AddServicePage() {
         setDescription('')
         setPrice('')
         setCity('')
-        clearImage()
+        clearAvatar()
+        clearGallery()
       } else {
         alert('❌ Erreur : ' + (data.details ? data.details.join(', ') : data.error))
       }
     } catch (error) {
       alert('❌ ' + (error.message || 'Impossible de contacter le serveur.'))
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -155,30 +192,75 @@ export default function AddServicePage() {
               className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 text-foreground placeholder-muted-foreground outline-none focus:border-primary transition" />
           </div>
 
-          {/* Photo du service */}
+          {/* Photo de profil */}
           <div>
-            <label className="block text-sm font-medium mb-1">Photo du service</label>
-            {imagePreview ? (
-              <div className="relative w-full h-48 rounded-lg overflow-hidden">
-                <img src={imagePreview} alt="Aperçu" className="w-full h-full object-cover" />
-                <button type="button" onClick={clearImage} className="absolute top-2 right-2 bg-black/60 text-white p-1 rounded-full">
-                  <X size={18} />
+            <label className="block text-sm font-medium mb-1">Photo de profil</label>
+            {avatarPreview ? (
+              <div className="relative w-24 h-24 rounded-full overflow-hidden mb-2">
+                <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
+                <button type="button" onClick={clearAvatar} className="absolute top-0 right-0 bg-black/60 text-white p-1 rounded-full">
+                  <X size={14} />
                 </button>
               </div>
             ) : (
               <div
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => fileAvatarRef.current?.click()}
+                className="border-2 border-dashed border-border rounded-lg p-4 text-center text-muted-foreground cursor-pointer hover:border-primary transition"
+              >
+                <Upload size={20} className="mx-auto mb-1" />
+                <span className="text-sm">Photo de profil</span>
+              </div>
+            )}
+            <input ref={fileAvatarRef} type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
+          </div>
+
+          {/* Galerie portfolio */}
+          <div>
+            <label className="block text-sm font-medium mb-1">Galerie portfolio (max 5 photos)</label>
+            {galleryPreviews.length > 0 ? (
+              <div className="space-y-2">
+                <div className="grid grid-cols-3 gap-2">
+                  {galleryPreviews.map((src, idx) => (
+                    <div key={idx} className="relative rounded-lg overflow-hidden h-24">
+                      <img src={src} alt={`portfolio ${idx}`} className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newFiles = galleryFiles.filter((_, i) => i !== idx)
+                          const newPreviews = galleryPreviews.filter((_, i) => i !== idx)
+                          setGalleryFiles(newFiles)
+                          setGalleryPreviews(newPreviews)
+                        }}
+                        className="absolute top-1 right-1 bg-black/60 text-white p-1 rounded-full"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => fileGalleryRef.current?.click()}
+                  className="text-xs text-primary hover:underline"
+                >
+                  + Ajouter d'autres photos
+                </button>
+              </div>
+            ) : (
+              <div
+                onClick={() => fileGalleryRef.current?.click()}
                 className="border-2 border-dashed border-border rounded-lg p-6 text-center text-muted-foreground cursor-pointer hover:border-primary transition"
               >
                 <Upload size={24} className="mx-auto mb-2" />
-                Cliquez pour télécharger une image
+                Cliquez pour ajouter des photos d'exemple
               </div>
             )}
             <input
-              ref={fileInputRef}
+              ref={fileGalleryRef}
               type="file"
               accept="image/*"
-              onChange={handleImageChange}
+              multiple
+              onChange={handleGalleryChange}
               className="hidden"
             />
           </div>
@@ -188,7 +270,7 @@ export default function AddServicePage() {
             disabled={uploading}
             className="w-full bg-primary text-primary-foreground font-semibold py-3 px-6 rounded-full hover:bg-primary/90 transition disabled:opacity-50"
           >
-            {uploading ? 'Téléchargement de l\'image...' : 'Publier le service'}
+            {uploading ? 'Téléchargement en cours...' : 'Publier le service'}
           </button>
         </form>
       </main>

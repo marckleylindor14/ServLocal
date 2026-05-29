@@ -21,21 +21,18 @@ const JWT_SECRET = 'servlocal_secret_2026';
 const ADMIN_EMAIL = 'Marckley.lindor14@gmail.com';
 const ADMIN_PASSWORD = 'Jesula1982';
 
-// Configuration Cloudinary (via variables d'environnement)
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// Multer (stockage en mémoire)
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
 app.use(cors());
 app.use(express.json());
 
-// Logging
 app.use((req, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
@@ -103,11 +100,11 @@ function authenticateAdmin(req, res, next) {
   });
 }
 
-// ---------- Upload image vers Cloudinary ----------
+// ---------- Upload vers Cloudinary ----------
+// Upload simple (photo de profil)
 app.post('/api/upload', authenticateToken, upload.single('image'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Aucun fichier envoyé.' });
-
     const streamUpload = () =>
       new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
@@ -119,12 +116,35 @@ app.post('/api/upload', authenticateToken, upload.single('image'), async (req, r
         );
         streamifier.createReadStream(req.file.buffer).pipe(stream);
       });
-
     const result = await streamUpload();
     res.json({ url: result.secure_url });
   } catch (error) {
     console.error('Erreur Cloudinary:', error);
     res.status(500).json({ error: 'Échec de l\'upload.' });
+  }
+});
+
+// Upload multiple pour la galerie (max 5 images)
+app.post('/api/upload-gallery', authenticateToken, upload.array('gallery', 5), async (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'Aucun fichier envoyé.' });
+    const uploadPromises = req.files.map(file => {
+      return new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder: 'myra-services' },
+          (error, result) => {
+            if (result) resolve(result.secure_url);
+            else reject(error);
+          }
+        );
+        streamifier.createReadStream(file.buffer).pipe(stream);
+      });
+    });
+    const urls = await Promise.all(uploadPromises);
+    res.json({ urls });
+  } catch (error) {
+    console.error('Erreur Cloudinary (galerie):', error);
+    res.status(500).json({ error: 'Échec de l\'upload de la galerie.' });
   }
 });
 
@@ -156,7 +176,8 @@ app.post('/api/services', async (req, res) => {
       city: String(body.city).trim(),
       price: body.price != null && body.price !== '' ? String(body.price) : '',
       providerName: body.providerName || 'Anonyme',
-      image: body.image || DEFAULT_IMAGE,
+      image: body.image || DEFAULT_IMAGE,          // avatar du prestataire
+      gallery: body.gallery || [],                // portfolio (tableau d'URLs)
       verified: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -185,6 +206,7 @@ app.put('/api/services/:id', async (req, res) => {
       price: body.price != null && body.price !== '' ? String(body.price) : services[index].price,
       providerName: body.providerName || services[index].providerName,
       image: body.image || services[index].image,
+      gallery: body.gallery || services[index].gallery,
       updatedAt: new Date().toISOString()
     };
     await writeJSON(DATA_FILE, services);
@@ -204,7 +226,7 @@ app.delete('/api/services/:id', async (req, res) => {
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
 
-// ---------- Routes auth ----------
+// ---------- Routes auth (inchangées, mais incluses pour être complet) ----------
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -228,12 +250,10 @@ app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
-
     if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
       const token = jwt.sign({ id: 0, name: 'Admin', email: ADMIN_EMAIL }, JWT_SECRET, { expiresIn: '7d' });
       return res.json({ token, user: { id: 0, name: 'Admin', email: ADMIN_EMAIL } });
     }
-
     const users = await readJSON(USERS_FILE);
     const user = users.find(u => u.email === email);
     if (!user) return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
@@ -295,7 +315,7 @@ app.post('/api/services/:id/reviews', authenticateToken, async (req, res) => {
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
 
-// ---------- Routes réservation ----------
+// ---------- Routes réservation (inchangées) ----------
 app.get('/api/bookings', authenticateToken, async (req, res) => {
   try {
     const bookings = await readJSON(BOOKINGS_FILE);
