@@ -22,7 +22,6 @@ export default function HomePage() {
       .catch(err => console.error('Erreur chargement services:', err))
   }, [])
 
-  // Fermer les suggestions quand on clique à l'extérieur
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (searchRef.current && !searchRef.current.contains(e.target)) {
@@ -38,9 +37,8 @@ export default function HomePage() {
     : allServices.filter(service =>
         service.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         service.category?.toLowerCase().includes(searchTerm.toLowerCase())
-      ).slice(0, 6) // max 6 suggestions
+      ).slice(0, 6)
 
-  // Mise en surbrillance du texte recherché dans les suggestions
   const highlightMatch = (text) => {
     if (!searchTerm.trim()) return text
     const parts = text.split(new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'))
@@ -59,11 +57,11 @@ export default function HomePage() {
       <section className="relative pt-20 md:pt-28 pb-12 md:pb-20 px-4 text-center overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
         <div className="max-w-3xl mx-auto relative z-10">
-          <h1 className="text-3xl md:text-5xl lg:text-6xl font-extrabold tracking-tight mb-4 md:mb-6 leading-tight">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight mb-4 md:mb-6 leading-tight">
             Tous les services du quotidien, <br />
             <span className="text-primary">à deux pas de chez vous</span>
           </h1>
-          <p className="text-sm md:text-lg text-muted-foreground mb-6 md:mb-10 max-w-xl mx-auto px-2">
+          <p className="text-base md:text-lg text-muted-foreground mb-6 md:mb-10 max-w-xl mx-auto px-2">
             Myra vous connecte avec des prestataires locaux de confiance. Coiffure, bricolage, jardinage… trouvez l&apos;aide qu&apos;il vous faut en quelques clics.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
@@ -90,8 +88,8 @@ export default function HomePage() {
       {/* COMMENT ÇA MARCHE */}
       <section className="py-10 md:py-16 px-4 max-w-6xl mx-auto">
         <div className="text-center mb-8 md:mb-12">
-          <h2 className="text-2xl md:text-3xl font-bold mb-2 md:mb-4">Comment ça marche ?</h2>
-          <p className="text-sm md:text-base text-muted-foreground">Trois étapes simples pour trouver le prestataire idéal.</p>
+          <h2 className="text-3xl md:text-4xl font-bold mb-2 md:mb-4">Comment ça marche ?</h2>
+          <p className="text-base md:text-lg text-muted-foreground">Trois étapes simples pour trouver le prestataire idéal.</p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 md:gap-8">
           {[
@@ -101,11 +99,11 @@ export default function HomePage() {
           ].map((step, i) => {
             const IconComponent = step.icon
             return (
-              <div key={i} className="text-center bg-card backdrop-blur-md border border-border rounded-2xl p-6">
-                <div className="w-12 h-12 sm:w-14 sm:h-14 mx-auto mb-3 sm:mb-4 rounded-full bg-primary/10 flex items-center justify-center">
-                  <IconComponent size={24} className="text-primary" />
+              <div key={i} className="text-center bg-card backdrop-blur-md border border-border rounded-2xl p-6 card-hover">
+                <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
+                  <IconComponent size={28} className="text-primary" />
                 </div>
-                <h3 className="text-lg md:text-xl font-semibold mb-2">{step.title}</h3>
+                <h3 className="text-xl font-semibold mb-2">{step.title}</h3>
                 <p className="text-sm text-muted-foreground">{step.desc}</p>
               </div>
             )
@@ -116,23 +114,23 @@ export default function HomePage() {
       {/* POURQUOI MYRA */}
       <section className="py-10 md:py-16 px-4 max-w-6xl mx-auto">
         <div className="text-center mb-8 md:mb-12">
-          <h2 className="text-2xl md:text-3xl font-bold mb-2 md:mb-4">Pourquoi choisir Myra ?</h2>
-          <p className="text-sm md:text-base text-muted-foreground">La plateforme locale qui place la confiance au cœur de chaque échange.</p>
+          <h2 className="text-3xl md:text-4xl font-bold mb-2 md:mb-4">Pourquoi choisir Myra ?</h2>
+          <p className="text-base md:text-lg text-muted-foreground">La plateforme locale qui place la confiance au cœur de chaque échange.</p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 md:gap-8">
           {[
-            { icon: ShieldCheck, title: "Profils vérifiés", desc: "Tous nos prestataires passent par un contrôle d'identité." },
-            { icon: MapPin, title: "Ultra local", desc: "Des services disponibles dans votre quartier, en quelques minutes." },
-            { icon: Star, title: "Avis clients", desc: "Des notes et commentaires transparents pour vous aider à choisir." },
+            { icon: ShieldCheck, title: "Profils vérifiés", desc: "Tous nos prestataires passent par un contrôle d'identité.", color: "text-green-400" },
+            { icon: MapPin, title: "Ultra local", desc: "Des services disponibles dans votre quartier, en quelques minutes.", color: "text-blue-400" },
+            { icon: Star, title: "Avis clients", desc: "Des notes et commentaires transparents pour vous aider à choisir.", color: "text-yellow-400" },
           ].map((item, i) => {
             const IconComponent = item.icon
             return (
-              <div key={i} className="bg-card backdrop-blur-md border border-border rounded-2xl p-5 flex gap-4 items-start">
+              <div key={i} className="bg-card backdrop-blur-md border border-border rounded-2xl p-5 flex gap-4 items-start card-hover">
                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <IconComponent size={20} className="text-primary" />
+                  <IconComponent size={20} className={item.color} />
                 </div>
                 <div>
-                  <h3 className="text-base md:text-lg font-semibold mb-1">{item.title}</h3>
+                  <h3 className="text-lg font-semibold mb-1">{item.title}</h3>
                   <p className="text-sm text-muted-foreground">{item.desc}</p>
                 </div>
               </div>
@@ -144,19 +142,19 @@ export default function HomePage() {
       {/* RECHERCHE AVEC SUGGESTIONS */}
       <div id="search-section" className="pt-4 md:pt-8">
         <section className="max-w-4xl mx-auto px-4 py-8 md:py-12 text-center">
-          <h2 className="text-2xl md:text-4xl font-extrabold mb-4">
+          <h2 className="text-3xl md:text-4xl font-extrabold mb-4">
             Quel service cherchez-vous ?
           </h2>
-          <p className="text-sm md:text-base text-muted-foreground mb-6 md:mb-8">
+          <p className="text-base md:text-lg text-muted-foreground mb-6 md:mb-8">
             Tous les services, en confiance, à deux pas
           </p>
           <div ref={searchRef} className="relative max-w-xl mx-auto">
             <div className="flex items-center bg-card backdrop-blur-md border border-border rounded-full shadow-lg shadow-primary/20 overflow-hidden">
-              <span className="pl-4 md:pl-5 text-muted-foreground">🔍</span>
+              <span className="pl-5 text-muted-foreground">🔍</span>
               <input
                 type="text"
                 placeholder="Ex : coiffeur, réparation vélo..."
-                className="w-full py-3 md:py-4 px-3 md:px-4 bg-transparent text-foreground placeholder-muted-foreground outline-none text-sm md:text-base"
+                className="w-full py-4 px-4 bg-transparent text-foreground placeholder-muted-foreground outline-none text-base"
                 value={searchTerm}
                 onChange={(e) => {
                   setSearchTerm(e.target.value)
@@ -228,12 +226,12 @@ export default function HomePage() {
                 <div
                   key={cat.label}
                   onClick={() => { setSearchTerm(cat.label); setShowSuggestions(true) }}
-                  className="bg-card backdrop-blur-sm rounded-2xl p-3 md:p-4 text-center hover:scale-105 transition cursor-pointer border border-border"
+                  className="bg-card backdrop-blur-sm rounded-2xl p-4 text-center hover:scale-105 transition cursor-pointer border border-border card-hover"
                 >
-                  <div className={`w-10 h-10 md:w-12 md:h-12 mx-auto mb-1 md:mb-2 rounded-full bg-gradient-to-br ${cat.color} flex items-center justify-center`}>
+                  <div className={`w-12 h-12 mx-auto mb-2 rounded-full bg-gradient-to-br ${cat.color} flex items-center justify-center`}>
                     <Icon size={20} className="text-white" />
                   </div>
-                  <p className="font-semibold text-xs md:text-sm">{cat.label}</p>
+                  <p className="font-semibold text-sm">{cat.label}</p>
                 </div>
               )
             })}
@@ -243,12 +241,12 @@ export default function HomePage() {
         {/* Services disponibles */}
         <section className="max-w-6xl mx-auto px-4 py-8 md:py-12">
           <div className="mb-6">
-            <h3 className="text-xl md:text-2xl font-bold">Les services disponibles</h3>
+            <h3 className="text-2xl md:text-3xl font-bold">Les services disponibles</h3>
             <div className="h-1 w-16 bg-primary mt-2 rounded-full"></div>
           </div>
 
           {allServices.length === 0 && (
-            <p className="text-muted-foreground text-sm md:text-base">Aucun service pour le moment.</p>
+            <p className="text-muted-foreground text-base">Aucun service pour le moment.</p>
           )}
 
           <div className="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory scrollbar-hide">
@@ -256,7 +254,7 @@ export default function HomePage() {
               <Link
                 to={`/provider/${service._id}`}
                 key={service._id}
-                className="min-w-[260px] bg-card backdrop-blur-md border border-border rounded-2xl p-4 snap-start hover:scale-[1.02] transition"
+                className="min-w-[260px] bg-card backdrop-blur-md border border-border rounded-2xl p-4 snap-start card-hover"
               >
                 <div className="flex items-center gap-3 mb-3">
                   <img
@@ -265,7 +263,7 @@ export default function HomePage() {
                     className="w-12 h-12 rounded-full object-cover"
                   />
                   <div>
-                    <p className="font-bold text-sm md:text-base">{service.title}</p>
+                    <p className="font-bold text-base">{service.title}</p>
                     <span className="flex items-center text-xs text-primary">
                       <ShieldCheck size={14} className="mr-1" /> {service.verified ? 'Vérifié' : 'Non vérifié'}
                     </span>

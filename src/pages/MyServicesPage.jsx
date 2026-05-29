@@ -79,7 +79,7 @@ export default function MyServicesPage() {
 
         <div className="space-y-4">
           {services.map(service => (
-            <div key={service._id} className="bg-card backdrop-blur-md border border-border rounded-2xl p-4">
+            <div key={service._id} className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 card-hover">
               {editing === service._id ? (
                 <div className="space-y-3">
                   <input type="text" placeholder="Titre" className="w-full bg-white/5 border border-border rounded-lg py-2 px-3 outline-none focus:border-primary"

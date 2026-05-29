@@ -55,29 +55,29 @@ export default function Header() {
 
         {/* Navigation desktop */}
         <nav className="hidden md:flex gap-3 items-center">
-          <Link to="/add-service" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
+          <Link to="/add-service" className="flex items-center gap-1 text-sm font-medium bg-primary/10 text-primary px-4 py-2 rounded-full hover:bg-primary/20 transition">
             <PlusCircle size={16} /> Proposer
           </Link>
           {user && (
             <>
-              <Link to="/my-services" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
+              <Link to="/my-services" className="flex items-center gap-1 text-sm font-medium bg-primary/10 text-primary px-4 py-2 rounded-full hover:bg-primary/20 transition">
                 <ListChecks size={16} /> Mes services
               </Link>
-              <Link to="/my-bookings" className="relative flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
+              <Link to="/my-bookings" className="relative flex items-center gap-1 text-sm font-medium bg-primary/10 text-primary px-4 py-2 rounded-full hover:bg-primary/20 transition">
                 <Calendar size={16} />
                 <Badge count={notif.pendingBookings} />
                 Réservations
               </Link>
-              <Link to="/dashboard" className="relative flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
+              <Link to="/dashboard" className="relative flex items-center gap-1 text-sm font-medium bg-primary/10 text-primary px-4 py-2 rounded-full hover:bg-primary/20 transition">
                 <LayoutDashboard size={16} />
                 <Badge count={notif.pendingBookings} />
                 Dashboard
               </Link>
-              <Link to="/messages" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
+              <Link to="/messages" className="flex items-center gap-1 text-sm font-medium bg-primary/10 text-primary px-4 py-2 rounded-full hover:bg-primary/20 transition">
                 <MessageSquare size={16} /> Messages
               </Link>
               {user.email === 'Marckley.lindor14@gmail.com' && (
-                <Link to="/admin" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
+                <Link to="/admin" className="flex items-center gap-1 text-sm font-medium bg-primary/10 text-primary px-4 py-2 rounded-full hover:bg-primary/20 transition">
                   <Shield size={16} /> Admin
                 </Link>
               )}

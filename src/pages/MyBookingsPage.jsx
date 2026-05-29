@@ -56,7 +56,7 @@ export default function MyBookingsPage() {
         )}
         <div className="space-y-4">
           {bookings.map((booking) => (
-            <div key={booking._id} className="bg-card backdrop-blur-md border border-border rounded-2xl p-4">
+            <div key={booking._id} className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 card-hover">
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                 <div>
                   <h3 className="text-lg md:text-xl font-bold">{booking.serviceTitle}</h3>

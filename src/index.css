@@ -9,6 +9,36 @@ body {
   scroll-behavior: smooth;
 }
 
+/* Arrondis plus généreux et ombre douce sur les cartes */
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 1.25rem;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+}
+.card-hover:hover {
+  transform: translateY(-4px) scale(1.01);
+  box-shadow: 0 12px 28px rgba(0,0,0,0.12);
+}
+
+/* Boutons plus doux */
+button, .btn {
+  transition: all 0.15s ease;
+  border-radius: 9999px;
+  font-weight: 600;
+}
+button:active, .btn:active {
+  transform: scale(0.96);
+}
+
+/* Inputs et selects plus doux */
+input, textarea, select {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 0.75rem;
+}
+input:focus, textarea:focus, select:focus {
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+}
+
 /* Animation d’arrivée des pages */
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(25px); }
@@ -18,31 +48,5 @@ body {
   animation: fade-in 0.5s ease-out both;
 }
 
-/* Cartes avec effet au survol */
-.card-hover {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.card-hover:hover {
-  transform: translateY(-4px) scale(1.01);
-  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-}
-
-/* Boutons plus réactifs */
-button, .btn {
-  transition: all 0.15s ease;
-}
-button:active, .btn:active {
-  transform: scale(0.95);
-}
-
-/* Inputs et selects */
-input, textarea, select {
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-input:focus, textarea:focus, select:focus {
-  box-shadow: 0 0 0 3px rgba(59,130,246,0.2);
-}
-
-/* Cacher la scrollbar */
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }

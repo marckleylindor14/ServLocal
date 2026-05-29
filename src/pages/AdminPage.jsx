@@ -134,7 +134,7 @@ export default function AdminPage() {
 
 function StatCard({ label, value }) {
   return (
-    <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-3 md:p-4 text-center">
+    <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-3 md:p-4 text-center card-hover">
       <p className="text-2xl md:text-3xl font-bold">{value}</p>
       <p className="text-xs md:text-sm text-muted-foreground mt-1">{label}</p>
     </div>
