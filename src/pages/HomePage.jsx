@@ -22,16 +22,15 @@ export default function HomePage() {
   useEffect(() => {
     fetch(`${API_URL}/api/services`)
       .then(res => res.json())
-      .then(data => setAllServices(data))
-      .catch(err => console.error('Erreur chargement services:', err))
+      .then(data => setAllServices(Array.isArray(data) ? data : []))
+      .catch(() => setAllServices([]))
 
     fetch(`${API_URL}/api/cities`)
       .then(res => res.json())
-      .then(data => setCities(data))
-      .catch(err => console.error('Erreur chargement villes:', err))
+      .then(data => setCities(Array.isArray(data) ? data : []))
+      .catch(() => setCities([]))
   }, [])
 
-  // Détection automatique au premier chargement (optionnelle, discrète)
   useEffect(() => {
     if (!navigator.geolocation || cities.length === 0) return
     setDetectingCity(true)
@@ -72,20 +71,20 @@ export default function HomePage() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const filteredServices = allServices.filter(service => {
+  const filteredServices = Array.isArray(allServices) ? allServices.filter(service => {
     const matchesCity = !selectedCity || service.city === selectedCity
     const matchesSearch = !searchTerm.trim() ||
       service.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       service.category?.toLowerCase().includes(searchTerm.toLowerCase())
     return matchesCity && matchesSearch
-  })
+  }) : []
 
   const suggestionServices = searchTerm.trim() === ''
     ? []
-    : allServices.filter(service =>
+    : (Array.isArray(allServices) ? allServices.filter(service =>
         service.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         service.category?.toLowerCase().includes(searchTerm.toLowerCase())
-      ).slice(0, 6)
+      ).slice(0, 6) : [])
 
   const highlightMatch = (text) => {
     if (!searchTerm.trim()) return text
@@ -96,6 +95,15 @@ export default function HomePage() {
         : part
     )
   }
+
+  const categories = [
+    { icon: Home, label: "Maison", color: "from-blue-400 to-blue-500" },
+    { icon: Smile, label: "Bien-être", color: "from-pink-400 to-rose-500" },
+    { icon: BookOpen, label: "Cours", color: "from-yellow-400 to-amber-500" },
+    { icon: Wrench, label: "Tech & Réparation", color: "from-purple-400 to-violet-500" },
+    { icon: PartyPopper, label: "Événements", color: "from-green-400 to-emerald-500" },
+    { icon: Dog, label: "Animaux", color: "from-orange-400 to-red-500" },
+  ]
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans scroll-smooth page-enter">
@@ -197,19 +205,15 @@ export default function HomePage() {
             Tous les services, en confiance, à deux pas
           </p>
 
-          {/* Filtre par ville + géoloc */}
           <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mb-2">
             <div className="relative w-full max-w-xs">
               <select
                 value={selectedCity}
-                onChange={(e) => {
-                  setSelectedCity(e.target.value)
-                  setGeoMessage('')
-                }}
+                onChange={(e) => { setSelectedCity(e.target.value); setGeoMessage('') }}
                 className="w-full bg-card border border-border rounded-full py-3 pl-5 pr-10 text-foreground outline-none focus:border-primary transition appearance-none"
               >
                 <option value="">Toutes les villes</option>
-                {cities.map(city => (
+                {Array.isArray(cities) && cities.map(city => (
                   <option key={city} value={city}>{city}</option>
                 ))}
               </select>
@@ -257,11 +261,8 @@ export default function HomePage() {
               {detectingCity ? 'Détection...' : 'Me localiser'}
             </button>
           </div>
-          {geoMessage && (
-            <p className="text-xs text-muted-foreground mb-4">{geoMessage}</p>
-          )}
+          {geoMessage && <p className="text-xs text-muted-foreground mb-4">{geoMessage}</p>}
 
-          {/* Barre de recherche texte */}
           <div ref={searchRef} className="relative max-w-xl mx-auto">
             <div className="flex items-center bg-card backdrop-blur-md border border-border rounded-full shadow-lg shadow-primary/20 overflow-hidden">
               <span className="pl-5 text-muted-foreground">🔍</span>
@@ -270,28 +271,17 @@ export default function HomePage() {
                 placeholder="Ex : coiffeur, réparation vélo..."
                 className="w-full py-4 px-4 bg-transparent text-foreground placeholder-muted-foreground outline-none text-base"
                 value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value)
-                  setShowSuggestions(true)
-                }}
-                onFocus={() => {
-                  if (searchTerm.trim()) setShowSuggestions(true)
-                }}
+                onChange={(e) => { setSearchTerm(e.target.value); setShowSuggestions(true) }}
+                onFocus={() => { if (searchTerm.trim()) setShowSuggestions(true) }}
               />
               {searchTerm && (
-                <button
-                  onClick={() => { setSearchTerm(''); setShowSuggestions(false) }}
-                  className="pr-3 text-muted-foreground hover:text-foreground transition"
-                >
+                <button onClick={() => { setSearchTerm(''); setShowSuggestions(false) }} className="pr-3 text-muted-foreground hover:text-foreground transition">
                   <X size={18} />
                 </button>
               )}
-              <button className="hidden sm:block bg-primary text-primary-foreground font-semibold px-5 py-2 m-1 rounded-full hover:bg-primary/90 transition text-sm">
-                Rechercher
-              </button>
+              <button className="hidden sm:block bg-primary text-primary-foreground font-semibold px-5 py-2 m-1 rounded-full hover:bg-primary/90 transition text-sm">Rechercher</button>
             </div>
 
-            {/* Panneau de suggestions */}
             {showSuggestions && searchTerm.trim() && (
               <div className="absolute top-full left-0 right-0 mt-2 bg-card backdrop-blur-md border border-border rounded-2xl shadow-2xl overflow-hidden z-50">
                 {suggestionServices.length > 0 ? (
@@ -302,11 +292,7 @@ export default function HomePage() {
                       onClick={() => { setShowSuggestions(false); setSearchTerm('') }}
                       className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition border-b border-border last:border-0"
                     >
-                      <img
-                        src={service.image || 'https://i.pravatar.cc/100?img=4'}
-                        alt={service.title}
-                        className="w-10 h-10 rounded-full object-cover"
-                      />
+                      <img src={service.image || 'https://i.pravatar.cc/100?img=4'} alt={service.title} className="w-10 h-10 rounded-full object-cover" />
                       <div className="text-left min-w-0">
                         <p className="text-sm font-medium truncate">{highlightMatch(service.title)}</p>
                         <p className="text-xs text-muted-foreground">{service.category}</p>
@@ -315,9 +301,7 @@ export default function HomePage() {
                     </Link>
                   ))
                 ) : (
-                  <p className="px-4 py-3 text-sm text-muted-foreground text-center">
-                    Aucun service trouvé pour "{searchTerm}"
-                  </p>
+                  <p className="px-4 py-3 text-sm text-muted-foreground text-center">Aucun service trouvé pour "{searchTerm}"</p>
                 )}
               </div>
             )}
@@ -327,14 +311,7 @@ export default function HomePage() {
         {/* Catégories */}
         <section className="max-w-6xl mx-auto px-4 py-6 md:py-8">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
-            {[
-              { icon: Home, label: "Maison", color: "from-blue-400 to-blue-500" },
-              { icon: Smile, label: "Bien-être", color: "from-pink-400 to-rose-500" },
-              { icon: BookOpen, label: "Cours", color: "from-yellow-400 to-amber-500" },
-              { icon: Wrench, label: "Tech & Réparation", color: "from-purple-400 to-violet-500" },
-              { icon: PartyPopper, label: "Événements", color: "from-green-400 to-emerald-500" },
-              { icon: Dog, label: "Animaux", color: "from-orange-400 to-red-500" },
-            ].map((cat) => {
+            {categories.map((cat) => {
               const Icon = cat.icon
               return (
                 <div
@@ -352,7 +329,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Services disponibles (filtrés) */}
+        {/* Services disponibles */}
         <section className="max-w-6xl mx-auto px-4 py-8 md:py-12">
           <div className="mb-6">
             <h3 className="text-2xl md:text-3xl font-bold">
@@ -373,11 +350,7 @@ export default function HomePage() {
                 className="min-w-[260px] bg-card backdrop-blur-md border border-border rounded-2xl p-4 snap-start card-hover"
               >
                 <div className="flex items-center gap-3 mb-3">
-                  <img
-                    src={service.image || 'https://i.pravatar.cc/100?img=4'}
-                    alt={service.title}
-                    className="w-12 h-12 rounded-full object-cover"
-                  />
+                  <img src={service.image || 'https://i.pravatar.cc/100?img=4'} alt={service.title} className="w-12 h-12 rounded-full object-cover" />
                   <div>
                     <p className="font-bold text-base">{service.title}</p>
                     <span className="flex items-center text-xs text-primary">
@@ -386,9 +359,7 @@ export default function HomePage() {
                   </div>
                 </div>
                 <div className="flex items-center mb-2">
-                  {[...Array(5)].map((_, i) => (
-                    <span key={i} className="text-primary text-sm">⭐</span>
-                  ))}
+                  {[...Array(5)].map((_, i) => <span key={i} className="text-primary text-sm">⭐</span>)}
                   <span className="ml-2 text-muted-foreground text-sm">5.0</span>
                 </div>
                 <p className="text-muted-foreground text-sm">{service.category}</p>

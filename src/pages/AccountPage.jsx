@@ -37,8 +37,6 @@ export default function AccountPage() {
     setUploading(true)
     try {
       let photoUrl = user?.photo || null
-
-      // Upload de la nouvelle photo si changée
       if (photoFile) {
         const formData = new FormData()
         formData.append('image', photoFile)
@@ -51,8 +49,6 @@ export default function AccountPage() {
         const uploadData = await uploadRes.json()
         photoUrl = uploadData.url
       }
-
-      // Mise à jour du profil
       const res = await fetch(`${API_URL}/api/user/profile`, {
         method: 'PUT',
         headers: {
@@ -61,12 +57,9 @@ export default function AccountPage() {
         },
         body: JSON.stringify({ name, photo: photoUrl })
       })
-
       if (!res.ok) throw new Error('Erreur mise à jour')
       const updatedUser = await res.json()
-
-      // Mettre à jour le contexte et le localStorage
-      login({ id: updatedUser.id, name: updatedUser.name, email: updatedUser.email, photo: updatedUser.photo }, localStorage.getItem('token'))
+      login(updatedUser, localStorage.getItem('token'))
       alert('Profil mis à jour !')
     } catch (err) {
       alert('Erreur: ' + err.message)
@@ -84,7 +77,6 @@ export default function AccountPage() {
       <main className="max-w-md mx-auto px-4 py-12">
         <h2 className="text-3xl font-extrabold mb-6">Mon compte</h2>
         <form onSubmit={handleSave} className="space-y-6">
-          {/* Photo de profil */}
           <div className="flex flex-col items-center">
             <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-primary">
               {photoPreview ? (
@@ -100,43 +92,22 @@ export default function AccountPage() {
                 </button>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="mt-2 text-sm text-primary hover:underline"
-            >
+            <button type="button" onClick={() => fileInputRef.current?.click()} className="mt-2 text-sm text-primary hover:underline">
               Changer la photo
             </button>
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
           </div>
-
-          {/* Nom */}
           <div>
             <label className="block text-sm font-medium mb-1">Nom</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 text-foreground outline-none focus:border-primary transition"
-            />
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)}
+              className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 text-foreground outline-none focus:border-primary transition" />
           </div>
-
-          {/* Email (readonly) */}
           <div>
             <label className="block text-sm font-medium mb-1">Email</label>
-            <input
-              type="email"
-              value={user.email}
-              disabled
-              className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 text-muted-foreground"
-            />
+            <input type="email" value={user.email} disabled className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 text-muted-foreground" />
           </div>
-
-          <button
-            type="submit"
-            disabled={uploading}
-            className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-full hover:bg-primary/90 transition disabled:opacity-50"
-          >
+          <button type="submit" disabled={uploading}
+            className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-full hover:bg-primary/90 transition disabled:opacity-50">
             {uploading ? 'Enregistrement...' : 'Enregistrer les modifications'}
           </button>
         </form>
