@@ -16,9 +16,9 @@ export default function HomePage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [detectingCity, setDetectingCity] = useState(false)
+  const [geoMessage, setGeoMessage] = useState('')
   const searchRef = useRef(null)
 
-  // Charger les services et les villes
   useEffect(() => {
     fetch(`${API_URL}/api/services`)
       .then(res => res.json())
@@ -31,10 +31,9 @@ export default function HomePage() {
       .catch(err => console.error('Erreur chargement villes:', err))
   }, [])
 
-  // Détection automatique de la ville
+  // Détection automatique au premier chargement (optionnelle, discrète)
   useEffect(() => {
-    if (!navigator.geolocation) return
-
+    if (!navigator.geolocation || cities.length === 0) return
     setDetectingCity(true)
     navigator.geolocation.getCurrentPosition(
       async (position) => {
@@ -48,6 +47,9 @@ export default function HomePage() {
           const city = data.address?.city || data.address?.town || data.address?.village || ''
           if (city && cities.includes(city)) {
             setSelectedCity(city)
+            setGeoMessage('')
+          } else if (city) {
+            setGeoMessage(`📍 Votre ville (${city}) n'a pas encore de services.`)
           }
         } catch (err) {
           console.error('Géolocalisation échouée', err)
@@ -60,7 +62,6 @@ export default function HomePage() {
     )
   }, [cities])
 
-  // Fermer les suggestions au clic extérieur
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (searchRef.current && !searchRef.current.contains(e.target)) {
@@ -197,11 +198,14 @@ export default function HomePage() {
           </p>
 
           {/* Filtre par ville + géoloc */}
-          <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mb-6">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mb-2">
             <div className="relative w-full max-w-xs">
               <select
                 value={selectedCity}
-                onChange={(e) => setSelectedCity(e.target.value)}
+                onChange={(e) => {
+                  setSelectedCity(e.target.value)
+                  setGeoMessage('')
+                }}
                 className="w-full bg-card border border-border rounded-full py-3 pl-5 pr-10 text-foreground outline-none focus:border-primary transition appearance-none"
               >
                 <option value="">Toutes les villes</option>
@@ -214,6 +218,7 @@ export default function HomePage() {
             <button
               onClick={() => {
                 setDetectingCity(true)
+                setGeoMessage('')
                 navigator.geolocation.getCurrentPosition(
                   async (position) => {
                     try {
@@ -226,18 +231,21 @@ export default function HomePage() {
                       const city = data.address?.city || data.address?.town || data.address?.village || ''
                       if (city && cities.includes(city)) {
                         setSelectedCity(city)
+                        setGeoMessage('')
+                      } else if (city) {
+                        setGeoMessage(`📍 Votre ville (${city}) n'a pas encore de services.`)
                       } else {
-                        alert('Ville non disponible dans Myra.')
+                        setGeoMessage('Impossible de déterminer votre ville.')
                       }
                     } catch (err) {
-                      alert('Impossible de vous localiser.')
+                      setGeoMessage('Erreur de géolocalisation.')
                     } finally {
                       setDetectingCity(false)
                     }
                   },
                   () => {
                     setDetectingCity(false)
-                    alert('Géolocalisation refusée.')
+                    setGeoMessage('Géolocalisation refusée.')
                   },
                   { timeout: 5000 }
                 )
@@ -249,6 +257,9 @@ export default function HomePage() {
               {detectingCity ? 'Détection...' : 'Me localiser'}
             </button>
           </div>
+          {geoMessage && (
+            <p className="text-xs text-muted-foreground mb-4">{geoMessage}</p>
+          )}
 
           {/* Barre de recherche texte */}
           <div ref={searchRef} className="relative max-w-xl mx-auto">
