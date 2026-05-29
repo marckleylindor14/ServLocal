@@ -55,29 +55,29 @@ export default function Header() {
 
         {/* Navigation desktop */}
         <nav className="hidden md:flex gap-3 items-center">
-          <Link to="/add-service" className="flex items-center gap-1 text-sm font-medium bg-primary/10 text-primary px-4 py-2 rounded-full hover:bg-primary/20 transition">
+          <Link to="/add-service" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
             <PlusCircle size={16} /> Proposer
           </Link>
           {user && (
             <>
-              <Link to="/my-services" className="flex items-center gap-1 text-sm font-medium bg-primary/10 text-primary px-4 py-2 rounded-full hover:bg-primary/20 transition">
+              <Link to="/my-services" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
                 <ListChecks size={16} /> Mes services
               </Link>
-              <Link to="/my-bookings" className="relative flex items-center gap-1 text-sm font-medium bg-primary/10 text-primary px-4 py-2 rounded-full hover:bg-primary/20 transition">
+              <Link to="/my-bookings" className="relative flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
                 <Calendar size={16} />
                 <Badge count={notif.pendingBookings} />
                 Réservations
               </Link>
-              <Link to="/dashboard" className="relative flex items-center gap-1 text-sm font-medium bg-primary/10 text-primary px-4 py-2 rounded-full hover:bg-primary/20 transition">
+              <Link to="/dashboard" className="relative flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
                 <LayoutDashboard size={16} />
                 <Badge count={notif.pendingBookings} />
                 Dashboard
               </Link>
-              <Link to="/messages" className="flex items-center gap-1 text-sm font-medium bg-primary/10 text-primary px-4 py-2 rounded-full hover:bg-primary/20 transition">
+              <Link to="/messages" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
                 <MessageSquare size={16} /> Messages
               </Link>
               {user.email === 'Marckley.lindor14@gmail.com' && (
-                <Link to="/admin" className="flex items-center gap-1 text-sm font-medium bg-primary/10 text-primary px-4 py-2 rounded-full hover:bg-primary/20 transition">
+                <Link to="/admin" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
                   <Shield size={16} /> Admin
                 </Link>
               )}
@@ -101,23 +101,23 @@ export default function Header() {
       {/* Panneau mobile */}
       {mobileMenuOpen && (
         <div className="md:hidden bg-background/95 backdrop-blur-md border-t border-border px-4 py-4 flex flex-col gap-3">
-          <Link to="/add-service" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-sm"><PlusCircle size={18} /> Proposer un service</Link>
+          <Link to="/add-service" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-sm text-muted-foreground"><PlusCircle size={18} /> Proposer un service</Link>
           {user && (
             <>
-              <Link to="/my-services" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-sm"><ListChecks size={18} /> Mes services</Link>
-              <Link to="/my-bookings" onClick={() => setMobileMenuOpen(false)} className="relative flex items-center gap-2 text-sm">
+              <Link to="/my-services" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-sm text-muted-foreground"><ListChecks size={18} /> Mes services</Link>
+              <Link to="/my-bookings" onClick={() => setMobileMenuOpen(false)} className="relative flex items-center gap-2 text-sm text-muted-foreground">
                 <Calendar size={18} />
                 <Badge count={notif.pendingBookings} />
                 Mes réservations
               </Link>
-              <Link to="/dashboard" onClick={() => setMobileMenuOpen(false)} className="relative flex items-center gap-2 text-sm">
+              <Link to="/dashboard" onClick={() => setMobileMenuOpen(false)} className="relative flex items-center gap-2 text-sm text-muted-foreground">
                 <LayoutDashboard size={18} />
                 <Badge count={notif.pendingBookings} />
                 Dashboard
               </Link>
-              <Link to="/messages" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-sm"><MessageSquare size={18} /> Messages</Link>
+              <Link to="/messages" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-sm text-muted-foreground"><MessageSquare size={18} /> Messages</Link>
               {user.email === 'Marckley.lindor14@gmail.com' && (
-                <Link to="/admin" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-sm"><Shield size={18} /> Admin</Link>
+                <Link to="/admin" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-sm text-muted-foreground"><Shield size={18} /> Admin</Link>
               )}
               <div className="flex justify-between items-center pt-2 border-t border-border">
                 <span className="text-sm text-muted-foreground">{user.name}</span>
