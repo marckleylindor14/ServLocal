@@ -85,6 +85,9 @@ export default function Header() {
           )}
           {user ? (
             <div className="flex gap-3 items-center">
+              <Link to="/account" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
+                <User size={16} /> Mon compte
+              </Link>
               <span className="text-sm text-muted-foreground">{user.name}</span>
               <button onClick={handleLogout} className="flex items-center gap-1 border border-primary text-primary px-4 py-2 rounded-full font-semibold hover:bg-primary hover:text-primary-foreground transition">
                 <LogOut size={16} /> Déconnexion
@@ -119,11 +122,9 @@ export default function Header() {
               {user.email === 'Marckley.lindor14@gmail.com' && (
                 <Link to="/admin" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-sm text-muted-foreground"><Shield size={18} /> Admin</Link>
               )}
+              <Link to="/account" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-sm text-muted-foreground"><User size={18} /> Mon compte</Link>
               <div className="flex justify-between items-center pt-2 border-t border-border">
                 <span className="text-sm text-muted-foreground">{user.name}</span>
-                <Link to="/account" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
-  <User size={16} /> Mon compte
-</Link>
                 <button onClick={handleLogout} className="text-primary text-sm font-semibold">Déconnexion</button>
               </div>
             </>
