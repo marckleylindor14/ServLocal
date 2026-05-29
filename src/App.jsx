@@ -11,6 +11,8 @@ import MessagesPage from './pages/MessagesPage'
 import AdminPage from './pages/AdminPage'
 import PaymentSuccessPage from './pages/PaymentSuccessPage'
 import AccountPage from './pages/AccountPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 
 export default function App() {
   return (
@@ -27,6 +29,8 @@ export default function App() {
       <Route path="/admin" element={<AdminPage />} />
       <Route path="/payment-success" element={<PaymentSuccessPage />} />
       <Route path="/account" element={<AccountPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
     </Routes>
   )
 }

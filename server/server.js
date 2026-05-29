@@ -415,6 +415,51 @@ app.post('/api/auth/login', async (req, res) => { /* identique */
     res.json({ token, user: { id: user._id, name: user.name, email: user.email } });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
+// ---------- Réinitialisation de mot de passe ----------
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email requis.' });
+    const users = await readJSON(USERS_FILE);
+    const user = users.find(u => u.email === email);
+    // On renvoie toujours un succès pour ne pas indiquer si l'email existe
+    if (user) {
+      const resetToken = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
+      const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
+      await resend.emails.send({
+        from: FROM_EMAIL,
+        to: [user.email],
+        subject: 'Réinitialisation de votre mot de passe Myra',
+        html: `<p>Bonjour ${user.name},</p>
+               <p>Vous avez demandé la réinitialisation de votre mot de passe. Cliquez sur le lien ci-dessous (valable 1h) :</p>
+               <a href="${resetLink}">Réinitialiser mon mot de passe</a>
+               <p>Si vous n'avez pas fait cette demande, ignorez ce message.</p>`
+      });
+    }
+    res.json({ message: 'Si cette adresse est associée à un compte, vous recevrez un email.' });
+  } catch (error) {
+    console.error('Erreur forgot-password:', error);
+    res.status(500).json({ error: 'Erreur interne' });
+  }
+});
+
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+    if (!token || !newPassword) return res.status(400).json({ error: 'Token et nouveau mot de passe requis.' });
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const users = await readJSON(USERS_FILE);
+    const index = users.findIndex(u => u._id === decoded.id && u.email === decoded.email);
+    if (index === -1) return res.status(400).json({ error: 'Token invalide.' });
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    users[index].password = hashedPassword;
+    await writeJSON(USERS_FILE, users);
+    res.json({ message: 'Mot de passe mis à jour. Vous pouvez vous connecter.' });
+  } catch (error) {
+    if (error.name === 'TokenExpiredError') return res.status(401).json({ error: 'Token expiré.' });
+    res.status(500).json({ error: 'Erreur interne' });
+  }
+});
 app.get('/api/auth/me', authenticateToken, async (req, res) => { /* identique */
   try {
     if (req.user.email === ADMIN_EMAIL) return res.json({ id: 0, name: 'Admin', email: ADMIN_EMAIL });

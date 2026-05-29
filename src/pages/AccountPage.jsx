@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Header from '../components/Header'
 import API_URL from '../config'
-import { Upload, X, Loader2, Lock, BarChart3 } from 'lucide-react'
+import { Upload, X, Loader2, Lock, BarChart3, Eye, EyeOff } from 'lucide-react'
 
 export default function AccountPage() {
   const { user, login } = useAuth()
@@ -20,6 +20,8 @@ export default function AccountPage() {
   const [passwordLoading, setPasswordLoading] = useState(false)
   const [passwordError, setPasswordError] = useState('')
   const [passwordSuccess, setPasswordSuccess] = useState('')
+  const [showCurrent, setShowCurrent] = useState(false)
+  const [showNew, setShowNew] = useState(false)
 
   // Statistiques
   const [stats, setStats] = useState(null)
@@ -183,20 +185,28 @@ export default function AccountPage() {
           )}
         </div>
 
-        {/* Changement de mot de passe */}
+        {/* Changement de mot de passe avec œil */}
         <form onSubmit={handlePasswordChange} className="space-y-6 bg-card backdrop-blur-md border border-border rounded-2xl p-6">
           <h3 className="text-xl font-bold flex items-center gap-2"><Lock size={20} /> Changer le mot de passe</h3>
           {passwordError && <p className="text-red-400 text-sm">{passwordError}</p>}
           {passwordSuccess && <p className="text-green-400 text-sm">{passwordSuccess}</p>}
-          <div>
+          <div className="relative">
             <label className="block text-sm font-medium mb-1">Mot de passe actuel</label>
-            <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)}
-              className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 outline-none focus:border-primary transition" />
+            <input type={showCurrent ? 'text' : 'password'} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)}
+              className="w-full bg-white/5 border border-border rounded-lg py-3 pl-4 pr-12 outline-none focus:border-primary transition" />
+            <button type="button" onClick={() => setShowCurrent(!showCurrent)}
+              className="absolute right-3 top-9 text-muted-foreground hover:text-foreground transition">
+              {showCurrent ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
           </div>
-          <div>
+          <div className="relative">
             <label className="block text-sm font-medium mb-1">Nouveau mot de passe</label>
-            <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 outline-none focus:border-primary transition" />
+            <input type={showNew ? 'text' : 'password'} value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
+              className="w-full bg-white/5 border border-border rounded-lg py-3 pl-4 pr-12 outline-none focus:border-primary transition" />
+            <button type="button" onClick={() => setShowNew(!showNew)}
+              className="absolute right-3 top-9 text-muted-foreground hover:text-foreground transition">
+              {showNew ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
           </div>
           <button type="submit" disabled={passwordLoading}
             className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-full hover:bg-primary/90 transition disabled:opacity-50 flex items-center justify-center gap-2">

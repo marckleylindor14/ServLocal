@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import API_URL from '../config'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Eye, EyeOff } from 'lucide-react'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
 
@@ -44,9 +45,22 @@ export default function LoginPage() {
         <input type="email" placeholder="Email" required value={email}
           onChange={e => setEmail(e.target.value)}
           className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 outline-none focus:border-primary" />
-        <input type="password" placeholder="Mot de passe" required value={password}
-          onChange={e => setPassword(e.target.value)}
-          className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 outline-none focus:border-primary" />
+        <div className="relative">
+          <input type={showPassword ? 'text' : 'password'} placeholder="Mot de passe" required value={password}
+            onChange={e => setPassword(e.target.value)}
+            className="w-full bg-white/5 border border-border rounded-lg py-3 pl-4 pr-12 outline-none focus:border-primary" />
+          <button type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition"
+          >
+            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+          </button>
+        </div>
+        <div className="flex justify-end">
+          <Link to="/forgot-password" className="text-xs text-primary hover:underline">
+            Mot de passe oublié ?
+          </Link>
+        </div>
         <button type="submit" disabled={loading}
           className="w-full bg-primary text-primary-foreground py-3 rounded-full font-semibold hover:bg-primary/90 transition flex items-center justify-center gap-2 disabled:opacity-70">
           {loading && <Loader2 size={18} className="animate-spin" />}
