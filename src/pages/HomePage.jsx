@@ -5,7 +5,7 @@ import Header from '../components/Header'
 import API_URL from '../config'
 import {
   Home, Smile, BookOpen, Wrench, PartyPopper, Dog, ShieldCheck,
-  Search, UserPlus, Star, MapPin, CheckCircle, ChevronDown, X
+  Search, UserPlus, Star, MapPin, CheckCircle, ChevronDown, X, Navigation
 } from 'lucide-react'
 
 export default function HomePage() {
@@ -15,8 +15,10 @@ export default function HomePage() {
   const [selectedCity, setSelectedCity] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [detectingCity, setDetectingCity] = useState(false)
   const searchRef = useRef(null)
 
+  // Charger les services et les villes
   useEffect(() => {
     fetch(`${API_URL}/api/services`)
       .then(res => res.json())
@@ -29,6 +31,36 @@ export default function HomePage() {
       .catch(err => console.error('Erreur chargement villes:', err))
   }, [])
 
+  // Détection automatique de la ville
+  useEffect(() => {
+    if (!navigator.geolocation) return
+
+    setDetectingCity(true)
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`,
+            { headers: { 'User-Agent': 'MyraApp/1.0' } }
+          )
+          const data = await res.json()
+          const city = data.address?.city || data.address?.town || data.address?.village || ''
+          if (city && cities.includes(city)) {
+            setSelectedCity(city)
+          }
+        } catch (err) {
+          console.error('Géolocalisation échouée', err)
+        } finally {
+          setDetectingCity(false)
+        }
+      },
+      () => setDetectingCity(false),
+      { timeout: 5000 }
+    )
+  }, [cities])
+
+  // Fermer les suggestions au clic extérieur
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (searchRef.current && !searchRef.current.contains(e.target)) {
@@ -164,13 +196,13 @@ export default function HomePage() {
             Tous les services, en confiance, à deux pas
           </p>
 
-          {/* Filtre par ville */}
+          {/* Filtre par ville + géoloc */}
           <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mb-6">
             <div className="relative w-full max-w-xs">
               <select
                 value={selectedCity}
                 onChange={(e) => setSelectedCity(e.target.value)}
-                className="w-full bg-card border border-border rounded-full py-3 px-5 text-foreground outline-none focus:border-primary transition appearance-none"
+                className="w-full bg-card border border-border rounded-full py-3 pl-5 pr-10 text-foreground outline-none focus:border-primary transition appearance-none"
               >
                 <option value="">Toutes les villes</option>
                 {cities.map(city => (
@@ -179,6 +211,43 @@ export default function HomePage() {
               </select>
               <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             </div>
+            <button
+              onClick={() => {
+                setDetectingCity(true)
+                navigator.geolocation.getCurrentPosition(
+                  async (position) => {
+                    try {
+                      const { latitude, longitude } = position.coords
+                      const res = await fetch(
+                        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`,
+                        { headers: { 'User-Agent': 'MyraApp/1.0' } }
+                      )
+                      const data = await res.json()
+                      const city = data.address?.city || data.address?.town || data.address?.village || ''
+                      if (city && cities.includes(city)) {
+                        setSelectedCity(city)
+                      } else {
+                        alert('Ville non disponible dans Myra.')
+                      }
+                    } catch (err) {
+                      alert('Impossible de vous localiser.')
+                    } finally {
+                      setDetectingCity(false)
+                    }
+                  },
+                  () => {
+                    setDetectingCity(false)
+                    alert('Géolocalisation refusée.')
+                  },
+                  { timeout: 5000 }
+                )
+              }}
+              disabled={detectingCity}
+              className="flex items-center gap-1 text-sm font-medium bg-primary/10 text-primary px-4 py-2 rounded-full hover:bg-primary/20 transition disabled:opacity-50"
+            >
+              <Navigation size={16} className={detectingCity ? 'animate-pulse' : ''} />
+              {detectingCity ? 'Détection...' : 'Me localiser'}
+            </button>
           </div>
 
           {/* Barre de recherche texte */}
