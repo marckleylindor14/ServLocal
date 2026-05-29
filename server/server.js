@@ -415,23 +415,7 @@ app.post('/api/auth/login', async (req, res) => { /* identique */
     res.json({ token, user: { id: user._id, name: user.name, email: user.email } });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
-// Route temporaire pour obtenir un token de reset sans email
-app.post('/api/auth/forgot-password-direct', async (req, res) => {
-  try {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ error: 'Email requis.' });
-    const users = await readJSON(USERS_FILE);
-    const user = users.find(u => u.email === email);
-    if (!user) return res.status(404).json({ error: 'Utilisateur non trouvé.' });
 
-    const resetToken = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
-    const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
-    
-    res.json({ token: resetToken, link: resetLink });
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
-});
 // ---------- Réinitialisation de mot de passe ----------
 app.post('/api/auth/forgot-password', async (req, res) => {
   try {
@@ -520,6 +504,23 @@ app.post('/api/services/:id/bookings', authenticateToken, async (req, res) => {
     };
     bookings.push(newBooking);
     await writeJSON(BOOKINGS_FILE, bookings);
+    // Route temporaire pour obtenir un token de reset sans email
+app.post('/api/auth/forgot-password-direct', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email requis.' });
+    const users = await readJSON(USERS_FILE);
+    const user = users.find(u => u.email === email);
+    if (!user) return res.status(404).json({ error: 'Utilisateur non trouvé.' });
+
+    const resetToken = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
+    const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
+    
+    res.json({ token: resetToken, link: resetLink });
+  } catch (error) {
+    res.status(500).json({ error: 'Erreur interne' });
+  }
+});
 
     // --- Envoyer un email au prestataire ---
     if (service.providerId) {
