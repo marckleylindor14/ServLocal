@@ -4,6 +4,9 @@ const fs = require('fs');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const cloudinary = require('cloudinary').v2;
+const multer = require('multer');
+const streamifier = require('streamifier');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -17,6 +20,17 @@ const DEFAULT_IMAGE = 'https://i.pravatar.cc/100?img=4';
 const JWT_SECRET = 'servlocal_secret_2026';
 const ADMIN_EMAIL = 'Marckley.lindor14@gmail.com';
 const ADMIN_PASSWORD = 'Jesula1982';
+
+// Configuration Cloudinary (via variables d'environnement)
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+// Multer (stockage en mémoire)
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
 app.use(cors());
 app.use(express.json());
@@ -88,6 +102,31 @@ function authenticateAdmin(req, res, next) {
     next();
   });
 }
+
+// ---------- Upload image vers Cloudinary ----------
+app.post('/api/upload', authenticateToken, upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Aucun fichier envoyé.' });
+
+    const streamUpload = () =>
+      new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder: 'myra-services' },
+          (error, result) => {
+            if (result) resolve(result);
+            else reject(error);
+          }
+        );
+        streamifier.createReadStream(req.file.buffer).pipe(stream);
+      });
+
+    const result = await streamUpload();
+    res.json({ url: result.secure_url });
+  } catch (error) {
+    console.error('Erreur Cloudinary:', error);
+    res.status(500).json({ error: 'Échec de l\'upload.' });
+  }
+});
 
 // ---------- Routes services ----------
 app.get('/api/services', async (req, res) => {

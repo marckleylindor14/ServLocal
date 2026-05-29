@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Header from '../components/Header'
 import API_URL from '../config'
+import { Upload, X } from 'lucide-react'
 
 export default function AddServicePage() {
   const [title, setTitle] = useState('')
@@ -10,8 +11,26 @@ export default function AddServicePage() {
   const [description, setDescription] = useState('')
   const [price, setPrice] = useState('')
   const [city, setCity] = useState('')
+  const [imageFile, setImageFile] = useState(null)
+  const [imagePreview, setImagePreview] = useState(null)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef(null)
   const { user } = useAuth()
   const navigate = useNavigate()
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      setImageFile(file)
+      setImagePreview(URL.createObjectURL(file))
+    }
+  }
+
+  const clearImage = () => {
+    setImageFile(null)
+    setImagePreview(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -21,9 +40,36 @@ export default function AddServicePage() {
       return
     }
 
-    const priceNumber = price.trim() === '' ? null : Number(price.replace(',', '.').replace(/[^0-9.]/g, ''))
-
     try {
+      let imageUrl = null
+
+      // 1) Upload de l'image si sélectionnée
+      if (imageFile) {
+        setUploading(true)
+        const formData = new FormData()
+        formData.append('image', imageFile)
+
+        const uploadRes = await fetch(`${API_URL}/api/upload`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          },
+          body: formData
+        })
+
+        if (!uploadRes.ok) {
+          const errData = await uploadRes.json()
+          throw new Error(errData.error || 'Échec upload image')
+        }
+
+        const uploadData = await uploadRes.json()
+        imageUrl = uploadData.url
+        setUploading(false)
+      }
+
+      // 2) Créer le service
+      const priceNumber = price.trim() === '' ? null : Number(price.replace(',', '.').replace(/[^0-9.]/g, ''))
+
       const response = await fetch(`${API_URL}/api/services`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -33,7 +79,8 @@ export default function AddServicePage() {
           description,
           city,
           price: priceNumber,
-          providerName: user.name
+          providerName: user.name,
+          image: imageUrl || undefined // si pas d'image, le serveur mettra l'image par défaut
         })
       })
 
@@ -46,11 +93,12 @@ export default function AddServicePage() {
         setDescription('')
         setPrice('')
         setCity('')
+        clearImage()
       } else {
         alert('❌ Erreur : ' + (data.details ? data.details.join(', ') : data.error))
       }
     } catch (error) {
-      alert('❌ Impossible de contacter le serveur.')
+      alert('❌ ' + (error.message || 'Impossible de contacter le serveur.'))
     }
   }
 
@@ -106,14 +154,41 @@ export default function AddServicePage() {
               placeholder="Ex : 30€ ou À partir de 25€"
               className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 text-foreground placeholder-muted-foreground outline-none focus:border-primary transition" />
           </div>
+
+          {/* Photo du service */}
           <div>
             <label className="block text-sm font-medium mb-1">Photo du service</label>
-            <div className="border-2 border-dashed border-border rounded-lg p-6 text-center text-muted-foreground cursor-pointer hover:border-primary transition">
-              Cliquez pour télécharger une image (bientôt disponible)
-            </div>
+            {imagePreview ? (
+              <div className="relative w-full h-48 rounded-lg overflow-hidden">
+                <img src={imagePreview} alt="Aperçu" className="w-full h-full object-cover" />
+                <button type="button" onClick={clearImage} className="absolute top-2 right-2 bg-black/60 text-white p-1 rounded-full">
+                  <X size={18} />
+                </button>
+              </div>
+            ) : (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-border rounded-lg p-6 text-center text-muted-foreground cursor-pointer hover:border-primary transition"
+              >
+                <Upload size={24} className="mx-auto mb-2" />
+                Cliquez pour télécharger une image
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageChange}
+              className="hidden"
+            />
           </div>
-          <button type="submit" className="w-full bg-primary text-primary-foreground font-semibold py-3 px-6 rounded-full hover:bg-primary/90 transition">
-            Publier le service
+
+          <button
+            type="submit"
+            disabled={uploading}
+            className="w-full bg-primary text-primary-foreground font-semibold py-3 px-6 rounded-full hover:bg-primary/90 transition disabled:opacity-50"
+          >
+            {uploading ? 'Téléchargement de l\'image...' : 'Publier le service'}
           </button>
         </form>
       </main>
