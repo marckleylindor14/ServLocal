@@ -167,6 +167,53 @@ app.put('/api/user/profile', authenticateToken, async (req, res) => {
   }
 });
 
+// ---------- Changement de mot de passe ----------
+app.put('/api/user/change-password', authenticateToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Mot de passe actuel et nouveau requis.' });
+    const users = await readJSON(USERS_FILE);
+    const index = users.findIndex(u => u._id === req.user.id);
+    if (index === -1) return res.status(404).json({ error: 'Utilisateur non trouvé' });
+
+    const isMatch = await bcrypt.compare(currentPassword, users[index].password);
+    if (!isMatch) return res.status(400).json({ error: 'Mot de passe actuel incorrect.' });
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    users[index].password = hashedPassword;
+    await writeJSON(USERS_FILE, users);
+    res.json({ message: 'Mot de passe mis à jour.' });
+  } catch (error) {
+    res.status(500).json({ error: 'Erreur interne' });
+  }
+});
+
+// ---------- Statistiques utilisateur ----------
+app.get('/api/user/stats', authenticateToken, async (req, res) => {
+  try {
+    const [services, bookings] = await Promise.all([
+      readJSON(DATA_FILE),
+      readJSON(BOOKINGS_FILE)
+    ]);
+    const userId = req.user.id;
+    const userName = req.user.name;
+
+    const myServices = services.filter(s => s.providerName === userName);
+    const bookingsReceived = bookings.filter(b => b.providerName === userName);
+    const bookingsMade = bookings.filter(b => b.clientId === userId);
+
+    res.json({
+      totalServices: myServices.length,
+      bookingsReceived: bookingsReceived.length,
+      bookingsMade: bookingsMade.length,
+      pendingReceived: bookingsReceived.filter(b => b.status === 'pending').length,
+      confirmedReceived: bookingsReceived.filter(b => b.status === 'confirmed').length,
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Erreur interne' });
+  }
+});
+
 // ---------- Routes services ----------
 app.get('/api/services', async (req, res) => {
   try { res.json(await readJSON(DATA_FILE)); } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
