@@ -9,6 +9,7 @@ export default function AddServicePage() {
   const [category, setCategory] = useState('')
   const [description, setDescription] = useState('')
   const [price, setPrice] = useState('')
+  const [city, setCity] = useState('')
   const { user } = useAuth()
   const navigate = useNavigate()
 
@@ -30,6 +31,7 @@ export default function AddServicePage() {
           title,
           category,
           description,
+          city,
           price: priceNumber,
           providerName: user.name
         })
@@ -43,6 +45,7 @@ export default function AddServicePage() {
         setCategory('')
         setDescription('')
         setPrice('')
+        setCity('')
       } else {
         alert('❌ Erreur : ' + (data.details ? data.details.join(', ') : data.error))
       }
@@ -80,6 +83,13 @@ export default function AddServicePage() {
                 <option key={cat} value={cat}>{cat}</option>
               ))}
             </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Ville *</label>
+            <input type="text" required value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="Ex : Paris, Lyon..."
+              className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 text-foreground placeholder-muted-foreground outline-none focus:border-primary transition" />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Description *</label>

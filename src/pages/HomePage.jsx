@@ -11,6 +11,8 @@ import {
 export default function HomePage() {
   const { user } = useAuth()
   const [allServices, setAllServices] = useState([])
+  const [cities, setCities] = useState([])
+  const [selectedCity, setSelectedCity] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
   const searchRef = useRef(null)
@@ -20,6 +22,11 @@ export default function HomePage() {
       .then(res => res.json())
       .then(data => setAllServices(data))
       .catch(err => console.error('Erreur chargement services:', err))
+
+    fetch(`${API_URL}/api/cities`)
+      .then(res => res.json())
+      .then(data => setCities(data))
+      .catch(err => console.error('Erreur chargement villes:', err))
   }, [])
 
   useEffect(() => {
@@ -32,7 +39,15 @@ export default function HomePage() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const filteredServices = searchTerm.trim() === ''
+  const filteredServices = allServices.filter(service => {
+    const matchesCity = !selectedCity || service.city === selectedCity
+    const matchesSearch = !searchTerm.trim() ||
+      service.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      service.category?.toLowerCase().includes(searchTerm.toLowerCase())
+    return matchesCity && matchesSearch
+  })
+
+  const suggestionServices = searchTerm.trim() === ''
     ? []
     : allServices.filter(service =>
         service.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -148,6 +163,25 @@ export default function HomePage() {
           <p className="text-base md:text-lg text-muted-foreground mb-6 md:mb-8">
             Tous les services, en confiance, à deux pas
           </p>
+
+          {/* Filtre par ville */}
+          <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mb-6">
+            <div className="relative w-full max-w-xs">
+              <select
+                value={selectedCity}
+                onChange={(e) => setSelectedCity(e.target.value)}
+                className="w-full bg-card border border-border rounded-full py-3 px-5 text-foreground outline-none focus:border-primary transition appearance-none"
+              >
+                <option value="">Toutes les villes</option>
+                {cities.map(city => (
+                  <option key={city} value={city}>{city}</option>
+                ))}
+              </select>
+              <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Barre de recherche texte */}
           <div ref={searchRef} className="relative max-w-xl mx-auto">
             <div className="flex items-center bg-card backdrop-blur-md border border-border rounded-full shadow-lg shadow-primary/20 overflow-hidden">
               <span className="pl-5 text-muted-foreground">🔍</span>
@@ -180,8 +214,8 @@ export default function HomePage() {
             {/* Panneau de suggestions */}
             {showSuggestions && searchTerm.trim() && (
               <div className="absolute top-full left-0 right-0 mt-2 bg-card backdrop-blur-md border border-border rounded-2xl shadow-2xl overflow-hidden z-50">
-                {filteredServices.length > 0 ? (
-                  filteredServices.map(service => (
+                {suggestionServices.length > 0 ? (
+                  suggestionServices.map(service => (
                     <Link
                       key={service._id}
                       to={`/provider/${service._id}`}
@@ -238,19 +272,21 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Services disponibles */}
+        {/* Services disponibles (filtrés) */}
         <section className="max-w-6xl mx-auto px-4 py-8 md:py-12">
           <div className="mb-6">
-            <h3 className="text-2xl md:text-3xl font-bold">Les services disponibles</h3>
+            <h3 className="text-2xl md:text-3xl font-bold">
+              {selectedCity ? `Services à ${selectedCity}` : 'Les services disponibles'}
+            </h3>
             <div className="h-1 w-16 bg-primary mt-2 rounded-full"></div>
           </div>
 
-          {allServices.length === 0 && (
-            <p className="text-muted-foreground text-base">Aucun service pour le moment.</p>
+          {filteredServices.length === 0 && (
+            <p className="text-muted-foreground text-base">Aucun service trouvé.</p>
           )}
 
           <div className="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory scrollbar-hide">
-            {allServices.map((service) => (
+            {filteredServices.map((service) => (
               <Link
                 to={`/provider/${service._id}`}
                 key={service._id}
@@ -277,6 +313,7 @@ export default function HomePage() {
                 </div>
                 <p className="text-muted-foreground text-sm">{service.category}</p>
                 <p className="text-sm mt-1">{service.price || 'Gratuit'}</p>
+                {service.city && <p className="text-xs text-muted-foreground mt-1"><MapPin size={12} className="inline mr-1" />{service.city}</p>}
               </Link>
             ))}
           </div>

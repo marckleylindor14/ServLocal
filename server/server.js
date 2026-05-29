@@ -53,13 +53,14 @@ function nextId(items) {
 }
 function validateServiceInput(body) {
   const errors = [];
-  const { title, category, description } = body || {};
+  const { title, category, description, city } = body || {};
   if (!title || !String(title).trim()) errors.push('title est requis');
   else if (String(title).trim().length < 2) errors.push('title doit contenir au moins 2 caractères');
   if (!category || !String(category).trim()) errors.push('category est requise');
   else if (String(category).trim().length < 2) errors.push('category doit contenir au moins 2 caractères');
   if (!description || !String(description).trim()) errors.push('description est requise');
   else if (String(description).trim().length < 10) errors.push('description doit contenir au moins 10 caractères');
+  if (!city || !String(city).trim()) errors.push('city est requise');
   if (body.price != null && body.price !== '') {
     const price = Number(body.price);
     if (isNaN(price) || price < 0) errors.push('price doit être un nombre positif');
@@ -113,6 +114,7 @@ app.post('/api/services', async (req, res) => {
       title: String(body.title).trim(),
       category: String(body.category).trim(),
       description: String(body.description).trim(),
+      city: String(body.city).trim(),
       price: body.price != null && body.price !== '' ? String(body.price) : '',
       providerName: body.providerName || 'Anonyme',
       image: body.image || DEFAULT_IMAGE,
@@ -140,6 +142,7 @@ app.put('/api/services/:id', async (req, res) => {
       title: String(body.title).trim(),
       category: String(body.category).trim(),
       description: String(body.description).trim(),
+      city: String(body.city).trim(),
       price: body.price != null && body.price !== '' ? String(body.price) : services[index].price,
       providerName: body.providerName || services[index].providerName,
       image: body.image || services[index].image,
@@ -430,6 +433,17 @@ app.delete('/api/admin/users/:id', authenticateAdmin, async (req, res) => {
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
 
+// ---------- Villes ----------
+app.get('/api/cities', async (req, res) => {
+  try {
+    const services = await readJSON(DATA_FILE);
+    const cities = [...new Set(services.map(s => s.city).filter(Boolean))].sort();
+    res.json(cities);
+  } catch (error) {
+    res.status(500).json({ error: 'Erreur interne' });
+  }
+});
+
 // ---------- Notifications ----------
 app.get('/api/notifications', authenticateToken, async (req, res) => {
   try {
@@ -439,6 +453,8 @@ app.get('/api/notifications', authenticateToken, async (req, res) => {
     res.json({ pendingBookings: pendingProvider + pendingClient });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
+
+// Healthcheck pour Railway
 app.get('/', (req, res) => res.status(200).send('OK'))
 
 // ---------- 404 & Error handler ----------
@@ -447,7 +463,6 @@ app.use((err, req, res, next) => {
   console.error('Erreur non gérée:', err.message);
   res.status(500).json({ error: 'Erreur interne' });
 });
-console.log('PORT fourni par Railway :', process.env.PORT)
 
 app.listen(PORT, () => {
   console.log(`✅ Serveur Myra démarré sur le port ${PORT}`);
