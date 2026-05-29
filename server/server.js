@@ -7,6 +7,7 @@ const jwt = require('jsonwebtoken');
 const cloudinary = require('cloudinary').v2;
 const multer = require('multer');
 const streamifier = require('streamifier');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -167,7 +168,6 @@ app.put('/api/user/profile', authenticateToken, async (req, res) => {
   }
 });
 
-// ---------- Changement de mot de passe ----------
 app.put('/api/user/change-password', authenticateToken, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
@@ -175,10 +175,8 @@ app.put('/api/user/change-password', authenticateToken, async (req, res) => {
     const users = await readJSON(USERS_FILE);
     const index = users.findIndex(u => u._id === req.user.id);
     if (index === -1) return res.status(404).json({ error: 'Utilisateur non trouvé' });
-
     const isMatch = await bcrypt.compare(currentPassword, users[index].password);
     if (!isMatch) return res.status(400).json({ error: 'Mot de passe actuel incorrect.' });
-
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     users[index].password = hashedPassword;
     await writeJSON(USERS_FILE, users);
@@ -188,7 +186,6 @@ app.put('/api/user/change-password', authenticateToken, async (req, res) => {
   }
 });
 
-// ---------- Statistiques utilisateur ----------
 app.get('/api/user/stats', authenticateToken, async (req, res) => {
   try {
     const [services, bookings] = await Promise.all([
@@ -197,11 +194,9 @@ app.get('/api/user/stats', authenticateToken, async (req, res) => {
     ]);
     const userId = req.user.id;
     const userName = req.user.name;
-
     const myServices = services.filter(s => s.providerName === userName);
     const bookingsReceived = bookings.filter(b => b.providerName === userName);
     const bookingsMade = bookings.filter(b => b.clientId === userId);
-
     res.json({
       totalServices: myServices.length,
       bookingsReceived: bookingsReceived.length,
@@ -211,6 +206,87 @@ app.get('/api/user/stats', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: 'Erreur interne' });
+  }
+});
+
+// ---------- Stripe ----------
+app.post('/api/create-checkout-session', authenticateToken, async (req, res) => {
+  try {
+    const { serviceId, bookingId } = req.body;
+    if (!serviceId || !bookingId) return res.status(400).json({ error: 'serviceId et bookingId requis.' });
+
+    const services = await readJSON(DATA_FILE);
+    const service = services.find(s => Number(s._id) === Number(serviceId));
+    if (!service) return res.status(404).json({ error: 'Service non trouvé.' });
+
+    const bookings = await readJSON(BOOKINGS_FILE);
+    const booking = bookings.find(b => Number(b._id) === Number(bookingId));
+    if (!booking) return res.status(404).json({ error: 'Réservation non trouvée.' });
+
+    let amount = 0;
+    if (service.price) {
+      const parsed = parseFloat(service.price);
+      if (!isNaN(parsed)) amount = Math.round(parsed * 100);
+    }
+    if (amount <= 0) return res.status(400).json({ error: 'Ce service n\'a pas de prix valide.' });
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price_data: {
+            currency: 'eur',
+            product_data: {
+              name: service.title,
+              description: service.description?.substring(0, 200),
+            },
+            unit_amount: amount,
+          },
+          quantity: 1,
+        },
+      ],
+      mode: 'payment',
+      success_url: `${process.env.FRONTEND_URL || 'https://servlocal-app.vercel.app'}/payment-success?session_id={CHECKOUT_SESSION_ID}&booking_id=${bookingId}`,
+      cancel_url: `${process.env.FRONTEND_URL || 'https://servlocal-app.vercel.app'}/my-bookings`,
+      metadata: {
+        bookingId: String(bookingId),
+        serviceId: String(serviceId),
+        userId: String(req.user.id),
+      },
+    });
+
+    res.json({ url: session.url });
+  } catch (error) {
+    console.error('Erreur Stripe:', error);
+    res.status(500).json({ error: 'Impossible de créer la session de paiement.' });
+  }
+});
+
+app.get('/api/booking/confirm', async (req, res) => {
+  try {
+    const { session_id } = req.query;
+    if (!session_id) return res.status(400).json({ error: 'session_id manquant.' });
+
+    const session = await stripe.checkout.sessions.retrieve(session_id);
+    if (session.payment_status !== 'paid') {
+      return res.status(400).json({ error: 'Paiement non confirmé.' });
+    }
+
+    const bookingId = session.metadata?.bookingId;
+    if (!bookingId) return res.status(400).json({ error: 'Métadonnées manquantes.' });
+
+    const bookings = await readJSON(BOOKINGS_FILE);
+    const index = bookings.findIndex(b => Number(b._id) === Number(bookingId));
+    if (index === -1) return res.status(404).json({ error: 'Réservation introuvable.' });
+
+    bookings[index].paymentStatus = 'paid';
+    bookings[index].status = 'confirmed';
+    await writeJSON(BOOKINGS_FILE, bookings);
+
+    res.redirect(`${process.env.FRONTEND_URL || 'https://servlocal-app.vercel.app'}/payment-success?booking_id=${bookingId}&status=paid`);
+  } catch (error) {
+    console.error('Erreur confirmation Stripe:', error);
+    res.status(500).json({ error: 'Erreur interne.' });
   }
 });
 
