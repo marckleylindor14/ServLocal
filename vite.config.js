@@ -12,14 +12,15 @@ export default defineConfig({
       injectRegister: 'auto',
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp}'],
-        // Petite astuce pour que le SW soit bien pris en compte par PWABuilder
+        // Exclure les routes API et la page de reset du cache
+        navigateFallbackDenylist: [/^\/api/, /^\/reset-password/],
         runtimeCaching: [
           {
             urlPattern: /^https?.*/,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'app-cache',
-              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              expiration: { maxEntries: 100, maxAgeSeconds: 30 * 24 * 60 * 60 },
             },
           },
         ],
