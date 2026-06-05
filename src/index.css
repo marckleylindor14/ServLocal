@@ -1,22 +1,19 @@
 @import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-html {
-  font-family: 'Inter', sans-serif;
-}
-
 @theme {
   --color-background: #1E2A3A;
   --color-foreground: #F5F3F0;
   --color-card: #243447;
   --color-border: #3A4A5C;
-  --color-primary: #DE8259;              /* Votre orange */
+  --color-primary: #DE8259;
   --color-primary-foreground: #FFFFFF;
   --color-muted: #2D3E50;
   --color-muted-foreground: #A0AEC0;
 }
 
 html {
+  font-family: 'Inter', sans-serif;
   font-size: 17px;
 }
 
@@ -36,9 +33,11 @@ body {
   box-shadow: 0 12px 28px rgba(0,0,0,0.12);
 }
 
-/* Boutons plus doux */
-button, .btn {
-  transition: all 0.15s ease;
+/* Boutons, inputs et selects plus doux */
+button, .btn, a[role="button"] {
+  min-height: 44px;
+  min-width: 44px;
+  transition: transform 0.1s ease;
   border-radius: 9999px;
   font-weight: 600;
 }
@@ -46,13 +45,12 @@ button:active, .btn:active {
   transform: scale(0.96);
 }
 
-/* Inputs et selects plus doux */
 input, textarea, select {
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
   border-radius: 0.75rem;
 }
 input:focus, textarea:focus, select:focus {
-  box-shadow: 0 0 0 3px rgba(222, 130, 89, 0.2);  /* ombre orange au focus */
+  box-shadow: 0 0 0 3px rgba(222, 130, 89, 0.2);
 }
 
 /* Animation d’arrivée des pages */
@@ -66,14 +64,3 @@ input:focus, textarea:focus, select:focus {
 
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-/* Toute zone cliquable doit mesurer au moins 44x44 pixels */
-button, .btn, a[role="button"] {
-  min-height: 44px;
-  min-width: 44px;
-  transition: transform 0.1s ease;
-}
-
-/* Effet d'enfoncement au clic */
-button:active, .btn:active {
-  transform: scale(0.96);
-}
