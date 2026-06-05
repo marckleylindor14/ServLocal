@@ -20,7 +20,7 @@ const CONVERSATIONS_FILE = path.join(__dirname, 'conversations.json');
 const MESSAGES_FILE = path.join(__dirname, 'messages.json');
 const DEFAULT_IMAGE = 'https://i.pravatar.cc/100?img=4';
 const JWT_SECRET = 'servlocal_secret_2026';
-const ADMIN_EMAIL = 'marckleylindor21@gmail.com';
+const ADMIN_EMAIL = 'Marckley.lindor14@gmail.com';
 const ADMIN_PASSWORD = 'Jesula1982';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -165,8 +165,7 @@ app.put('/api/user/profile', authenticateToken, async (req, res) => {
       id: users[index]._id,
       name: users[index].name,
       email: users[index].email,
-      photo: users[index].photo || null,
-      verificationStatus: users[index].verificationStatus || 'none'
+      photo: users[index].photo || null
     });
   } catch (error) {
     res.status(500).json({ error: 'Erreur interne' });
@@ -209,83 +208,6 @@ app.get('/api/user/stats', authenticateToken, async (req, res) => {
       pendingReceived: bookingsReceived.filter(b => b.status === 'pending').length,
       confirmedReceived: bookingsReceived.filter(b => b.status === 'confirmed').length,
     });
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
-});
-
-// ---------- Vérification d'identité ----------
-app.post('/api/user/request-verification', authenticateToken, upload.single('document'), async (req, res) => {
-  try {
-    if (!req.file) return res.status(400).json({ error: 'Document requis.' });
-    const streamUpload = () =>
-      new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          { folder: 'myra-verifications' },
-          (error, result) => {
-            if (result) resolve(result);
-            else reject(error);
-          }
-        );
-        streamifier.createReadStream(req.file.buffer).pipe(stream);
-      });
-    const result = await streamUpload();
-    const documentUrl = result.secure_url;
-
-    const users = await readJSON(USERS_FILE);
-    const index = users.findIndex(u => u._id === req.user.id);
-    if (index === -1) return res.status(404).json({ error: 'Utilisateur non trouvé' });
-
-    users[index].verificationStatus = 'pending';
-    users[index].verificationDocument = documentUrl;
-    await writeJSON(USERS_FILE, users);
-
-    res.json({ message: 'Votre demande de vérification a bien été envoyée. Elle sera examinée par notre équipe.' });
-  } catch (error) {
-    console.error('Erreur demande vérification:', error);
-    res.status(500).json({ error: 'Échec de l\'envoi de la demande.' });
-  }
-});
-
-app.get('/api/admin/verification-requests', authenticateAdmin, async (req, res) => {
-  try {
-    const users = await readJSON(USERS_FILE);
-    const requests = users.filter(u => u.verificationStatus === 'pending').map(u => ({
-      _id: u._id,
-      name: u.name,
-      email: u.email,
-      verificationDocument: u.verificationDocument,
-      verificationStatus: u.verificationStatus
-    }));
-    res.json(requests);
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
-});
-
-app.put('/api/admin/verify-user/:id', authenticateAdmin, async (req, res) => {
-  try {
-    const userId = Number(req.params.id);
-    const users = await readJSON(USERS_FILE);
-    const index = users.findIndex(u => u._id === userId);
-    if (index === -1) return res.status(404).json({ error: 'Utilisateur non trouvé' });
-    users[index].verificationStatus = 'verified';
-    await writeJSON(USERS_FILE, users);
-    res.json({ message: 'Utilisateur vérifié.' });
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
-});
-
-app.put('/api/admin/reject-user/:id', authenticateAdmin, async (req, res) => {
-  try {
-    const userId = Number(req.params.id);
-    const users = await readJSON(USERS_FILE);
-    const index = users.findIndex(u => u._id === userId);
-    if (index === -1) return res.status(404).json({ error: 'Utilisateur non trouvé' });
-    users[index].verificationStatus = 'rejected';
-    await writeJSON(USERS_FILE, users);
-    res.json({ message: 'Vérification refusée.' });
   } catch (error) {
     res.status(500).json({ error: 'Erreur interne' });
   }
@@ -467,37 +389,12 @@ app.post('/api/auth/register', async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      verificationStatus: 'none',
       createdAt: new Date().toISOString()
     };
     users.push(newUser);
     await writeJSON(USERS_FILE, users);
     res.status(201).json({ message: 'Compte créé avec succès' });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
-});
-// TEMPORAIRE - Création forcée du compte admin
-app.post('/api/create-admin', async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis.' });
-    const users = await readJSON(USERS_FILE);
-    // Supprime l'ancien admin s'il existe déjà
-    const filtered = users.filter(u => u.email !== email);
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const newAdmin = {
-      _id: nextId(filtered),
-      name: 'Admin',
-      email: email,
-      password: hashedPassword,
-      verificationStatus: 'verified',
-      createdAt: new Date().toISOString()
-    };
-    filtered.push(newAdmin);
-    await writeJSON(USERS_FILE, filtered);
-    res.json({ message: 'Compte admin créé.' });
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
 });
 app.post('/api/auth/login', async (req, res) => {
   try {
@@ -506,7 +403,7 @@ app.post('/api/auth/login', async (req, res) => {
 
     if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
       const token = jwt.sign({ id: 0, name: 'Admin', email: ADMIN_EMAIL }, JWT_SECRET, { expiresIn: '7d' });
-      return res.json({ token, user: { id: 0, name: 'Admin', email: ADMIN_EMAIL, verificationStatus: 'verified' } });
+      return res.json({ token, user: { id: 0, name: 'Admin', email: ADMIN_EMAIL } });
     }
 
     const users = await readJSON(USERS_FILE);
@@ -515,31 +412,16 @@ app.post('/api/auth/login', async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
     const token = jwt.sign({ id: user._id, name: user.name, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        photo: user.photo || null,
-        verificationStatus: user.verificationStatus || 'none'
-      }
-    });
+    res.json({ token, user: { id: user._id, name: user.name, email: user.email } });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
 app.get('/api/auth/me', authenticateToken, async (req, res) => {
   try {
-    if (req.user.email === ADMIN_EMAIL) return res.json({ id: 0, name: 'Admin', email: ADMIN_EMAIL, verificationStatus: 'verified' });
+    if (req.user.email === ADMIN_EMAIL) return res.json({ id: 0, name: 'Admin', email: ADMIN_EMAIL });
     const users = await readJSON(USERS_FILE);
     const user = users.find(u => u._id === req.user.id);
     if (!user) return res.status(404).json({ error: 'Utilisateur non trouvé' });
-    res.json({
-      id: user._id,
-      name: user.name,
-      email: user.email,
-      photo: user.photo || null,
-      verificationStatus: user.verificationStatus || 'none'
-    });
+    res.json({ id: user._id, name: user.name, email: user.email, photo: user.photo || null });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
 
@@ -769,7 +651,7 @@ app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
       totalConversations: conversations.length,
       totalMessages: messages.length,
       services,
-      users: users.map(u => ({ _id: u._id, name: u.name, email: u.email, createdAt: u.createdAt, verificationStatus: u.verificationStatus || 'none' })),
+      users: users.map(u => ({ _id: u._id, name: u.name, email: u.email, createdAt: u.createdAt })),
       bookings
     });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
@@ -828,22 +710,7 @@ app.get('/api/notifications', authenticateToken, async (req, res) => {
     res.json({ pendingBookings: pendingProvider + pendingClient });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
-// TEMPORAIRE - Réinitialisation admin
-app.post('/api/admin-reset', async (req, res) => {
-  try {
-    const { email, newPassword } = req.body;
-    if (!email || !newPassword) return res.status(400).json({ error: 'Email et nouveau mot de passe requis.' });
-    const users = await readJSON(USERS_FILE);
-    const index = users.findIndex(u => u.email === email);
-    if (index === -1) return res.status(404).json({ error: 'Utilisateur non trouvé.' });
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    users[index].password = hashedPassword;
-    await writeJSON(USERS_FILE, users);
-    res.json({ message: 'Mot de passe mis à jour.' });
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
-});
+
 // Healthcheck
 app.get('/', (req, res) => res.status(200).send('OK'));
 

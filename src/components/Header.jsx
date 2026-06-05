@@ -1,192 +1,136 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import Header from '../components/Header'
-import PageTransition from '../components/PageTransition'
+import { PlusCircle, ListChecks, LogOut, LogIn, Calendar, LayoutDashboard, MessageSquare, Menu, X, Shield, User } from 'lucide-react'
 import API_URL from '../config'
 
-export default function AdminPage() {
-  const { user } = useAuth()
+export default function Header() {
+  const { user, logout } = useAuth()
   const navigate = useNavigate()
-  const [stats, setStats] = useState(null)
-  const [error, setError] = useState('')
-  const [verificationRequests, setVerificationRequests] = useState([])
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [notif, setNotif] = useState({ pendingBookings: 0 })
 
   useEffect(() => {
-    // Vérification identique : email admin en minuscules
-    if (!user || user.email !== 'marckleylindor21@gmail.com') {
-      navigate('/login')
-      return
-    }
-    // Charger les stats
-    fetch(`${API_URL}/api/admin/stats`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-    })
-      .then(res => {
-        if (res.status === 403) { setError('Accès refusé.'); return null }
-        return res.json()
+    if (!user) return
+    const fetchNotif = () => {
+      fetch(`${API_URL}/api/notifications`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       })
-      .then(data => data && setStats(data))
-      .catch(() => setError('Impossible de charger les statistiques.'))
+        .then(res => res.json())
+        .then(data => setNotif(data))
+        .catch(() => {})
+    }
+    fetchNotif()
+    const interval = setInterval(fetchNotif, 10000)
+    return () => clearInterval(interval)
+  }, [user])
 
-    // Charger les demandes de vérification
-    fetch(`${API_URL}/api/admin/verification-requests`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-    })
-      .then(res => res.json())
-      .then(data => setVerificationRequests(Array.isArray(data) ? data : []))
-      .catch(() => {})
-  }, [user, navigate])
-
-  const handleVerifyService = async (serviceId) => {
-    await fetch(`${API_URL}/api/admin/services/${serviceId}/verify`, {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-    })
-    setStats(prev => ({
-      ...prev,
-      services: prev.services.map(s => s._id === serviceId ? { ...s, verified: true } : s)
-    }))
+  const handleLogout = () => {
+    logout()
+    navigate('/')
+    setMobileMenuOpen(false)
   }
 
-  const handleDeleteService = async (serviceId) => {
-    if (!confirm('Supprimer ce service ?')) return
-    await fetch(`${API_URL}/api/admin/services/${serviceId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-    })
-    setStats(prev => ({
-      ...prev,
-      services: prev.services.filter(s => s._id !== serviceId),
-      totalServices: prev.totalServices - 1
-    }))
+  const Badge = ({ count }) => {
+    if (!count || count === 0) return null
+    return (
+      <span className="absolute -top-1 -right-2 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+        {count > 9 ? '9+' : count}
+      </span>
+    )
   }
-
-  const handleDeleteUser = async (userId) => {
-    if (!confirm('Supprimer cet utilisateur ?')) return
-    await fetch(`${API_URL}/api/admin/users/${userId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-    })
-    setStats(prev => ({
-      ...prev,
-      users: prev.users.filter(u => u._id !== userId),
-      totalUsers: prev.totalUsers - 1
-    }))
-  }
-
-  const handleVerifyUser = async (userId) => {
-    await fetch(`${API_URL}/api/admin/verify-user/${userId}`, {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-    })
-    setVerificationRequests(prev => prev.filter(r => r._id !== userId))
-  }
-
-  const handleRejectUser = async (userId) => {
-    await fetch(`${API_URL}/api/admin/reject-user/${userId}`, {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-    })
-    setVerificationRequests(prev => prev.filter(r => r._id !== userId))
-  }
-
-  if (!user || user.email !== 'marckleylindor21@gmail.com') return null
 
   return (
-    <PageTransition>
-      <div className="min-h-screen bg-background text-foreground font-sans">
-        <Header />
-        <div className="pt-16 md:pt-20"></div>
-        <main className="max-w-6xl mx-auto px-4 py-6 md:py-8">
-          <h2 className="text-2xl md:text-3xl font-extrabold mb-2">Administration Myra</h2>
-          <p className="text-sm text-muted-foreground mb-6 md:mb-8">Supervision globale de la plateforme</p>
-          {error && <p className="text-red-400 mb-4">{error}</p>}
+    <header className="fixed top-0 left-0 right-0 z-50 bg-card/80 backdrop-blur-md border-b border-border">
+      <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+        <Link to="/" className="flex items-center gap-2">
+          <img src="/LOGO MYRA.png" alt="Myra" className="h-8 md:h-10 w-auto" />
+          <span className="text-xl md:text-2xl font-extrabold tracking-tight">Myra</span>
+        </Link>
 
-          {verificationRequests.length > 0 && (
-            <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6 mb-6 md:mb-8">
-              <h3 className="text-lg md:text-xl font-bold mb-4">Vérifications en attente</h3>
-              <div className="space-y-4">
-                {verificationRequests.map(req => (
-                  <div key={req._id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border pb-3">
-                    <div>
-                      <p className="font-medium">{req.name} ({req.email})</p>
-                      <a href={req.verificationDocument} target="_blank" rel="noreferrer" className="text-primary text-sm hover:underline">Voir le document</a>
-                    </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => handleVerifyUser(req._id)} className="bg-green-500/80 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-green-500 transition">Vérifier</button>
-                      <button onClick={() => handleRejectUser(req._id)} className="bg-red-500/80 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-red-500 transition">Refuser</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+        <button className="md:hidden text-muted-foreground" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} aria-label="Menu">
+          {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
 
-          {stats && (
+        <nav className="hidden md:flex gap-3 items-center">
+          <Link to="/add-service" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
+            <PlusCircle size={16} /> Proposer
+          </Link>
+          {user && (
             <>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
-                <StatCard label="Services" value={stats.totalServices} />
-                <StatCard label="Utilisateurs" value={stats.totalUsers} />
-                <StatCard label="Réservations" value={stats.totalBookings} />
-                <StatCard label="Avis" value={stats.totalReviews} />
-              </div>
+              <Link to="/my-services" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
+                <ListChecks size={16} /> Mes services
+              </Link>
+              <Link to="/my-bookings" className="relative flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
+                <Calendar size={16} />
+                <Badge count={notif.pendingBookings} />
+                Réservations
+              </Link>
+              <Link to="/dashboard" className="relative flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
+                <LayoutDashboard size={16} />
+                <Badge count={notif.pendingBookings} />
+                Dashboard
+              </Link>
+              <Link to="/messages" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
+                <MessageSquare size={16} /> Messages
+              </Link>
+              {user.email === 'Marckley.lindor14@gmail.com' && (
+                <Link to="/admin" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
+                  <Shield size={16} /> Admin
+                </Link>
+              )}
+            </>
+          )}
+          {user ? (
+            <div className="flex gap-3 items-center">
+              <Link to="/account" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
+                <User size={16} /> Mon compte
+              </Link>
+              <span className="text-sm text-muted-foreground">{user.name}</span>
+              <button onClick={handleLogout} aria-label="Se déconnecter" className="flex items-center gap-1 border border-primary text-primary px-4 py-2 rounded-full font-semibold hover:bg-primary hover:text-primary-foreground transition">
+                <LogOut size={16} /> Déconnexion
+              </button>
+            </div>
+          ) : (
+            <Link to="/login" className="flex items-center gap-1 border border-primary text-primary px-4 py-2 rounded-full font-semibold hover:bg-primary hover:text-primary-foreground transition">
+              <LogIn size={16} /> Connexion
+            </Link>
+          )}
+        </nav>
+      </div>
 
-              <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6 mb-6 md:mb-8">
-                <h3 className="text-lg md:text-xl font-bold mb-4">Services</h3>
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {stats.services.map(service => (
-                    <div key={service._id} className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 border-b border-border pb-2">
-                      <div>
-                        <p className="font-medium text-sm md:text-base">{service.title} <span className="text-xs text-muted-foreground">par {service.providerName}</span></p>
-                        <span className={`text-xs ${service.verified ? 'text-green-400' : 'text-yellow-400'}`}>
-                          {service.verified ? 'Vérifié' : 'Non vérifié'}
-                        </span>
-                      </div>
-                      <div className="flex gap-2 self-end sm:self-auto">
-                        {!service.verified && (
-                          <button onClick={() => handleVerifyService(service._id)} className="text-xs border border-primary text-primary px-3 py-1 rounded-full hover:bg-primary hover:text-primary-foreground transition">
-                            Vérifier
-                          </button>
-                        )}
-                        <button onClick={() => handleDeleteService(service._id)} className="text-xs border border-red-400 text-red-400 px-3 py-1 rounded-full hover:bg-red-400 hover:text-white transition">
-                          Supprimer
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6">
-                <h3 className="text-lg md:text-xl font-bold mb-4">Utilisateurs</h3>
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {stats.users.map(u => (
-                    <div key={u._id} className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 border-b border-border pb-2">
-                      <div>
-                        <p className="font-medium text-sm md:text-base">{u.name}</p>
-                        <p className="text-xs text-muted-foreground">{u.email}</p>
-                      </div>
-                      <button onClick={() => handleDeleteUser(u._id)} className="text-xs border border-red-400 text-red-400 px-3 py-1 rounded-full hover:bg-red-400 hover:text-white transition self-end sm:self-auto">
-                        Supprimer
-                      </button>
-                    </div>
-                  ))}
-                </div>
+      {mobileMenuOpen && (
+        <div className="md:hidden bg-background/95 backdrop-blur-md border-t border-border px-4 py-4 flex flex-col gap-3">
+          <Link to="/add-service" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-sm text-muted-foreground"><PlusCircle size={18} /> Proposer un service</Link>
+          {user && (
+            <>
+              <Link to="/my-services" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-sm text-muted-foreground"><ListChecks size={18} /> Mes services</Link>
+              <Link to="/my-bookings" onClick={() => setMobileMenuOpen(false)} className="relative flex items-center gap-2 text-sm text-muted-foreground">
+                <Calendar size={18} />
+                <Badge count={notif.pendingBookings} />
+                Mes réservations
+              </Link>
+              <Link to="/dashboard" onClick={() => setMobileMenuOpen(false)} className="relative flex items-center gap-2 text-sm text-muted-foreground">
+                <LayoutDashboard size={18} />
+                <Badge count={notif.pendingBookings} />
+                Dashboard
+              </Link>
+              <Link to="/messages" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-sm text-muted-foreground"><MessageSquare size={18} /> Messages</Link>
+              {user.email === 'Marckley.lindor14@gmail.com' && (
+                <Link to="/admin" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-sm text-muted-foreground"><Shield size={18} /> Admin</Link>
+              )}
+              <Link to="/account" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-sm text-muted-foreground"><User size={18} /> Mon compte</Link>
+              <div className="flex justify-between items-center pt-2 border-t border-border">
+                <span className="text-sm text-muted-foreground">{user.name}</span>
+                <button onClick={handleLogout} className="text-primary text-sm font-semibold">Déconnexion</button>
               </div>
             </>
           )}
-        </main>
-      </div>
-    </PageTransition>
-  )
-}
-
-function StatCard({ label, value }) {
-  return (
-    <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-3 md:p-4 text-center card-hover">
-      <p className="text-2xl md:text-3xl font-bold">{value}</p>
-      <p className="text-xs md:text-sm text-muted-foreground mt-1">{label}</p>
-    </div>
+          {!user && (
+            <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="border border-primary text-primary px-4 py-2 rounded-full text-center text-sm font-semibold">Connexion</Link>
+          )}
+        </div>
+      )}
+    </header>
   )
 }

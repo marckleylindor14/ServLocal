@@ -17,13 +17,8 @@ export function AuthProvider({ children }) {
           return res.json()
         })
         .then(data => {
-          setUser({
-            id: data.id,
-            name: data.name,
-            email: data.email,
-            photo: data.photo,
-            verificationStatus: data.verificationStatus || 'none'
-          })
+          if (data.id !== undefined) setUser(data)
+          else logout()
         })
         .catch(() => logout())
     }
@@ -32,13 +27,7 @@ export function AuthProvider({ children }) {
   const login = (userData, tokenData) => {
     localStorage.setItem('token', tokenData)
     setToken(tokenData)
-    setUser({
-      id: userData.id,
-      name: userData.name,
-      email: userData.email,
-      photo: userData.photo,
-      verificationStatus: userData.verificationStatus || 'none'
-    })
+    setUser(userData)
   }
 
   const logout = () => {
