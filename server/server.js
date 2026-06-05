@@ -113,31 +113,27 @@ function authenticateAdmin(req, res, next) {
 }
 
 // ---------- Upload Cloudinary ----------
-app.post('/api/upload-gallery', authenticateToken, upload.array('gallery', 5), async (req, res) => {
+app.post('/api/upload', authenticateToken, upload.single('image'), async (req, res) => {
   try {
-    if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'Aucun fichier envoyé.' });
-
-    const uploadPromises = req.files.map(file => {
-      return new Promise((resolve, reject) => {
+    if (!req.file) return res.status(400).json({ error: 'Aucun fichier envoyé.' });
+    const streamUpload = () =>
+      new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
-          { folder: 'myra-services', format: 'jpg' }, // ⬅ Cloudinary force le JPEG
+          { folder: 'myra-services', format: 'jpg' },  // ← conversion JPEG automatique
           (error, result) => {
-            if (result) resolve(result.secure_url);
+            if (result) resolve(result);
             else reject(error);
           }
         );
-        streamifier.createReadStream(file.buffer).pipe(stream);
+        streamifier.createReadStream(req.file.buffer).pipe(stream);
       });
-    });
-
-    const urls = await Promise.all(uploadPromises);
-    res.json({ urls });
+    const result = await streamUpload();
+    res.json({ url: result.secure_url });
   } catch (error) {
-    console.error('Erreur Cloudinary (galerie):', error);
-    res.status(500).json({ error: 'Échec de l\'upload de la galerie.' });
+    console.error('Erreur Cloudinary:', error);
+    res.status(500).json({ error: 'Échec de l\'upload.' });
   }
 });
-
 
 // ---------- Profil utilisateur ----------
 app.put('/api/user/profile', authenticateToken, async (req, res) => {

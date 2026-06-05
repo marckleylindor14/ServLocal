@@ -13,14 +13,16 @@ export default function AddServicePage() {
   const [price, setPrice] = useState('')
   const [city, setCity] = useState('')
 
-  const [galleryFiles, setGalleryFiles] = useState([])
-  const [galleryPreviews, setGalleryPreviews] = useState([])
+  // Galerie
+  const [galleryFiles, setGalleryFiles] = useState([])       // Fichiers bruts
+  const [galleryPreviews, setGalleryPreviews] = useState([]) // Aperçus locaux
   const fileGalleryRef = useRef(null)
 
   const [uploading, setUploading] = useState(false)
   const { user } = useAuth()
   const navigate = useNavigate()
 
+  // Erreurs de validation
   const [errors, setErrors] = useState({})
 
   const validateField = (name, value) => {
@@ -37,19 +39,40 @@ export default function AddServicePage() {
     setErrors(newErrors)
   }
 
+  // Gestion des fichiers sélectionnés
   const handleGalleryChange = (e) => {
     const newFiles = Array.from(e.target.files)
+    // On garde au maximum 5 fichiers au total
     const combined = [...galleryFiles, ...newFiles].slice(0, 5)
     setGalleryFiles(combined)
     setGalleryPreviews(combined.map(f => URL.createObjectURL(f)))
+    // Reset l'input pour permettre de resélectionner le même fichier si besoin
     if (fileGalleryRef.current) fileGalleryRef.current.value = ''
   }
 
+  // Supprimer une image de la galerie
   const removeGalleryImage = (index) => {
     const newFiles = galleryFiles.filter((_, i) => i !== index)
     const newPreviews = galleryPreviews.filter((_, i) => i !== index)
     setGalleryFiles(newFiles)
     setGalleryPreviews(newPreviews)
+  }
+
+  // Upload individuel d'un fichier
+  const uploadSingleImage = async (file) => {
+    const formData = new FormData()
+    formData.append('image', file)
+    const res = await fetch(`${API_URL}/api/upload`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      body: formData
+    })
+    if (!res.ok) {
+      const err = await res.json()
+      throw new Error(err.error || 'Échec upload')
+    }
+    const data = await res.json()
+    return data.url
   }
 
   const handleSubmit = async (e) => {
@@ -63,23 +86,16 @@ export default function AddServicePage() {
 
     setUploading(true)
     try {
+      // 1) Upload de chaque image une par une
       let galleryUrls = []
       if (galleryFiles.length > 0) {
-        const formData = new FormData()
-        galleryFiles.forEach(file => formData.append('gallery', file))
-        const res = await fetch(`${API_URL}/api/upload-gallery`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-          body: formData
-        })
-        if (!res.ok) {
-          const err = await res.json()
-          throw new Error(err.error || 'Échec upload galerie')
-        }
-        const data = await res.json()
-        galleryUrls = data.urls
+        // On lance tous les uploads en parallèle pour que ce soit rapide
+        galleryUrls = await Promise.all(
+          galleryFiles.map(file => uploadSingleImage(file))
+        )
       }
 
+      // 2) Créer le service
       const priceNumber = price.trim() === '' ? null : Number(price.replace(',', '.').replace(/[^0-9.]/g, ''))
 
       const response = await fetch(`${API_URL}/api/services`, {
@@ -132,6 +148,7 @@ export default function AddServicePage() {
           </p>
 
           <form onSubmit={handleSubmit} className="bg-card backdrop-blur-md border border-border rounded-2xl p-6 space-y-6">
+            {/* Titre */}
             <div>
               <label className="block text-sm font-medium mb-1">Titre *</label>
               <input type="text" required value={title}
@@ -140,6 +157,8 @@ export default function AddServicePage() {
                 className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 outline-none focus:border-primary transition" />
               {errors.title && <p className="text-red-400 text-xs mt-1">{errors.title}</p>}
             </div>
+
+            {/* Catégorie */}
             <div>
               <label className="block text-sm font-medium mb-1">Catégorie *</label>
               <select required value={category} onChange={e => setCategory(e.target.value)}
@@ -150,6 +169,8 @@ export default function AddServicePage() {
                 ))}
               </select>
             </div>
+
+            {/* Ville */}
             <div>
               <label className="block text-sm font-medium mb-1">Ville *</label>
               <input type="text" required value={city}
@@ -158,6 +179,8 @@ export default function AddServicePage() {
                 className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 outline-none focus:border-primary transition" />
               {errors.city && <p className="text-red-400 text-xs mt-1">{errors.city}</p>}
             </div>
+
+            {/* Description */}
             <div>
               <label className="block text-sm font-medium mb-1">Description *</label>
               <textarea required value={description}
@@ -167,6 +190,8 @@ export default function AddServicePage() {
                 className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 outline-none focus:border-primary transition resize-none" />
               {errors.description && <p className="text-red-400 text-xs mt-1">{errors.description}</p>}
             </div>
+
+            {/* Tarif */}
             <div>
               <label className="block text-sm font-medium mb-1">Tarif (€)</label>
               <input type="text" inputMode="decimal" value={price} onChange={e => setPrice(e.target.value)}
@@ -174,7 +199,7 @@ export default function AddServicePage() {
                 className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 outline-none focus:border-primary transition" />
             </div>
 
-            {/* Galerie portfolio */}
+            {/* Galerie portfolio avec upload individuel */}
             <div>
               <label className="block text-sm font-medium mb-1">
                 Galerie d'exemples (max 5 photos)
@@ -224,6 +249,7 @@ export default function AddServicePage() {
               />
             </div>
 
+            {/* Bouton de soumission */}
             <button
               type="submit"
               disabled={uploading}
