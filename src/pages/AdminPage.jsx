@@ -13,7 +13,8 @@ export default function AdminPage() {
   const [verificationRequests, setVerificationRequests] = useState([])
 
   useEffect(() => {
-    if (!user || user.email !== 'Marckleylindor21@gmail.com') {
+    // Vérification identique : email admin en minuscules
+    if (!user || user.email !== 'marckleylindor21@gmail.com') {
       navigate('/login')
       return
     }
@@ -80,7 +81,6 @@ export default function AdminPage() {
       headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
     })
     setVerificationRequests(prev => prev.filter(r => r._id !== userId))
-    // Optionnel : rafraîchir les stats
   }
 
   const handleRejectUser = async (userId) => {
@@ -91,7 +91,8 @@ export default function AdminPage() {
     setVerificationRequests(prev => prev.filter(r => r._id !== userId))
   }
 
-  if (!user || user.email !== 'Marckley.lindor14@gmail.com') return null
+  // Ici aussi, email en minuscules
+  if (!user || user.email !== 'marckleylindor21@gmail.com') return null
 
   return (
     <PageTransition>
@@ -103,7 +104,6 @@ export default function AdminPage() {
           <p className="text-sm text-muted-foreground mb-6 md:mb-8">Supervision globale de la plateforme</p>
           {error && <p className="text-red-400 mb-4">{error}</p>}
 
-          {/* Vérifications en attente */}
           {verificationRequests.length > 0 && (
             <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6 mb-6 md:mb-8">
               <h3 className="text-lg md:text-xl font-bold mb-4">Vérifications en attente</h3>
