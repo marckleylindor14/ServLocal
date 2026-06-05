@@ -5,7 +5,7 @@ import StarRating from '../components/StarRating'
 import { useAuth } from '../context/AuthContext'
 import PageTransition from '../components/PageTransition'
 import API_URL from '../config'
-import { X } from 'lucide-react'
+import { X, ImageOff } from 'lucide-react'
 
 export default function ProviderPage() {
   const { id } = useParams()
@@ -24,6 +24,9 @@ export default function ProviderPage() {
   const [bookingError, setBookingError] = useState('')
   const [bookingSuccess, setBookingSuccess] = useState('')
   const [lightboxImage, setLightboxImage] = useState(null)
+
+  // État pour le chargement progressif des images de la galerie
+  const [loadedImages, setLoadedImages] = useState({})
 
   useEffect(() => {
     fetch(`${API_URL}/api/services/${id}`)
@@ -136,6 +139,7 @@ export default function ProviderPage() {
         <Header />
         <div className="pt-16 md:pt-20"></div>
         <main className="max-w-3xl mx-auto px-4 py-6 md:py-8 space-y-6">
+          {/* Infos service */}
           <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-4">
               <img src={pro.image || 'https://i.pravatar.cc/100?img=4'} alt={pro.title} className="w-16 h-16 md:w-20 md:h-20 rounded-full object-cover border-2 border-primary" />
@@ -163,6 +167,7 @@ export default function ProviderPage() {
             </div>
           </div>
 
+          {/* Galerie portfolio avec chargement progressif */}
           {Array.isArray(pro.gallery) && pro.gallery.length > 0 && (
             <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6">
               <h3 className="text-lg md:text-xl font-bold mb-4">Galerie d'exemples</h3>
@@ -170,10 +175,29 @@ export default function ProviderPage() {
                 {pro.gallery.map((imgUrl, idx) => (
                   <div
                     key={idx}
-                    onClick={() => setLightboxImage(imgUrl)}
-                    className="rounded-lg overflow-hidden cursor-pointer h-32 md:h-40 relative group"
+                    className="relative rounded-lg overflow-hidden h-32 md:h-40 bg-muted group cursor-pointer"
+                    onClick={() => loadedImages[idx] && setLightboxImage(imgUrl)}
                   >
-                    <img src={imgUrl} alt={`portfolio ${idx}`} className="w-full h-full object-cover transition group-hover:scale-105" />
+                    {/* Image réelle */}
+                    <img
+                      src={imgUrl}
+                      alt={`Exemple ${idx + 1}`}
+                      className={`w-full h-full object-cover transition group-hover:scale-105 ${loadedImages[idx] ? 'block' : 'hidden'}`}
+                      onLoad={() => setLoadedImages(prev => ({ ...prev, [idx]: true }))}
+                      onError={() => setLoadedImages(prev => ({ ...prev, [idx]: false }))}
+                    />
+                    {/* Placeholder pendant le chargement */}
+                    {!loadedImages[idx] && loadedImages[idx] !== false && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-muted animate-pulse">
+                        <ImageOff size={32} className="text-muted-foreground" />
+                      </div>
+                    )}
+                    {/* Image non chargée (erreur) */}
+                    {loadedImages[idx] === false && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                        <ImageOff size={32} className="text-muted-foreground" />
+                      </div>
+                    )}
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition" />
                   </div>
                 ))}
@@ -181,6 +205,7 @@ export default function ProviderPage() {
             </div>
           )}
 
+          {/* Réservation */}
           <div id="booking-section" className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6">
             <h3 className="text-lg md:text-2xl font-bold mb-4">Réserver ce service</h3>
             {user ? (
@@ -212,6 +237,7 @@ export default function ProviderPage() {
             )}
           </div>
 
+          {/* Avis */}
           <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6">
             <h3 className="text-lg md:text-2xl font-bold mb-4">Avis</h3>
             {reviews.length === 0 && <p className="text-muted-foreground text-sm">Aucun avis pour le moment.</p>}
@@ -236,6 +262,7 @@ export default function ProviderPage() {
           </div>
         </main>
 
+        {/* Lightbox */}
         {lightboxImage && (
           <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setLightboxImage(null)}>
             <button className="absolute top-4 right-4 text-white bg-black/40 rounded-full p-2" onClick={() => setLightboxImage(null)}><X size={24} /></button>
