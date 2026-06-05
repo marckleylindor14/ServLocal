@@ -138,18 +138,29 @@ app.post('/api/upload', authenticateToken, upload.single('image'), async (req, r
 app.post('/api/upload-gallery', authenticateToken, upload.array('gallery', 5), async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'Aucun fichier envoyé.' });
+
+    const sharp = require('sharp');
+
     const uploadPromises = req.files.map(file => {
       return new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          { folder: 'myra-services' },
-          (error, result) => {
-            if (result) resolve(result.secure_url);
-            else reject(error);
-          }
-        );
-        streamifier.createReadStream(file.buffer).pipe(stream);
+        // Convertir en JPEG via sharp
+        sharp(file.buffer)
+          .jpeg({ quality: 85 })
+          .toBuffer()
+          .then(jpegBuffer => {
+            const stream = cloudinary.uploader.upload_stream(
+              { folder: 'myra-services' },
+              (error, result) => {
+                if (result) resolve(result.secure_url);
+                else reject(error);
+              }
+            );
+            streamifier.createReadStream(jpegBuffer).pipe(stream);
+          })
+          .catch(reject);
       });
     });
+
     const urls = await Promise.all(uploadPromises);
     res.json({ urls });
   } catch (error) {

@@ -6,37 +6,6 @@ import PageTransition from '../components/PageTransition'
 import API_URL from '../config'
 import { Upload, X, Plus } from 'lucide-react'
 
-// Convertir n'importe quelle image en JPEG (max 1200px de large)
-function convertToJpeg(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const img = new Image()
-      img.onload = () => {
-        const canvas = document.createElement('canvas')
-        const maxWidth = 1200
-        let { width, height } = img
-        if (width > maxWidth) {
-          height = Math.round((height * maxWidth) / width)
-          width = maxWidth
-        }
-        canvas.width = width
-        canvas.height = height
-        const ctx = canvas.getContext('2d')
-        ctx.drawImage(img, 0, 0, width, height)
-        canvas.toBlob((blob) => {
-          const jpegFile = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' })
-          resolve(jpegFile)
-        }, 'image/jpeg', 0.85)
-      }
-      img.onerror = () => reject(new Error('Impossible de charger l\'image'))
-      img.src = e.target.result
-    }
-    reader.onerror = () => reject(new Error('Erreur de lecture'))
-    reader.readAsDataURL(file)
-  })
-}
-
 export default function AddServicePage() {
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState('')
@@ -68,18 +37,9 @@ export default function AddServicePage() {
     setErrors(newErrors)
   }
 
-  const handleGalleryChange = async (e) => {
+  const handleGalleryChange = (e) => {
     const newFiles = Array.from(e.target.files)
-    // Convertir chaque fichier en JPEG si nécessaire
-    const converted = await Promise.all(
-      newFiles.map(async (file) => {
-        if (file.type === 'image/heic' || file.type === 'image/heif' || !file.type.startsWith('image/')) {
-          return await convertToJpeg(file)
-        }
-        return file
-      })
-    )
-    const combined = [...galleryFiles, ...converted].slice(0, 5)
+    const combined = [...galleryFiles, ...newFiles].slice(0, 5)
     setGalleryFiles(combined)
     setGalleryPreviews(combined.map(f => URL.createObjectURL(f)))
     if (fileGalleryRef.current) fileGalleryRef.current.value = ''
@@ -214,7 +174,7 @@ export default function AddServicePage() {
                 className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 outline-none focus:border-primary transition" />
             </div>
 
-            {/* Galerie portfolio avec conversion automatique */}
+            {/* Galerie portfolio */}
             <div>
               <label className="block text-sm font-medium mb-1">
                 Galerie d'exemples (max 5 photos)
