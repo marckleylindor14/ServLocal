@@ -20,9 +20,16 @@ const CONVERSATIONS_FILE = path.join(__dirname, 'conversations.json');
 const MESSAGES_FILE = path.join(__dirname, 'messages.json');
 const DEFAULT_IMAGE = 'https://i.pravatar.cc/100?img=4';
 const JWT_SECRET = 'servlocal_secret_2026';
-const ADMIN_EMAIL = 'marckleylindor21@gmail.com';
-const ADMIN_PASSWORD = 'Jesula1982';
 
+// Admin emails – peuvent être définis via une variable d'environnement
+const ADMIN_EMAILS = process.env.ADMIN_EMAILS
+  ? process.env.ADMIN_EMAILS.split(',').map(email => email.trim())
+  : ['Marckley.lindor14@gmail.com'];
+
+// Mot de passe admin (le même pour tous les admins)
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Jesula1982';
+
+// Resend
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_EMAIL = process.env.FROM_EMAIL || 'Myra <notifications@resend.dev>';
 
@@ -98,7 +105,7 @@ function authenticateToken(req, res, next) {
 
 function authenticateAdmin(req, res, next) {
   authenticateToken(req, res, () => {
-    if (req.user.email !== ADMIN_EMAIL) {
+    if (!ADMIN_EMAILS.includes(req.user.email)) {
       return res.status(403).json({ error: 'Accès admin requis.' });
     }
     next();
@@ -401,9 +408,10 @@ app.post('/api/auth/login', async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
 
-    if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
-      const token = jwt.sign({ id: 0, name: 'Admin', email: ADMIN_EMAIL }, JWT_SECRET, { expiresIn: '7d' });
-      return res.json({ token, user: { id: 0, name: 'Admin', email: ADMIN_EMAIL } });
+    // Vérification admin (si l'email est dans la liste ET le mot de passe correspond à ADMIN_PASSWORD)
+    if (ADMIN_EMAILS.includes(email) && password === ADMIN_PASSWORD) {
+      const token = jwt.sign({ id: 0, name: 'Admin', email: email }, JWT_SECRET, { expiresIn: '7d' });
+      return res.json({ token, user: { id: 0, name: 'Admin', email: email, isAdmin: true } });
     }
 
     const users = await readJSON(USERS_FILE);
@@ -412,29 +420,18 @@ app.post('/api/auth/login', async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
     const token = jwt.sign({ id: user._id, name: user.name, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token, user: { id: user._id, name: user.name, email: user.email } });
+    res.json({ token, user: { id: user._id, name: user.name, email: user.email, isAdmin: ADMIN_EMAILS.includes(user.email) } });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
 app.get('/api/auth/me', authenticateToken, async (req, res) => {
   try {
-    if (req.user.email === ADMIN_EMAIL) return res.json({ id: 0, name: 'Admin', email: ADMIN_EMAIL });
+    if (ADMIN_EMAILS.includes(req.user.email)) {
+      return res.json({ id: 0, name: 'Admin', email: req.user.email, isAdmin: true });
+    }
     const users = await readJSON(USERS_FILE);
     const user = users.find(u => u._id === req.user.id);
     if (!user) return res.status(404).json({ error: 'Utilisateur non trouvé' });
-    res.json({ id: user._id, name: user.name, email: user.email, photo: user.photo || null });
-  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
-});
-
-// ---------- Routes avis ----------
-app.get('/api/services/:id/reviews', async (req, res) => {
-  try {
-    const serviceId = Number(req.params.id);
-    const reviews = await readJSON(REVIEWS_FILE);
-    const serviceReviews = reviews.filter(r => r.serviceId === serviceId);
-    const averageRating = serviceReviews.length
-      ? (serviceReviews.reduce((sum, r) => sum + r.rating, 0) / serviceReviews.length).toFixed(1)
-      : 0;
-    res.json({ reviews: serviceReviews, averageRating: Number(averageRating) });
+    res.json({ id: user._id, name: user.name, email: user.email, photo: user.photo || null, isAdmin: false });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
 app.post('/api/services/:id/reviews', authenticateToken, async (req, res) => {
