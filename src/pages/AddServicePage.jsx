@@ -6,6 +6,37 @@ import PageTransition from '../components/PageTransition'
 import API_URL from '../config'
 import { Upload, X, Plus } from 'lucide-react'
 
+// Convertir n'importe quelle image en JPEG (max 1200px de large)
+function convertToJpeg(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        const maxWidth = 1200
+        let { width, height } = img
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width)
+          width = maxWidth
+        }
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(img, 0, 0, width, height)
+        canvas.toBlob((blob) => {
+          const jpegFile = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' })
+          resolve(jpegFile)
+        }, 'image/jpeg', 0.85)
+      }
+      img.onerror = () => reject(new Error('Impossible de charger l\'image'))
+      img.src = e.target.result
+    }
+    reader.onerror = () => reject(new Error('Erreur de lecture'))
+    reader.readAsDataURL(file)
+  })
+}
+
 export default function AddServicePage() {
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState('')
@@ -13,16 +44,14 @@ export default function AddServicePage() {
   const [price, setPrice] = useState('')
   const [city, setCity] = useState('')
 
-  // Galerie
-  const [galleryFiles, setGalleryFiles] = useState([])       // Fichiers bruts
-  const [galleryPreviews, setGalleryPreviews] = useState([]) // URLs locales pour aperçu
-  const [uploading, setUploading] = useState(false)
+  const [galleryFiles, setGalleryFiles] = useState([])
+  const [galleryPreviews, setGalleryPreviews] = useState([])
   const fileGalleryRef = useRef(null)
 
+  const [uploading, setUploading] = useState(false)
   const { user } = useAuth()
   const navigate = useNavigate()
 
-  // Erreurs de validation
   const [errors, setErrors] = useState({})
 
   const validateField = (name, value) => {
@@ -39,18 +68,23 @@ export default function AddServicePage() {
     setErrors(newErrors)
   }
 
-  // Gestion des fichiers sélectionnés
-  const handleGalleryChange = (e) => {
+  const handleGalleryChange = async (e) => {
     const newFiles = Array.from(e.target.files)
-    // On garde au maximum 5 fichiers au total
-    const combined = [...galleryFiles, ...newFiles].slice(0, 5)
+    // Convertir chaque fichier en JPEG si nécessaire
+    const converted = await Promise.all(
+      newFiles.map(async (file) => {
+        if (file.type === 'image/heic' || file.type === 'image/heif' || !file.type.startsWith('image/')) {
+          return await convertToJpeg(file)
+        }
+        return file
+      })
+    )
+    const combined = [...galleryFiles, ...converted].slice(0, 5)
     setGalleryFiles(combined)
     setGalleryPreviews(combined.map(f => URL.createObjectURL(f)))
-    // Reset l'input pour permettre de resélectionner le même fichier si besoin
     if (fileGalleryRef.current) fileGalleryRef.current.value = ''
   }
 
-  // Supprimer une image de la galerie
   const removeGalleryImage = (index) => {
     const newFiles = galleryFiles.filter((_, i) => i !== index)
     const newPreviews = galleryPreviews.filter((_, i) => i !== index)
@@ -69,7 +103,6 @@ export default function AddServicePage() {
 
     setUploading(true)
     try {
-      // 1) Upload de la galerie si fichiers présents
       let galleryUrls = []
       if (galleryFiles.length > 0) {
         const formData = new FormData()
@@ -87,7 +120,6 @@ export default function AddServicePage() {
         galleryUrls = data.urls
       }
 
-      // 2) Créer le service
       const priceNumber = price.trim() === '' ? null : Number(price.replace(',', '.').replace(/[^0-9.]/g, ''))
 
       const response = await fetch(`${API_URL}/api/services`, {
@@ -182,7 +214,7 @@ export default function AddServicePage() {
                 className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 outline-none focus:border-primary transition" />
             </div>
 
-            {/* Galerie portfolio */}
+            {/* Galerie portfolio avec conversion automatique */}
             <div>
               <label className="block text-sm font-medium mb-1">
                 Galerie d'exemples (max 5 photos)
