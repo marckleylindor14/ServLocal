@@ -13,7 +13,7 @@ export default function AdminPage() {
   const [verificationRequests, setVerificationRequests] = useState([])
 
   useEffect(() => {
-    if (!user || user.email !== 'Marckley.lindor14@gmail.com') {
+    if (!user || user.email !== 'Marckleylindor21@gmail.com') {
       navigate('/login')
       return
     }
