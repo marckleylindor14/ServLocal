@@ -21,7 +21,7 @@ const MESSAGES_FILE = path.join(__dirname, 'messages.json');
 const DEFAULT_IMAGE = 'https://i.pravatar.cc/100?img=4';
 const JWT_SECRET = 'servlocal_secret_2026';
 const ADMIN_EMAIL = 'marckleylindor21@gmail.com';
-const ADMIN_PASSWORD = 'Mwenrenmenlajananpilwi99';
+const ADMIN_PASSWORD = 'Jesula1982';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_EMAIL = process.env.FROM_EMAIL || 'Myra <notifications@resend.dev>';
