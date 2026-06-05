@@ -804,7 +804,22 @@ app.get('/api/notifications', authenticateToken, async (req, res) => {
     res.json({ pendingBookings: pendingProvider + pendingClient });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
-
+// TEMPORAIRE - Réinitialisation admin
+app.post('/api/admin-reset', async (req, res) => {
+  try {
+    const { email, newPassword } = req.body;
+    if (!email || !newPassword) return res.status(400).json({ error: 'Email et nouveau mot de passe requis.' });
+    const users = await readJSON(USERS_FILE);
+    const index = users.findIndex(u => u.email === email);
+    if (index === -1) return res.status(404).json({ error: 'Utilisateur non trouvé.' });
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    users[index].password = hashedPassword;
+    await writeJSON(USERS_FILE, users);
+    res.json({ message: 'Mot de passe mis à jour.' });
+  } catch (error) {
+    res.status(500).json({ error: 'Erreur interne' });
+  }
+});
 // Healthcheck
 app.get('/', (req, res) => res.status(200).send('OK'));
 
