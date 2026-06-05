@@ -13,13 +13,17 @@ export function AuthProvider({ children }) {
         headers: { Authorization: `Bearer ${token}` }
       })
         .then(res => {
-          // Si l'admin est reconnu, le serveur renvoie 200 ; sinon, on déconnecte
           if (!res.ok) throw new Error('Token invalide')
           return res.json()
         })
         .then(data => {
-          if (data.id !== undefined) setUser(data)
-          else logout()
+          setUser({
+            id: data.id,
+            name: data.name,
+            email: data.email,
+            photo: data.photo,
+            verificationStatus: data.verificationStatus || 'none'
+          })
         })
         .catch(() => logout())
     }
@@ -28,7 +32,13 @@ export function AuthProvider({ children }) {
   const login = (userData, tokenData) => {
     localStorage.setItem('token', tokenData)
     setToken(tokenData)
-    setUser(userData)
+    setUser({
+      id: userData.id,
+      name: userData.name,
+      email: userData.email,
+      photo: userData.photo,
+      verificationStatus: userData.verificationStatus || 'none'
+    })
   }
 
   const logout = () => {

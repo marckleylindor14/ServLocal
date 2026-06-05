@@ -10,12 +10,14 @@ export default function AdminPage() {
   const navigate = useNavigate()
   const [stats, setStats] = useState(null)
   const [error, setError] = useState('')
+  const [verificationRequests, setVerificationRequests] = useState([])
 
   useEffect(() => {
     if (!user || user.email !== 'Marckley.lindor14@gmail.com') {
       navigate('/login')
       return
     }
+    // Charger les stats
     fetch(`${API_URL}/api/admin/stats`, {
       headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
     })
@@ -25,9 +27,17 @@ export default function AdminPage() {
       })
       .then(data => data && setStats(data))
       .catch(() => setError('Impossible de charger les statistiques.'))
+
+    // Charger les demandes de vérification
+    fetch(`${API_URL}/api/admin/verification-requests`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    })
+      .then(res => res.json())
+      .then(data => setVerificationRequests(Array.isArray(data) ? data : []))
+      .catch(() => {})
   }, [user, navigate])
 
-  const handleVerify = async (serviceId) => {
+  const handleVerifyService = async (serviceId) => {
     await fetch(`${API_URL}/api/admin/services/${serviceId}/verify`, {
       method: 'PUT',
       headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -64,6 +74,23 @@ export default function AdminPage() {
     }))
   }
 
+  const handleVerifyUser = async (userId) => {
+    await fetch(`${API_URL}/api/admin/verify-user/${userId}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    })
+    setVerificationRequests(prev => prev.filter(r => r._id !== userId))
+    // Optionnel : rafraîchir les stats
+  }
+
+  const handleRejectUser = async (userId) => {
+    await fetch(`${API_URL}/api/admin/reject-user/${userId}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    })
+    setVerificationRequests(prev => prev.filter(r => r._id !== userId))
+  }
+
   if (!user || user.email !== 'Marckley.lindor14@gmail.com') return null
 
   return (
@@ -75,6 +102,27 @@ export default function AdminPage() {
           <h2 className="text-2xl md:text-3xl font-extrabold mb-2">Administration Myra</h2>
           <p className="text-sm text-muted-foreground mb-6 md:mb-8">Supervision globale de la plateforme</p>
           {error && <p className="text-red-400 mb-4">{error}</p>}
+
+          {/* Vérifications en attente */}
+          {verificationRequests.length > 0 && (
+            <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6 mb-6 md:mb-8">
+              <h3 className="text-lg md:text-xl font-bold mb-4">Vérifications en attente</h3>
+              <div className="space-y-4">
+                {verificationRequests.map(req => (
+                  <div key={req._id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border pb-3">
+                    <div>
+                      <p className="font-medium">{req.name} ({req.email})</p>
+                      <a href={req.verificationDocument} target="_blank" rel="noreferrer" className="text-primary text-sm hover:underline">Voir le document</a>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => handleVerifyUser(req._id)} className="bg-green-500/80 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-green-500 transition">Vérifier</button>
+                      <button onClick={() => handleRejectUser(req._id)} className="bg-red-500/80 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-red-500 transition">Refuser</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {stats && (
             <>
@@ -98,7 +146,7 @@ export default function AdminPage() {
                       </div>
                       <div className="flex gap-2 self-end sm:self-auto">
                         {!service.verified && (
-                          <button onClick={() => handleVerify(service._id)} className="text-xs border border-primary text-primary px-3 py-1 rounded-full hover:bg-primary hover:text-primary-foreground transition">
+                          <button onClick={() => handleVerifyService(service._id)} className="text-xs border border-primary text-primary px-3 py-1 rounded-full hover:bg-primary hover:text-primary-foreground transition">
                             Vérifier
                           </button>
                         )}
