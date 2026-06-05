@@ -74,7 +74,7 @@ export default function Header() {
               <Link to="/messages" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
                 <MessageSquare size={16} /> Messages
               </Link>
-              {user.email === 'Marckley.lindor14@gmail.com' && (
+              {user.email === 'Marckleylindor21@gmail.com' && (
                 <Link to="/admin" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
                   <Shield size={16} /> Admin
                 </Link>
@@ -116,7 +116,7 @@ export default function Header() {
                 Dashboard
               </Link>
               <Link to="/messages" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-sm text-muted-foreground"><MessageSquare size={18} /> Messages</Link>
-              {user.email === 'Marckley.lindor14@gmail.com' && (
+              {user.email === 'Marckleylindor21@gmail.com' && (
                 <Link to="/admin" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-sm text-muted-foreground"><Shield size={18} /> Admin</Link>
               )}
               <Link to="/account" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-sm text-muted-foreground"><User size={18} /> Mon compte</Link>

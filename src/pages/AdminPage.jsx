@@ -11,7 +11,7 @@ export default function AdminPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (!user || user.email !== 'Marckley.lindor14@gmail.com') {
+    if (!user || user.email !== 'Marckleylindor21@gmail.com') {
       navigate('/login')
       return
     }
@@ -63,7 +63,7 @@ export default function AdminPage() {
     }))
   }
 
-  if (!user || user.email !== 'Marckley.lindor14@gmail.com') return null
+              if (!user || user.email !== 'Marckleylindor21@gmail.com') return null
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans">
