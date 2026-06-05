@@ -25,7 +25,7 @@ export default function MessagesPage() {
       headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
     })
       .then(res => res.json())
-      .then(data => setConversations(data))
+      .then(data => setConversations(Array.isArray(data) ? data : []))
       .catch(err => setError('Impossible de charger les conversations.'))
   }, [user, navigate])
 
@@ -36,7 +36,7 @@ export default function MessagesPage() {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       })
       const data = await res.json()
-      setMessages(data)
+      setMessages(Array.isArray(data) ? data : [])
     } catch (err) {
       setError('Impossible de charger les messages.')
     }
