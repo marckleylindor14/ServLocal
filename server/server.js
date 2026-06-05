@@ -475,6 +475,30 @@ app.post('/api/auth/register', async (req, res) => {
     res.status(201).json({ message: 'Compte créé avec succès' });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
+// TEMPORAIRE - Création forcée du compte admin
+app.post('/api/create-admin', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis.' });
+    const users = await readJSON(USERS_FILE);
+    // Supprime l'ancien admin s'il existe déjà
+    const filtered = users.filter(u => u.email !== email);
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newAdmin = {
+      _id: nextId(filtered),
+      name: 'Admin',
+      email: email,
+      password: hashedPassword,
+      verificationStatus: 'verified',
+      createdAt: new Date().toISOString()
+    };
+    filtered.push(newAdmin);
+    await writeJSON(USERS_FILE, filtered);
+    res.json({ message: 'Compte admin créé.' });
+  } catch (error) {
+    res.status(500).json({ error: 'Erreur interne' });
+  }
+});
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
