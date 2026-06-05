@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import Header from '../components/Header'
 import PageTransition from '../components/PageTransition'
 import API_URL from '../config'
-import { Upload, X } from 'lucide-react'
+import { Upload, X, Plus } from 'lucide-react'
 
 export default function AddServicePage() {
   const [title, setTitle] = useState('')
@@ -13,14 +13,16 @@ export default function AddServicePage() {
   const [price, setPrice] = useState('')
   const [city, setCity] = useState('')
 
-  const [galleryFiles, setGalleryFiles] = useState([])
-  const [galleryPreviews, setGalleryPreviews] = useState([])
+  // Galerie
+  const [galleryFiles, setGalleryFiles] = useState([])       // Fichiers bruts
+  const [galleryPreviews, setGalleryPreviews] = useState([]) // URLs locales pour aperçu
+  const [uploading, setUploading] = useState(false)
   const fileGalleryRef = useRef(null)
 
-  const [uploading, setUploading] = useState(false)
   const { user } = useAuth()
   const navigate = useNavigate()
 
+  // Erreurs de validation
   const [errors, setErrors] = useState({})
 
   const validateField = (name, value) => {
@@ -37,41 +39,55 @@ export default function AddServicePage() {
     setErrors(newErrors)
   }
 
+  // Gestion des fichiers sélectionnés
   const handleGalleryChange = (e) => {
-    const files = Array.from(e.target.files).slice(0, 5)
-    setGalleryFiles(files)
-    setGalleryPreviews(files.map(f => URL.createObjectURL(f)))
-  }
-  const clearGallery = () => {
-    setGalleryFiles([])
-    setGalleryPreviews([])
+    const newFiles = Array.from(e.target.files)
+    // On garde au maximum 5 fichiers au total
+    const combined = [...galleryFiles, ...newFiles].slice(0, 5)
+    setGalleryFiles(combined)
+    setGalleryPreviews(combined.map(f => URL.createObjectURL(f)))
+    // Reset l'input pour permettre de resélectionner le même fichier si besoin
     if (fileGalleryRef.current) fileGalleryRef.current.value = ''
+  }
+
+  // Supprimer une image de la galerie
+  const removeGalleryImage = (index) => {
+    const newFiles = galleryFiles.filter((_, i) => i !== index)
+    const newPreviews = galleryPreviews.filter((_, i) => i !== index)
+    setGalleryFiles(newFiles)
+    setGalleryPreviews(newPreviews)
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (Object.keys(errors).length > 0) return
     if (!user) {
-      alert('Connectez-vous.')
+      alert('Vous devez être connecté.')
       navigate('/login')
       return
     }
+
     setUploading(true)
     try {
+      // 1) Upload de la galerie si fichiers présents
       let galleryUrls = []
       if (galleryFiles.length > 0) {
         const formData = new FormData()
-        galleryFiles.forEach(f => formData.append('gallery', f))
+        galleryFiles.forEach(file => formData.append('gallery', file))
         const res = await fetch(`${API_URL}/api/upload-gallery`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
           body: formData
         })
-        if (!res.ok) throw new Error('Échec upload galerie')
+        if (!res.ok) {
+          const err = await res.json()
+          throw new Error(err.error || 'Échec upload galerie')
+        }
         const data = await res.json()
         galleryUrls = data.urls
       }
 
+      // 2) Créer le service
       const priceNumber = price.trim() === '' ? null : Number(price.replace(',', '.').replace(/[^0-9.]/g, ''))
 
       const response = await fetch(`${API_URL}/api/services`, {
@@ -93,13 +109,14 @@ export default function AddServicePage() {
 
       const data = await response.json()
       if (response.ok) {
-        alert('✅ Service publié !')
+        alert('✅ Service publié avec succès !')
         setTitle('')
         setCategory('')
         setDescription('')
         setPrice('')
         setCity('')
-        clearGallery()
+        setGalleryFiles([])
+        setGalleryPreviews([])
         setErrors({})
       } else {
         alert('❌ ' + (data.details ? data.details.join(', ') : data.error))
@@ -118,7 +135,9 @@ export default function AddServicePage() {
         <div className="pt-20"></div>
         <main className="max-w-2xl mx-auto px-4 py-12">
           <h2 className="text-3xl font-extrabold mb-4">Proposer un service</h2>
-          <p className="text-muted-foreground mb-8">Remplissez ce formulaire pour apparaître près de chez vous.</p>
+          <p className="text-muted-foreground mb-8">
+            Remplissez ce formulaire pour apparaître dans les résultats près de chez vous.
+          </p>
 
           <form onSubmit={handleSubmit} className="bg-card backdrop-blur-md border border-border rounded-2xl p-6 space-y-6">
             <div>
@@ -152,49 +171,72 @@ export default function AddServicePage() {
               <textarea required value={description}
                 onChange={e => { setDescription(e.target.value); validateField('description', e.target.value) }}
                 rows={4}
-                placeholder="Décrivez votre service..."
+                placeholder="Décrivez votre service, votre expérience..."
                 className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 outline-none focus:border-primary transition resize-none" />
               {errors.description && <p className="text-red-400 text-xs mt-1">{errors.description}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Tarif (€)</label>
-              <input type="text" inputMode="decimal" value={price} onChange={e => setPrice(e.target.value)} placeholder="Ex : 30€"
+              <input type="text" inputMode="decimal" value={price} onChange={e => setPrice(e.target.value)}
+                placeholder="Ex : 30€"
                 className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 outline-none focus:border-primary transition" />
             </div>
 
             {/* Galerie portfolio */}
             <div>
-              <label className="block text-sm font-medium mb-1">Galerie d'exemples (max 5 photos)</label>
+              <label className="block text-sm font-medium mb-1">
+                Galerie d'exemples (max 5 photos)
+              </label>
               {galleryPreviews.length > 0 ? (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="grid grid-cols-3 gap-2">
                     {galleryPreviews.map((src, idx) => (
-                      <div key={idx} className="relative rounded-lg overflow-hidden h-24">
-                        <img src={src} alt={`ex ${idx}`} className="w-full h-full object-cover" />
-                        <button type="button" onClick={() => {
-                          const newFiles = galleryFiles.filter((_, i) => i !== idx)
-                          const newPrevs = galleryPreviews.filter((_, i) => i !== idx)
-                          setGalleryFiles(newFiles)
-                          setGalleryPreviews(newPrevs)
-                        }} className="absolute top-1 right-1 bg-black/60 text-white p-1 rounded-full"><X size={12} /></button>
+                      <div key={idx} className="relative rounded-lg overflow-hidden h-24 bg-muted">
+                        <img src={src} alt={`exemple ${idx + 1}`} className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => removeGalleryImage(idx)}
+                          className="absolute top-1 right-1 bg-black/60 text-white p-1 rounded-full hover:bg-black/80"
+                        >
+                          <X size={14} />
+                        </button>
                       </div>
                     ))}
                   </div>
-                  <button type="button" onClick={() => fileGalleryRef.current?.click()} className="text-xs text-primary hover:underline">
-                    + Ajouter d'autres photos
-                  </button>
+                  {galleryFiles.length < 5 && (
+                    <button
+                      type="button"
+                      onClick={() => fileGalleryRef.current?.click()}
+                      className="flex items-center gap-1 text-sm text-primary hover:underline"
+                    >
+                      <Plus size={16} /> Ajouter d'autres photos
+                    </button>
+                  )}
                 </div>
               ) : (
-                <div onClick={() => fileGalleryRef.current?.click()} className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary transition text-muted-foreground">
+                <div
+                  onClick={() => fileGalleryRef.current?.click()}
+                  className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary transition text-muted-foreground"
+                >
                   <Upload size={24} className="mx-auto mb-2" />
-                  Cliquez pour ajouter des photos
+                  Cliquez pour ajouter des photos (5 max)
                 </div>
               )}
-              <input ref={fileGalleryRef} type="file" accept="image/*" multiple onChange={handleGalleryChange} className="hidden" />
+              <input
+                ref={fileGalleryRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleGalleryChange}
+                className="hidden"
+              />
             </div>
 
-            <button type="submit" disabled={uploading}
-              className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-full hover:bg-primary/90 transition disabled:opacity-50">
+            <button
+              type="submit"
+              disabled={uploading}
+              className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-full hover:bg-primary/90 transition disabled:opacity-50 flex items-center justify-center gap-2"
+            >
               {uploading ? 'Publication...' : 'Publier le service'}
             </button>
           </form>
