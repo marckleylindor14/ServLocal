@@ -48,12 +48,10 @@ export default function Header() {
           <span className="text-xl md:text-2xl font-extrabold tracking-tight">Myra</span>
         </Link>
 
-        {/* Bouton hamburger mobile */}
-        <button className="md:hidden text-muted-foreground" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+        <button className="md:hidden text-muted-foreground" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} aria-label="Menu">
           {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
 
-        {/* Navigation desktop */}
         <nav className="hidden md:flex gap-3 items-center">
           <Link to="/add-service" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
             <PlusCircle size={16} /> Proposer
@@ -89,7 +87,7 @@ export default function Header() {
                 <User size={16} /> Mon compte
               </Link>
               <span className="text-sm text-muted-foreground">{user.name}</span>
-              <button onClick={handleLogout} className="flex items-center gap-1 border border-primary text-primary px-4 py-2 rounded-full font-semibold hover:bg-primary hover:text-primary-foreground transition">
+              <button onClick={handleLogout} aria-label="Se déconnecter" className="flex items-center gap-1 border border-primary text-primary px-4 py-2 rounded-full font-semibold hover:bg-primary hover:text-primary-foreground transition">
                 <LogOut size={16} /> Déconnexion
               </button>
             </div>
@@ -101,7 +99,6 @@ export default function Header() {
         </nav>
       </div>
 
-      {/* Panneau mobile */}
       {mobileMenuOpen && (
         <div className="md:hidden bg-background/95 backdrop-blur-md border-t border-border px-4 py-4 flex flex-col gap-3">
           <Link to="/add-service" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-sm text-muted-foreground"><PlusCircle size={18} /> Proposer un service</Link>

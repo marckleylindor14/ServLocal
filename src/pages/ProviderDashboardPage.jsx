@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Header from '../components/Header'
+import EmptyState from '../components/EmptyState'
+import SkeletonCard from '../components/SkeletonCard'
+import PageTransition from '../components/PageTransition'
 import API_URL from '../config'
 
 export default function ProviderDashboardPage() {
@@ -9,6 +12,7 @@ export default function ProviderDashboardPage() {
   const navigate = useNavigate()
   const [bookings, setBookings] = useState([])
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!user) { navigate('/login'); return }
@@ -16,8 +20,14 @@ export default function ProviderDashboardPage() {
       headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
     })
       .then(res => res.json())
-      .then(data => setBookings(data))
-      .catch(() => setError('Impossible de charger les réservations.'))
+      .then(data => {
+        setBookings(data)
+        setLoading(false)
+      })
+      .catch(() => {
+        setError('Impossible de charger les réservations.')
+        setLoading(false)
+      })
   }, [user, navigate])
 
   const handleStatusChange = async (bookingId, newStatus) => {
@@ -43,60 +53,70 @@ export default function ProviderDashboardPage() {
   if (!user) return null
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans page-enter">
-      <Header />
-      <div className="pt-16 md:pt-20"></div>
-      <main className="max-w-5xl mx-auto px-4 py-6 md:py-12">
-        <h2 className="text-2xl md:text-3xl font-extrabold mb-2 md:mb-6">Tableau de bord prestataire</h2>
-        <p className="text-sm text-muted-foreground mb-6 md:mb-8">Gérez les réservations pour vos services.</p>
-        {error && <p className="text-red-400 mb-4">{error}</p>}
+    <PageTransition>
+      <div className="min-h-screen bg-background text-foreground font-sans">
+        <Header />
+        <div className="pt-16 md:pt-20"></div>
+        <main className="max-w-5xl mx-auto px-4 py-6 md:py-12">
+          <h2 className="text-2xl md:text-3xl font-extrabold mb-2 md:mb-6">Tableau de bord prestataire</h2>
+          <p className="text-sm text-muted-foreground mb-6 md:mb-8">Gérez les réservations pour vos services.</p>
+          {error && <p className="text-red-400 mb-4">{error}</p>}
 
-        {bookings.length === 0 && !error && (
-          <p className="text-muted-foreground text-sm md:text-base">Aucune réservation reçue pour le moment.</p>
-        )}
+          {loading ? (
+            <div className="space-y-4">
+              <SkeletonCard />
+              <SkeletonCard />
+            </div>
+          ) : bookings.length === 0 && !error ? (
+            <EmptyState
+              title="Aucune réservation reçue"
+              description="Vous n'avez pas encore reçu de réservation pour vos services."
+            />
+          ) : (
+            <div className="space-y-4">
+              {bookings.map((booking) => (
+                <div key={booking._id} className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 card-hover">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+                    <div>
+                      <h3 className="text-lg md:text-xl font-bold">{booking.serviceTitle}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Réservé par <span className="font-medium text-foreground">{booking.clientName}</span> pour le {booking.date} de {booking.timeSlot}
+                      </p>
+                      {booking.message && (
+                        <p className="mt-1 text-sm text-muted-foreground">💬 {booking.message}</p>
+                      )}
+                    </div>
+                    <span className={`text-xs px-3 py-1 rounded-full font-medium self-start ${
+                      booking.status === 'confirmed' ? 'bg-green-400/20 text-green-400' :
+                      booking.status === 'cancelled' ? 'bg-red-400/20 text-red-400' :
+                      'bg-yellow-400/20 text-yellow-400'
+                    }`}>
+                      {booking.status === 'pending' ? 'En attente' : booking.status === 'confirmed' ? 'Confirmé' : 'Annulé'}
+                    </span>
+                  </div>
 
-        <div className="space-y-4">
-          {bookings.map((booking) => (
-            <div key={booking._id} className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 card-hover">
-              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
-                <div>
-                  <h3 className="text-lg md:text-xl font-bold">{booking.serviceTitle}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Réservé par <span className="font-medium text-foreground">{booking.clientName}</span> pour le {booking.date} de {booking.timeSlot}
-                  </p>
-                  {booking.message && (
-                    <p className="mt-1 text-sm text-muted-foreground">💬 {booking.message}</p>
+                  {booking.status === 'pending' && (
+                    <div className="flex gap-3 mt-4">
+                      <button
+                        onClick={() => handleStatusChange(booking._id, 'confirmed')}
+                        className="flex-1 sm:flex-none bg-green-500/80 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-green-500 transition"
+                      >
+                        Accepter
+                      </button>
+                      <button
+                        onClick={() => handleStatusChange(booking._id, 'cancelled')}
+                        className="flex-1 sm:flex-none bg-red-500/80 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-red-500 transition"
+                      >
+                        Refuser
+                      </button>
+                    </div>
                   )}
                 </div>
-                <span className={`text-xs px-3 py-1 rounded-full font-medium self-start ${
-                  booking.status === 'confirmed' ? 'bg-green-400/20 text-green-400' :
-                  booking.status === 'cancelled' ? 'bg-red-400/20 text-red-400' :
-                  'bg-yellow-400/20 text-yellow-400'
-                }`}>
-                  {booking.status === 'pending' ? 'En attente' : booking.status === 'confirmed' ? 'Confirmé' : 'Annulé'}
-                </span>
-              </div>
-
-              {booking.status === 'pending' && (
-                <div className="flex gap-3 mt-4">
-                  <button
-                    onClick={() => handleStatusChange(booking._id, 'confirmed')}
-                    className="flex-1 sm:flex-none bg-green-500/80 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-green-500 transition"
-                  >
-                    Accepter
-                  </button>
-                  <button
-                    onClick={() => handleStatusChange(booking._id, 'cancelled')}
-                    className="flex-1 sm:flex-none bg-red-500/80 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-red-500 transition"
-                  >
-                    Refuser
-                  </button>
-                </div>
-              )}
+              ))}
             </div>
-          ))}
-        </div>
-      </main>
-    </div>
+          )}
+        </main>
+      </div>
+    </PageTransition>
   )
 }
