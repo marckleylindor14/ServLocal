@@ -58,7 +58,7 @@ export default function AddServicePage() {
     setGalleryPreviews(newPreviews)
   }
 
-  // Upload individuel d'un fichier
+  // Upload individuel d'un fichier vers /api/upload
   const uploadSingleImage = async (file) => {
     const formData = new FormData()
     formData.append('image', file)
@@ -89,7 +89,6 @@ export default function AddServicePage() {
       // 1) Upload de chaque image une par une
       let galleryUrls = []
       if (galleryFiles.length > 0) {
-        // On lance tous les uploads en parallèle pour que ce soit rapide
         galleryUrls = await Promise.all(
           galleryFiles.map(file => uploadSingleImage(file))
         )
