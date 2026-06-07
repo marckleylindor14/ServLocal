@@ -196,6 +196,84 @@ app.get('/api/user/stats', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Erreur interne' });
   }
 });
+// ---------- Vérification d'identité ----------
+app.post('/api/user/request-verification', authenticateToken, upload.single('document'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Document requis.' });
+
+    const streamUpload = () =>
+      new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder: 'myra-verifications', format: 'jpg' },
+          (error, result) => {
+            if (result) resolve(result);
+            else reject(error);
+          }
+        );
+        streamifier.createReadStream(req.file.buffer).pipe(stream);
+      });
+
+    const result = await streamUpload();
+    const documentUrl = result.secure_url;
+
+    const users = await readJSON(USERS_FILE);
+    const index = users.findIndex(u => u._id === req.user.id);
+    if (index === -1) return res.status(404).json({ error: 'Utilisateur non trouvé' });
+
+    users[index].verificationStatus = 'pending';
+    users[index].verificationDocument = documentUrl;
+    await writeJSON(USERS_FILE, users);
+
+    res.json({ message: 'Votre demande de vérification a bien été envoyée. Elle sera examinée par notre équipe.' });
+  } catch (error) {
+    console.error('Erreur demande vérification:', error);
+    res.status(500).json({ error: 'Échec de l\'envoi de la demande.' });
+  }
+});
+
+app.get('/api/admin/verification-requests', authenticateAdmin, async (req, res) => {
+  try {
+    const users = await readJSON(USERS_FILE);
+    const requests = users.filter(u => u.verificationStatus === 'pending').map(u => ({
+      _id: u._id,
+      name: u.name,
+      email: u.email,
+      verificationDocument: u.verificationDocument,
+      verificationStatus: u.verificationStatus
+    }));
+    res.json(requests);
+  } catch (error) {
+    res.status(500).json({ error: 'Erreur interne' });
+  }
+});
+
+app.put('/api/admin/verify-user/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const userId = Number(req.params.id);
+    const users = await readJSON(USERS_FILE);
+    const index = users.findIndex(u => u._id === userId);
+    if (index === -1) return res.status(404).json({ error: 'Utilisateur non trouvé' });
+    users[index].verificationStatus = 'verified';
+    await writeJSON(USERS_FILE, users);
+    res.json({ message: 'Utilisateur vérifié.' });
+  } catch (error) {
+    res.status(500).json({ error: 'Erreur interne' });
+  }
+});
+
+app.put('/api/admin/reject-user/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const userId = Number(req.params.id);
+    const users = await readJSON(USERS_FILE);
+    const index = users.findIndex(u => u._id === userId);
+    if (index === -1) return res.status(404).json({ error: 'Utilisateur non trouvé' });
+    users[index].verificationStatus = 'rejected';
+    await writeJSON(USERS_FILE, users);
+    res.json({ message: 'Vérification refusée.' });
+  } catch (error) {
+    res.status(500).json({ error: 'Erreur interne' });
+  }
+});
 
 // ---------- Stripe ----------
 app.post('/api/create-checkout-session', authenticateToken, async (req, res) => {
