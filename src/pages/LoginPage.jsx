@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
 import PageTransition from '../components/PageTransition'
-import { formatError } from '../utils/formatError'
 import API_URL from '../config'
 import { Loader2, Eye, EyeOff } from 'lucide-react'
 
@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
+  const { addToast } = useToast()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -30,10 +31,12 @@ export default function LoginPage() {
         login(data.user, data.token)
         navigate('/')
       } else {
-        setError(formatError(data.error))
+        setError(data.error || 'Erreur de connexion')
+        addToast(data.error || 'Erreur de connexion', 'error')
       }
     } catch {
-      setError(formatError('NetworkError'))
+      setError('Impossible de contacter le serveur')
+      addToast('Impossible de contacter le serveur', 'error')
     } finally {
       setLoading(false)
     }
@@ -55,7 +58,6 @@ export default function LoginPage() {
             <button type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition"
-              aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
             >
               {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
             </button>

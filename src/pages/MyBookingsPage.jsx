@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
 import Header from '../components/Header'
 import EmptyState from '../components/EmptyState'
 import SkeletonCard from '../components/SkeletonCard'
@@ -13,6 +14,7 @@ const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
 export default function MyBookingsPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const { addToast } = useToast()
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -26,8 +28,11 @@ export default function MyBookingsPage() {
         setBookings(data)
         setLoading(false)
       })
-      .catch(() => setLoading(false))
-  }, [user, navigate])
+      .catch(() => {
+        addToast('Erreur chargement réservations', 'error')
+        setLoading(false)
+      })
+  }, [user, navigate, addToast])
 
   const handlePay = async (serviceId, bookingId) => {
     try {
@@ -43,10 +48,10 @@ export default function MyBookingsPage() {
       if (data.url) {
         window.location.href = data.url
       } else {
-        alert(data.error || 'Impossible de créer la session de paiement.')
+        addToast(data.error || 'Impossible de créer la session de paiement.', 'error')
       }
-    } catch (error) {
-      alert('Erreur réseau.')
+    } catch {
+      addToast('Erreur réseau.', 'error')
     }
   }
 
@@ -66,12 +71,7 @@ export default function MyBookingsPage() {
               <SkeletonCard />
             </div>
           ) : bookings.length === 0 ? (
-            <EmptyState
-              title="Aucune réservation"
-              description="Vous n'avez pas encore réservé de service."
-              actionLabel="Voir les services"
-              onAction={() => navigate('/')}
-            />
+            <EmptyState title="Aucune réservation" description="Vous n'avez pas encore réservé de service." actionLabel="Voir les services" onAction={() => navigate('/')} />
           ) : (
             <div className="space-y-4">
               {bookings.map((booking) => (

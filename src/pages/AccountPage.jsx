@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
 import Header from '../components/Header'
 import PageTransition from '../components/PageTransition'
 import API_URL from '../config'
@@ -9,6 +10,7 @@ import { Upload, X, Loader2, Lock, BarChart3, Eye, EyeOff, ShieldCheck, Clock, A
 export default function AccountPage() {
   const { user, login } = useAuth()
   const navigate = useNavigate()
+  const { addToast } = useToast()
   const [name, setName] = useState(user?.name || '')
   const [photoPreview, setPhotoPreview] = useState(user?.photo || null)
   const [photoFile, setPhotoFile] = useState(null)
@@ -87,9 +89,9 @@ export default function AccountPage() {
       if (!res.ok) throw new Error('Erreur mise à jour')
       const updatedUser = await res.json()
       login(updatedUser, localStorage.getItem('token'))
-      alert('Profil mis à jour !')
+      addToast('Profil mis à jour !', 'success')
     } catch (err) {
-      alert('Erreur: ' + err.message)
+      addToast('Erreur : ' + err.message, 'error')
     } finally {
       setUploading(false)
     }
@@ -119,11 +121,14 @@ export default function AccountPage() {
         setPasswordSuccess('Mot de passe modifié avec succès !')
         setCurrentPassword('')
         setNewPassword('')
+        addToast('Mot de passe modifié avec succès !', 'success')
       } else {
         setPasswordError(data.error || 'Erreur')
+        addToast(data.error || 'Erreur', 'error')
       }
     } catch {
       setPasswordError('Impossible de contacter le serveur.')
+      addToast('Impossible de contacter le serveur.', 'error')
     } finally {
       setPasswordLoading(false)
     }
@@ -144,7 +149,7 @@ export default function AccountPage() {
   }
   const handleRequestVerification = async () => {
     if (!verificationDoc) {
-      alert('Veuillez sélectionner une pièce d\'identité.')
+      addToast('Veuillez sélectionner une pièce d\'identité.', 'error')
       return
     }
     setVerificationSubmitting(true)
@@ -162,8 +167,9 @@ export default function AccountPage() {
       setVerificationMessage(data.message)
       clearVerificationDoc()
       login({ ...user, verificationStatus: 'pending' }, localStorage.getItem('token'))
+      addToast(data.message, 'success')
     } catch (err) {
-      alert('Erreur: ' + err.message)
+      addToast('Erreur : ' + err.message, 'error')
     } finally {
       setVerificationSubmitting(false)
     }
@@ -255,7 +261,7 @@ export default function AccountPage() {
                     Cliquez pour télécharger votre pièce d'identité
                   </div>
                 )}
-                <input ref={verificationFileRef} type="file" accept="image/*" onChange={handleVerificationDocChange} className="hidden" />
+                <input ref={verificationFileRef} type="file" accept="image/jpeg,image/png" onChange={handleVerificationDocChange} className="hidden" />
                 {verificationMessage && <p className="text-green-400 text-sm">{verificationMessage}</p>}
                 <button
                   onClick={handleRequestVerification}
@@ -296,7 +302,6 @@ export default function AccountPage() {
                 className="w-full bg-white/5 border border-border rounded-lg py-3 pl-4 pr-12 outline-none focus:border-primary transition" />
               <button type="button" onClick={() => setShowCurrent(!showCurrent)}
                 className="absolute right-3 top-9 text-muted-foreground hover:text-foreground transition"
-                aria-label={showCurrent ? "Masquer le mot de passe" : "Afficher le mot de passe"}
               >
                 {showCurrent ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
@@ -307,7 +312,6 @@ export default function AccountPage() {
                 className="w-full bg-white/5 border border-border rounded-lg py-3 pl-4 pr-12 outline-none focus:border-primary transition" />
               <button type="button" onClick={() => setShowNew(!showNew)}
                 className="absolute right-3 top-9 text-muted-foreground hover:text-foreground transition"
-                aria-label={showNew ? "Masquer le mot de passe" : "Afficher le mot de passe"}
               >
                 {showNew ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>

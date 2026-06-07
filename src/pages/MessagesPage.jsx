@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
 import Header from '../components/Header'
 import EmptyState from '../components/EmptyState'
 import PageTransition from '../components/PageTransition'
@@ -10,12 +11,12 @@ import { Send } from 'lucide-react'
 export default function MessagesPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const { addToast } = useToast()
   const [conversations, setConversations] = useState([])
   const [selectedConv, setSelectedConv] = useState(null)
   const [messages, setMessages] = useState([])
   const [newMessage, setNewMessage] = useState('')
   const [error, setError] = useState('')
-  const [loading, setLoading] = useState(true) // ajouté
 
   useEffect(() => {
     if (!user) {
@@ -26,15 +27,12 @@ export default function MessagesPage() {
       headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
     })
       .then(res => res.json())
-      .then(data => {
-        setConversations(Array.isArray(data) ? data : [])
-        setLoading(false)
-      })
-      .catch(err => {
+      .then(data => setConversations(Array.isArray(data) ? data : []))
+      .catch(() => {
         setError('Impossible de charger les conversations.')
-        setLoading(false)
+        addToast('Impossible de charger les conversations.', 'error')
       })
-  }, [user, navigate])
+  }, [user, navigate, addToast])
 
   const openConversation = async (conv) => {
     setSelectedConv(conv)
@@ -44,8 +42,9 @@ export default function MessagesPage() {
       })
       const data = await res.json()
       setMessages(Array.isArray(data) ? data : [])
-    } catch (err) {
+    } catch {
       setError('Impossible de charger les messages.')
+      addToast('Impossible de charger les messages.', 'error')
     }
   }
 
@@ -65,9 +64,11 @@ export default function MessagesPage() {
         const msg = await res.json()
         setMessages(prev => [...prev, msg])
         setNewMessage('')
+      } else {
+        addToast('Échec de l\'envoi.', 'error')
       }
-    } catch (err) {
-      setError('Échec de l\'envoi.')
+    } catch {
+      addToast('Échec de l\'envoi.', 'error')
     }
   }
 
@@ -81,74 +82,60 @@ export default function MessagesPage() {
         <main className="max-w-6xl mx-auto px-4 py-8">
           <h2 className="text-3xl font-extrabold mb-6">Messages</h2>
 
-          {loading ? (
-            <div className="text-center text-muted-foreground">Chargement des conversations...</div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[70vh]">
-              <div className="md:col-span-1 bg-card backdrop-blur-md border border-border rounded-2xl p-4 overflow-y-auto">
-                {conversations.length === 0 ? (
-                  <EmptyState
-                    title="Aucune conversation"
-                    description="Vous n'avez pas encore de messages."
-                  />
-                ) : (
-                  conversations.map(conv => (
-                    <div
-                      key={conv._id}
-                      onClick={() => openConversation(conv)}
-                      className={`p-3 rounded-lg cursor-pointer mb-2 hover:bg-white/5 transition ${
-                        selectedConv?._id === conv._id ? 'bg-primary/10' : ''
-                      }`}
-                    >
-                      <p className="font-medium truncate">{conv.serviceTitle || 'Sans titre'}</p>
-                      <p className="text-sm text-muted-foreground truncate">
-                        Avec {conv.participantsNames?.find?.(name => name !== user.name) || 'un interlocuteur'}
-                      </p>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              <div className="md:col-span-2 bg-card backdrop-blur-md border border-border rounded-2xl p-4 flex flex-col">
-                {!selectedConv ? (
-                  <p className="text-muted-foreground m-auto">Sélectionnez une conversation pour commencer.</p>
-                ) : (
-                  <>
-                    <div className="flex-1 overflow-y-auto space-y-3 mb-4">
-                      {messages.length === 0 && <p className="text-muted-foreground text-center">Aucun message pour le moment.</p>}
-                      {messages.map(msg => (
-                        <div
-                          key={msg._id}
-                          className={`flex ${msg.senderId === user.id ? 'justify-end' : 'justify-start'}`}
-                        >
-                          <div className={`max-w-[75%] p-3 rounded-xl ${
-                            msg.senderId === user.id ? 'bg-primary/20' : 'bg-white/5'
-                          }`}>
-                            <p className="text-xs text-muted-foreground mb-1">
-                              {msg.senderName || 'Utilisateur'} · {msg.createdAt ? new Date(msg.createdAt).toLocaleString() : ''}
-                            </p>
-                            <p>{msg.text}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <form onSubmit={handleSend} className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="Votre message..."
-                        className="flex-1 bg-white/5 border border-border rounded-full py-3 px-5 text-foreground outline-none focus:border-primary transition"
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                      />
-                      <button type="submit" className="bg-primary text-primary-foreground p-3 rounded-full hover:bg-primary/90 transition">
-                        <Send size={18} />
-                      </button>
-                    </form>
-                  </>
-                )}
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[70vh]">
+            <div className="md:col-span-1 bg-card backdrop-blur-md border border-border rounded-2xl p-4 overflow-y-auto">
+              {conversations.length === 0 ? (
+                <EmptyState title="Aucune conversation" description="Vous n'avez pas encore de messages." />
+              ) : (
+                conversations.map(conv => (
+                  <div
+                    key={conv._id}
+                    onClick={() => openConversation(conv)}
+                    className={`p-3 rounded-lg cursor-pointer mb-2 hover:bg-white/5 transition ${selectedConv?._id === conv._id ? 'bg-primary/10' : ''}`}
+                  >
+                    <p className="font-medium truncate">{conv.serviceTitle || 'Sans titre'}</p>
+                    <p className="text-sm text-muted-foreground truncate">
+                      Avec {conv.participantsNames?.find?.(name => name !== user.name) || 'un interlocuteur'}
+                    </p>
+                  </div>
+                ))
+              )}
             </div>
-          )}
+
+            <div className="md:col-span-2 bg-card backdrop-blur-md border border-border rounded-2xl p-4 flex flex-col">
+              {!selectedConv ? (
+                <p className="text-muted-foreground m-auto">Sélectionnez une conversation pour commencer.</p>
+              ) : (
+                <>
+                  <div className="flex-1 overflow-y-auto space-y-3 mb-4">
+                    {messages.length === 0 && <p className="text-muted-foreground text-center">Aucun message pour le moment.</p>}
+                    {messages.map(msg => (
+                      <div key={msg._id} className={`flex ${msg.senderId === user.id ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[75%] p-3 rounded-xl ${msg.senderId === user.id ? 'bg-primary/20' : 'bg-white/5'}`}>
+                          <p className="text-xs text-muted-foreground mb-1">
+                            {msg.senderName || 'Utilisateur'} · {msg.createdAt ? new Date(msg.createdAt).toLocaleString() : ''}
+                          </p>
+                          <p>{msg.text}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <form onSubmit={handleSend} className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Votre message..."
+                      className="flex-1 bg-white/5 border border-border rounded-full py-3 px-5 text-foreground outline-none focus:border-primary transition"
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                    />
+                    <button type="submit" className="bg-primary text-primary-foreground p-3 rounded-full hover:bg-primary/90 transition">
+                      <Send size={18} />
+                    </button>
+                  </form>
+                </>
+              )}
+            </div>
+          </div>
         </main>
       </div>
     </PageTransition>

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useToast } from '../context/ToastContext'
 import PageTransition from '../components/PageTransition'
 import API_URL from '../config'
 import { Loader2, Eye, EyeOff } from 'lucide-react'
@@ -12,6 +13,7 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const navigate = useNavigate()
+  const { addToast } = useToast()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -28,9 +30,11 @@ export default function SignupPage() {
         navigate('/onboarding')
       } else {
         setError(data.error || 'Erreur inscription')
+        addToast(data.error || 'Erreur inscription', 'error')
       }
     } catch {
       setError('Impossible de contacter le serveur')
+      addToast('Impossible de contacter le serveur', 'error')
     } finally {
       setLoading(false)
     }
@@ -55,7 +59,6 @@ export default function SignupPage() {
             <button type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition"
-              aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
             >
               {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
             </button>

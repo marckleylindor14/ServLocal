@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
 import Header from '../components/Header'
 import EmptyState from '../components/EmptyState'
 import SkeletonCard from '../components/SkeletonCard'
@@ -13,6 +14,7 @@ import {
 
 export default function HomePage() {
   const { user } = useAuth()
+  const { addToast } = useToast()
   const [allServices, setAllServices] = useState([])
   const [cities, setCities] = useState([])
   const [selectedCity, setSelectedCity] = useState('')
@@ -32,6 +34,7 @@ export default function HomePage() {
         setLoading(false)
       })
       .catch(() => {
+        addToast('Impossible de charger les services.', 'error')
         setAllServices([])
         setLoading(false)
       })
@@ -39,8 +42,11 @@ export default function HomePage() {
     fetch(`${API_URL}/api/cities`)
       .then(res => res.json())
       .then(data => setCities(Array.isArray(data) ? data : []))
-      .catch(() => setCities([]))
-  }, [])
+      .catch(() => {
+        addToast('Impossible de charger les villes.', 'error')
+        setCities([])
+      })
+  }, [addToast])
 
   useEffect(() => {
     if (!navigator.geolocation || cities.length === 0) return

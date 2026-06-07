@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
 import Header from '../components/Header'
 import PageTransition from '../components/PageTransition'
 import API_URL from '../config'
@@ -8,6 +9,7 @@ import API_URL from '../config'
 export default function AdminPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const { addToast } = useToast()
   const [stats, setStats] = useState(null)
   const [error, setError] = useState('')
   const [verificationRequests, setVerificationRequests] = useState([])
@@ -17,7 +19,6 @@ export default function AdminPage() {
       navigate('/login')
       return
     }
-    // Charger les stats
     fetch(`${API_URL}/api/admin/stats`, {
       headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
     })
@@ -26,16 +27,15 @@ export default function AdminPage() {
         return res.json()
       })
       .then(data => data && setStats(data))
-      .catch(() => setError('Impossible de charger les statistiques.'))
+      .catch(() => addToast('Impossible de charger les statistiques.', 'error'))
 
-    // Charger les demandes de vérification
     fetch(`${API_URL}/api/admin/verification-requests`, {
       headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
     })
       .then(res => res.json())
       .then(data => setVerificationRequests(Array.isArray(data) ? data : []))
       .catch(() => {})
-  }, [user, navigate])
+  }, [user, navigate, addToast])
 
   const handleVerifyService = async (serviceId) => {
     await fetch(`${API_URL}/api/admin/services/${serviceId}/verify`, {
@@ -46,6 +46,7 @@ export default function AdminPage() {
       ...prev,
       services: prev.services.map(s => s._id === serviceId ? { ...s, verified: true } : s)
     }))
+    addToast('Service vérifié.', 'success')
   }
 
   const handleDeleteService = async (serviceId) => {
@@ -59,6 +60,7 @@ export default function AdminPage() {
       services: prev.services.filter(s => s._id !== serviceId),
       totalServices: prev.totalServices - 1
     }))
+    addToast('Service supprimé.', 'success')
   }
 
   const handleDeleteUser = async (userId) => {
@@ -72,6 +74,7 @@ export default function AdminPage() {
       users: prev.users.filter(u => u._id !== userId),
       totalUsers: prev.totalUsers - 1
     }))
+    addToast('Utilisateur supprimé.', 'success')
   }
 
   const handleVerifyUser = async (userId) => {
@@ -80,6 +83,7 @@ export default function AdminPage() {
       headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
     })
     setVerificationRequests(prev => prev.filter(r => r._id !== userId))
+    addToast('Utilisateur vérifié.', 'success')
   }
 
   const handleRejectUser = async (userId) => {
@@ -88,6 +92,7 @@ export default function AdminPage() {
       headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
     })
     setVerificationRequests(prev => prev.filter(r => r._id !== userId))
+    addToast('Vérification refusée.', 'success')
   }
 
   if (!user || !user.isAdmin) return null
@@ -102,7 +107,6 @@ export default function AdminPage() {
           <p className="text-sm text-muted-foreground mb-6 md:mb-8">Supervision globale de la plateforme</p>
           {error && <p className="text-red-400 mb-4">{error}</p>}
 
-          {/* Vérifications en attente */}
           {verificationRequests.length > 0 && (
             <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6 mb-6 md:mb-8">
               <h3 className="text-lg md:text-xl font-bold mb-4">Vérifications en attente</h3>

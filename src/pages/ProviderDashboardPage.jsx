@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
 import Header from '../components/Header'
 import EmptyState from '../components/EmptyState'
 import SkeletonCard from '../components/SkeletonCard'
@@ -10,6 +11,7 @@ import API_URL from '../config'
 export default function ProviderDashboardPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const { addToast } = useToast()
   const [bookings, setBookings] = useState([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -26,9 +28,10 @@ export default function ProviderDashboardPage() {
       })
       .catch(() => {
         setError('Impossible de charger les réservations.')
+        addToast('Impossible de charger les réservations.', 'error')
         setLoading(false)
       })
-  }, [user, navigate])
+  }, [user, navigate, addToast])
 
   const handleStatusChange = async (bookingId, newStatus) => {
     try {
@@ -43,11 +46,14 @@ export default function ProviderDashboardPage() {
       if (res.ok) {
         const updated = await res.json()
         setBookings(prev => prev.map(b => b._id === bookingId ? updated : b))
+        addToast(`Réservation ${newStatus === 'confirmed' ? 'acceptée' : 'refusée'}.`, 'success')
       } else {
         const data = await res.json()
-        alert(data.error || 'Erreur lors de la mise à jour.')
+        addToast(data.error || 'Erreur lors de la mise à jour.', 'error')
       }
-    } catch (err) { alert('Impossible de contacter le serveur.') }
+    } catch {
+      addToast('Impossible de contacter le serveur.', 'error')
+    }
   }
 
   if (!user) return null
@@ -68,10 +74,7 @@ export default function ProviderDashboardPage() {
               <SkeletonCard />
             </div>
           ) : bookings.length === 0 && !error ? (
-            <EmptyState
-              title="Aucune réservation reçue"
-              description="Vous n'avez pas encore reçu de réservation pour vos services."
-            />
+            <EmptyState title="Aucune réservation reçue" description="Vous n'avez pas encore reçu de réservation pour vos services." />
           ) : (
             <div className="space-y-4">
               {bookings.map((booking) => (

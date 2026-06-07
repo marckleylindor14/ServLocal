@@ -3,14 +3,17 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
 import StarRating from '../components/StarRating'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
 import PageTransition from '../components/PageTransition'
 import API_URL from '../config'
-import { X, ImageOff } from 'lucide-react'
+import { X, ImageOff, CheckCircle } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 
 export default function ProviderPage() {
   const { id } = useParams()
   const { user } = useAuth()
   const navigate = useNavigate()
+  const { addToast } = useToast()
   const [pro, setPro] = useState(null)
   const [reviews, setReviews] = useState([])
   const [averageRating, setAverageRating] = useState(0)
@@ -22,10 +25,8 @@ export default function ProviderPage() {
   const [bookingTime, setBookingTime] = useState('')
   const [bookingMessage, setBookingMessage] = useState('')
   const [bookingError, setBookingError] = useState('')
-  const [bookingSuccess, setBookingSuccess] = useState('')
+  const [bookingSuccess, setBookingSuccess] = useState(false)
   const [lightboxImage, setLightboxImage] = useState(null)
-
-  // État pour le chargement progressif des images de la galerie
   const [loadedImages, setLoadedImages] = useState({})
 
   useEffect(() => {
@@ -48,7 +49,11 @@ export default function ProviderPage() {
 
   const handleReviewSubmit = async (e) => {
     e.preventDefault()
-    if (!user) return setErrorMessage('Vous devez être connecté.')
+    if (!user) {
+      setErrorMessage('Vous devez être connecté.')
+      addToast('Vous devez être connecté.', 'error')
+      return
+    }
     try {
       const res = await fetch(`${API_URL}/api/services/${id}/reviews`, {
         method: 'POST',
@@ -66,18 +71,24 @@ export default function ProviderPage() {
         setComment('')
         setReviews(prev => [...prev, data.review])
         setAverageRating(data.averageRating)
+        addToast('Avis publié !', 'success')
       } else {
         setErrorMessage(data.error || 'Erreur')
-        setSuccessMessage('')
+        addToast(data.error || 'Erreur', 'error')
       }
     } catch {
       setErrorMessage('Impossible de contacter le serveur.')
+      addToast('Impossible de contacter le serveur.', 'error')
     }
   }
 
   const handleBookingSubmit = async (e) => {
     e.preventDefault()
-    if (!user) return setBookingError('Vous devez être connecté.')
+    if (!user) {
+      setBookingError('Vous devez être connecté.')
+      addToast('Vous devez être connecté.', 'error')
+      return
+    }
     try {
       const res = await fetch(`${API_URL}/api/services/${id}/bookings`, {
         method: 'POST',
@@ -89,17 +100,19 @@ export default function ProviderPage() {
       })
       const data = await res.json()
       if (res.ok) {
-        setBookingSuccess('Réservation effectuée !')
+        setBookingSuccess(true)
         setBookingError('')
         setBookingDate('')
         setBookingTime('')
         setBookingMessage('')
+        addToast('Réservation effectuée !', 'success')
       } else {
         setBookingError(data.error || 'Erreur')
-        setBookingSuccess('')
+        addToast(data.error || 'Erreur', 'error')
       }
     } catch {
       setBookingError('Impossible de contacter le serveur.')
+      addToast('Impossible de contacter le serveur.', 'error')
     }
   }
 
@@ -121,8 +134,9 @@ export default function ProviderPage() {
       })
       const data = await res.json()
       if (data._id) navigate('/messages')
+      else addToast('Impossible de démarrer la conversation.', 'error')
     } catch {
-      alert('Impossible de démarrer la conversation.')
+      addToast('Impossible de démarrer la conversation.', 'error')
     }
   }
 
@@ -138,8 +152,38 @@ export default function ProviderPage() {
       <div className="min-h-screen bg-background text-foreground font-sans">
         <Header />
         <div className="pt-16 md:pt-20"></div>
-        <main className="max-w-3xl mx-auto px-4 py-6 md:py-8 space-y-6">
-          {/* Infos service */}
+        <main className="max-w-3xl mx-auto px-4 py-6 md:py-8 space-y-6 relative">
+          {/* Animation de succès après réservation */}
+          <AnimatePresence>
+            {bookingSuccess && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.5 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.5 }}
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+                onClick={() => setBookingSuccess(false)}
+              >
+                <motion.div
+                  initial={{ y: 50 }}
+                  animate={{ y: 0 }}
+                  className="bg-card p-8 rounded-2xl text-center shadow-2xl"
+                  onClick={e => e.stopPropagation()}
+                >
+                  <CheckCircle size={64} className="text-green-400 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold mb-2">Réservation réussie !</h3>
+                  <p className="text-muted-foreground">Le prestataire va examiner votre demande.</p>
+                  <button
+                    onClick={() => setBookingSuccess(false)}
+                    className="mt-6 bg-primary text-primary-foreground px-6 py-2 rounded-full font-semibold"
+                  >
+                    Ok
+                  </button>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Infos service (inchangé) */}
           <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-4">
               <img src={pro.image || 'https://i.pravatar.cc/100?img=4'} alt={pro.title} className="w-16 h-16 md:w-20 md:h-20 rounded-full object-cover border-2 border-primary" />
@@ -167,7 +211,7 @@ export default function ProviderPage() {
             </div>
           </div>
 
-          {/* Galerie portfolio avec chargement progressif */}
+          {/* Galerie (inchangée) */}
           {Array.isArray(pro.gallery) && pro.gallery.length > 0 && (
             <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6">
               <h3 className="text-lg md:text-xl font-bold mb-4">Galerie d'exemples</h3>
@@ -178,7 +222,6 @@ export default function ProviderPage() {
                     className="relative rounded-lg overflow-hidden h-32 md:h-40 bg-muted group cursor-pointer"
                     onClick={() => loadedImages[idx] && setLightboxImage(imgUrl)}
                   >
-                    {/* Image réelle */}
                     <img
                       src={imgUrl}
                       alt={`Exemple ${idx + 1}`}
@@ -186,13 +229,11 @@ export default function ProviderPage() {
                       onLoad={() => setLoadedImages(prev => ({ ...prev, [idx]: true }))}
                       onError={() => setLoadedImages(prev => ({ ...prev, [idx]: false }))}
                     />
-                    {/* Placeholder pendant le chargement */}
                     {!loadedImages[idx] && loadedImages[idx] !== false && (
                       <div className="absolute inset-0 flex items-center justify-center bg-muted animate-pulse">
                         <ImageOff size={32} className="text-muted-foreground" />
                       </div>
                     )}
-                    {/* Image non chargée (erreur) */}
                     {loadedImages[idx] === false && (
                       <div className="absolute inset-0 flex items-center justify-center bg-muted">
                         <ImageOff size={32} className="text-muted-foreground" />
@@ -205,7 +246,7 @@ export default function ProviderPage() {
             </div>
           )}
 
-          {/* Réservation */}
+          {/* Réservation (inchangé) */}
           <div id="booking-section" className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6">
             <h3 className="text-lg md:text-2xl font-bold mb-4">Réserver ce service</h3>
             {user ? (
@@ -229,7 +270,6 @@ export default function ProviderPage() {
                   <textarea rows={3} placeholder="Décrivez votre besoin..." value={bookingMessage} onChange={(e) => setBookingMessage(e.target.value)} className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 text-foreground placeholder-muted-foreground outline-none focus:border-primary transition resize-none text-sm" />
                 </div>
                 {bookingError && <p className="text-red-400 text-xs">{bookingError}</p>}
-                {bookingSuccess && <p className="text-green-400 text-xs">{bookingSuccess}</p>}
                 <button type="submit" className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-full hover:bg-primary/90 transition text-sm">Réserver</button>
               </form>
             ) : (
@@ -237,7 +277,7 @@ export default function ProviderPage() {
             )}
           </div>
 
-          {/* Avis */}
+          {/* Avis (inchangé) */}
           <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6">
             <h3 className="text-lg md:text-2xl font-bold mb-4">Avis</h3>
             {reviews.length === 0 && <p className="text-muted-foreground text-sm">Aucun avis pour le moment.</p>}
@@ -262,7 +302,7 @@ export default function ProviderPage() {
           </div>
         </main>
 
-        {/* Lightbox */}
+        {/* Lightbox (inchangée) */}
         {lightboxImage && (
           <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setLightboxImage(null)}>
             <button className="absolute top-4 right-4 text-white bg-black/40 rounded-full p-2" onClick={() => setLightboxImage(null)}><X size={24} /></button>
