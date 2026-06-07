@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
 import Header from '../components/Header'
 import PageTransition from '../components/PageTransition'
 import API_URL from '../config'
@@ -13,14 +14,14 @@ export default function AddServicePage() {
   const [price, setPrice] = useState('')
   const [city, setCity] = useState('')
 
-  // Galerie (JPEG ou PNG uniquement)
-  const [galleryFiles, setGalleryFiles] = useState([])        // Fichiers valides
-  const [galleryPreviews, setGalleryPreviews] = useState([])  // Aperçus locaux
+  const [galleryFiles, setGalleryFiles] = useState([])
+  const [galleryPreviews, setGalleryPreviews] = useState([])
   const fileGalleryRef = useRef(null)
 
   const [uploading, setUploading] = useState(false)
   const { user } = useAuth()
   const navigate = useNavigate()
+  const { addToast } = useToast()
 
   const [errors, setErrors] = useState({})
 
@@ -52,7 +53,7 @@ export default function AddServicePage() {
     }
 
     if (rejected.length > 0) {
-      alert(`Les fichiers suivants ne sont pas au format JPEG ou PNG et ont été ignorés : ${rejected.join(', ')}`)
+      addToast(`Fichiers ignorés (non JPEG/PNG) : ${rejected.join(', ')}`, 'error')
     }
 
     const combined = [...galleryFiles, ...validFiles].slice(0, 5)
@@ -68,7 +69,6 @@ export default function AddServicePage() {
     setGalleryPreviews(newPreviews)
   }
 
-  // Upload individuel d'un fichier (JPEG/PNG)
   const uploadSingleImage = async (file) => {
     const formData = new FormData()
     formData.append('image', file)
@@ -89,7 +89,7 @@ export default function AddServicePage() {
     e.preventDefault()
     if (Object.keys(errors).length > 0) return
     if (!user) {
-      alert('Vous devez être connecté.')
+      addToast('Vous devez être connecté.', 'error')
       navigate('/login')
       return
     }
@@ -124,7 +124,7 @@ export default function AddServicePage() {
 
       const data = await response.json()
       if (response.ok) {
-        alert('✅ Service publié avec succès !')
+        addToast('✅ Service publié avec succès !', 'success')
         setTitle('')
         setCategory('')
         setDescription('')
@@ -134,10 +134,10 @@ export default function AddServicePage() {
         setGalleryPreviews([])
         setErrors({})
       } else {
-        alert('❌ ' + (data.details ? data.details.join(', ') : data.error))
+        addToast('❌ ' + (data.details ? data.details.join(', ') : data.error), 'error')
       }
     } catch (err) {
-      alert('❌ ' + (err.message || 'Erreur serveur'))
+      addToast('❌ ' + (err.message || 'Erreur serveur'), 'error')
     } finally {
       setUploading(false)
     }
@@ -206,7 +206,7 @@ export default function AddServicePage() {
                 className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 outline-none focus:border-primary transition" />
             </div>
 
-            {/* Galerie (JPEG/PNG uniquement) */}
+            {/* Galerie */}
             <div>
               <label className="block text-sm font-medium mb-1">
                 Galerie d'exemples (max 5 photos, formats JPEG ou PNG uniquement)
