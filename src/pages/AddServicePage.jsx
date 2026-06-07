@@ -13,16 +13,15 @@ export default function AddServicePage() {
   const [price, setPrice] = useState('')
   const [city, setCity] = useState('')
 
-  // Galerie
-  const [galleryFiles, setGalleryFiles] = useState([])       // Fichiers bruts
-  const [galleryPreviews, setGalleryPreviews] = useState([]) // Aperçus locaux
+  // Galerie (JPEG ou PNG uniquement)
+  const [galleryFiles, setGalleryFiles] = useState([])        // Fichiers valides
+  const [galleryPreviews, setGalleryPreviews] = useState([])  // Aperçus locaux
   const fileGalleryRef = useRef(null)
 
   const [uploading, setUploading] = useState(false)
   const { user } = useAuth()
   const navigate = useNavigate()
 
-  // Erreurs de validation
   const [errors, setErrors] = useState({})
 
   const validateField = (name, value) => {
@@ -39,18 +38,29 @@ export default function AddServicePage() {
     setErrors(newErrors)
   }
 
-  // Gestion des fichiers sélectionnés
   const handleGalleryChange = (e) => {
     const newFiles = Array.from(e.target.files)
-    // On garde au maximum 5 fichiers au total
-    const combined = [...galleryFiles, ...newFiles].slice(0, 5)
+    const validFiles = []
+    const rejected = []
+
+    for (const file of newFiles) {
+      if (file.type === 'image/jpeg' || file.type === 'image/png') {
+        validFiles.push(file)
+      } else {
+        rejected.push(file.name)
+      }
+    }
+
+    if (rejected.length > 0) {
+      alert(`Les fichiers suivants ne sont pas au format JPEG ou PNG et ont été ignorés : ${rejected.join(', ')}`)
+    }
+
+    const combined = [...galleryFiles, ...validFiles].slice(0, 5)
     setGalleryFiles(combined)
     setGalleryPreviews(combined.map(f => URL.createObjectURL(f)))
-    // Reset l'input pour permettre de resélectionner le même fichier si besoin
     if (fileGalleryRef.current) fileGalleryRef.current.value = ''
   }
 
-  // Supprimer une image de la galerie
   const removeGalleryImage = (index) => {
     const newFiles = galleryFiles.filter((_, i) => i !== index)
     const newPreviews = galleryPreviews.filter((_, i) => i !== index)
@@ -58,7 +68,7 @@ export default function AddServicePage() {
     setGalleryPreviews(newPreviews)
   }
 
-  // Upload individuel d'un fichier vers /api/upload
+  // Upload individuel d'un fichier (JPEG/PNG)
   const uploadSingleImage = async (file) => {
     const formData = new FormData()
     formData.append('image', file)
@@ -86,7 +96,6 @@ export default function AddServicePage() {
 
     setUploading(true)
     try {
-      // 1) Upload de chaque image une par une
       let galleryUrls = []
       if (galleryFiles.length > 0) {
         galleryUrls = await Promise.all(
@@ -94,7 +103,6 @@ export default function AddServicePage() {
         )
       }
 
-      // 2) Créer le service
       const priceNumber = price.trim() === '' ? null : Number(price.replace(',', '.').replace(/[^0-9.]/g, ''))
 
       const response = await fetch(`${API_URL}/api/services`, {
@@ -198,10 +206,10 @@ export default function AddServicePage() {
                 className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 outline-none focus:border-primary transition" />
             </div>
 
-            {/* Galerie portfolio avec upload individuel */}
+            {/* Galerie (JPEG/PNG uniquement) */}
             <div>
               <label className="block text-sm font-medium mb-1">
-                Galerie d'exemples (max 5 photos)
+                Galerie d'exemples (max 5 photos, formats JPEG ou PNG uniquement)
               </label>
               {galleryPreviews.length > 0 ? (
                 <div className="space-y-3">
@@ -235,20 +243,19 @@ export default function AddServicePage() {
                   className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary transition text-muted-foreground"
                 >
                   <Upload size={24} className="mx-auto mb-2" />
-                  Cliquez pour ajouter des photos (5 max)
+                  Cliquez pour ajouter des photos (JPEG ou PNG, 5 max)
                 </div>
               )}
               <input
                 ref={fileGalleryRef}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png"
                 multiple
                 onChange={handleGalleryChange}
                 className="hidden"
               />
             </div>
 
-            {/* Bouton de soumission */}
             <button
               type="submit"
               disabled={uploading}
