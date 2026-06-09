@@ -46,7 +46,7 @@ export default defineConfig({
           { src: '/logo-myra-256.png', sizes: '256x256', type: 'image/png' },
           { src: '/logo-myra-384.png', sizes: '384x384', type: 'image/png' },
           { src: '/logo-myra-512.png', sizes: '512x512', type: 'image/png' },
-          { src: '/logo-myra-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+          { src: '/logo-myra-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
         screenshots: [
           {
