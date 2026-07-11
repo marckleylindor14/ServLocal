@@ -35,7 +35,7 @@ export default defineConfig({
         background_color: '#1E2A3A',
         display: 'standalone',
         orientation: 'portrait-primary',
-        start_url: '/index.html',
+        start_url: '/',
         scope: '/',
         icons: [
           { src: '/logo-myra-48.png', sizes: '48x48', type: 'image/png' },

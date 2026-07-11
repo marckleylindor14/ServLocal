@@ -1,0 +1,8 @@
+{
+  "appId": "com.marcko.myra",
+  "appName": "Myra",
+  "webDir": "dist",
+  "ios": {
+    "contentInset": "automatic"
+  }
+}

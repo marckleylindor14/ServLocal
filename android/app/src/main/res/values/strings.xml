@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Myra</string>
+    <string name="title_activity_main">Myra</string>
+    <string name="package_name">com.marcko.myra</string>
+    <string name="custom_url_scheme">com.marcko.myra</string>
+</resources>
