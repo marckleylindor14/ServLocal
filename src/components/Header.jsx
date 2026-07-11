@@ -40,8 +40,10 @@ export default function Header() {
     )
   }
 
+  const isAdmin = user?.isAdmin
+
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-card/80 backdrop-blur-md border-b border-border">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-card/80 backdrop-blur-md border-b border-border" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
       <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
         <Link to="/" className="flex items-center gap-2">
           <img src="/LOGO MYRA.png" alt="Myra" className="h-8 md:h-10 w-auto" />
@@ -74,8 +76,8 @@ export default function Header() {
               <Link to="/messages" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
                 <MessageSquare size={16} /> Messages
               </Link>
-              {user.isAdmin && (
-                <Link to="/admin" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition">
+              {isAdmin && (
+                <Link to="/admin" className="flex items-center gap-1 text-sm font-medium bg-primary/20 text-primary px-3 py-1.5 rounded-full hover:bg-primary/30 transition">
                   <Shield size={16} /> Admin
                 </Link>
               )}
@@ -116,8 +118,10 @@ export default function Header() {
                 Dashboard
               </Link>
               <Link to="/messages" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-sm text-muted-foreground"><MessageSquare size={18} /> Messages</Link>
-              {user.isAdmin && (
-                <Link to="/admin" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-sm text-muted-foreground"><Shield size={18} /> Admin</Link>
+              {isAdmin && (
+                <Link to="/admin" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-sm font-medium bg-primary/20 text-primary px-3 py-1.5 rounded-full">
+                  <Shield size={18} /> Admin
+                </Link>
               )}
               <Link to="/account" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-sm text-muted-foreground"><User size={18} /> Mon compte</Link>
               <div className="flex justify-between items-center pt-2 border-t border-border">

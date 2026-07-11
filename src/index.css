@@ -14,13 +14,27 @@
 html {
   font-family: 'Inter', sans-serif;
   font-size: 17px;
+  /* Amélioration du rendu sur iOS */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
   @apply bg-background text-foreground font-sans antialiased;
   scroll-behavior: smooth;
+  /* Gestion des zones de sécurité de l'écran */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
+/* Empêche le zoom non désiré sur les inputs sur iOS */
+input, textarea, select {
+  font-size: 16px;
+}
+
+/* Cartes avec effet au survol */
 .card-hover {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   border-radius: 1.25rem;
@@ -31,6 +45,7 @@ body {
   box-shadow: 0 12px 28px rgba(0,0,0,0.12);
 }
 
+/* Boutons, inputs et selects plus doux */
 button, .btn, a[role="button"] {
   min-height: 44px;
   min-width: 44px;
