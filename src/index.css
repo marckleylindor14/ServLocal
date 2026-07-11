@@ -75,3 +75,9 @@ input:focus, textarea:focus, select:focus {
 
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+/* Décalage pour la barre de navigation mobile */
+@media (max-width: 767px) {
+  body {
+    padding-bottom: 70px;
+  }
+}
