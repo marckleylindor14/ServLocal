@@ -1,42 +1,49 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useToast } from '../context/ToastContext'
 import PageTransition from '../components/PageTransition'
 import API_URL from '../config'
 import { Loader2, Eye, EyeOff } from 'lucide-react'
 
-export default function LoginPage() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
-  const { login } = useAuth()
+export default function ResetPasswordPage() {
+  const [searchParams] = useSearchParams()
+  const token = searchParams.get('token')
   const navigate = useNavigate()
   const { addToast } = useToast()
+  const [newPassword, setNewPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    setSuccess('')
+    if (!token) {
+      setError('Token manquant.')
+      addToast('Token manquant.', 'error')
+      return
+    }
     setLoading(true)
     try {
-      const res = await fetch(`${API_URL}/api/auth/login`, {
+      const res = await fetch(`${API_URL}/api/auth/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ token, newPassword })
       })
       const data = await res.json()
       if (res.ok) {
-        login(data.user, data.token)
-        navigate('/')
+        setSuccess('Mot de passe modifié ! Redirection...')
+        addToast('Mot de passe modifié !', 'success')
+        setTimeout(() => navigate('/login'), 3000)
       } else {
-        setError(data.error || 'Erreur de connexion')
-        addToast(data.error || 'Erreur de connexion', 'error')
+        setError(data.error || 'Erreur')
+        addToast(data.error || 'Erreur', 'error')
       }
     } catch {
-      setError('Impossible de contacter le serveur')
-      addToast('Impossible de contacter le serveur', 'error')
+      setError('Impossible de contacter le serveur.')
+      addToast('Impossible de contacter le serveur.', 'error')
     } finally {
       setLoading(false)
     }
@@ -46,35 +53,26 @@ export default function LoginPage() {
     <PageTransition>
       <div className="min-h-screen bg-background text-foreground font-sans flex items-center justify-center">
         <form onSubmit={handleSubmit} className="bg-card backdrop-blur-md border border-border rounded-2xl p-8 w-full max-w-md space-y-4">
-          <h2 className="text-2xl font-bold text-center">Connexion</h2>
+          <h2 className="text-2xl font-bold text-center">Nouveau mot de passe</h2>
           {error && <p className="text-red-400 text-sm">{error}</p>}
-          <input type="email" placeholder="Email" required value={email}
-            onChange={e => setEmail(e.target.value)}
-            className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 outline-none focus:border-primary" />
+          {success && <p className="text-green-400 text-sm">{success}</p>}
           <div className="relative">
-            <input type={showPassword ? 'text' : 'password'} placeholder="Mot de passe" required value={password}
-              onChange={e => setPassword(e.target.value)}
+            <input type={showPassword ? 'text' : 'password'} placeholder="Nouveau mot de passe" required value={newPassword}
+              onChange={e => setNewPassword(e.target.value)}
               className="w-full bg-white/5 border border-border rounded-lg py-3 pl-4 pr-12 outline-none focus:border-primary" />
             <button type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition"
+              aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
             >
               {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
             </button>
           </div>
-          <div className="flex justify-end">
-            <Link to="/forgot-password" className="text-xs text-primary hover:underline">
-              Mot de passe oublié ?
-            </Link>
-          </div>
-          <button type="submit" disabled={loading}
+          <button type="submit" disabled={loading || !token}
             className="w-full bg-primary text-primary-foreground py-3 rounded-full font-semibold hover:bg-primary/90 transition flex items-center justify-center gap-2 disabled:opacity-70">
             {loading && <Loader2 size={18} className="animate-spin" />}
-            {loading ? 'Connexion...' : 'Se connecter'}
+            {loading ? 'Modification...' : 'Modifier le mot de passe'}
           </button>
-          <p className="text-sm text-center text-muted-foreground">
-            Pas encore de compte ? <Link to="/signup" className="text-primary hover:underline">S'inscrire</Link>
-          </p>
         </form>
       </div>
     </PageTransition>
