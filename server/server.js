@@ -8,6 +8,9 @@ const cloudinary = require('cloudinary').v2;
 const multer = require('multer');
 const streamifier = require('streamifier');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const { body, validationResult } = require('express-validator');
 const { Resend } = require('resend');
 
 const app = express();
@@ -19,32 +22,58 @@ const BOOKINGS_FILE = path.join(__dirname, 'bookings.json');
 const CONVERSATIONS_FILE = path.join(__dirname, 'conversations.json');
 const MESSAGES_FILE = path.join(__dirname, 'messages.json');
 const DEFAULT_IMAGE = 'https://i.pravatar.cc/100?img=4';
-const JWT_SECRET = 'servlocal_secret_2026';
-
-// Admin emails – peuvent être définis via une variable d'environnement
+const JWT_SECRET = process.env.JWT_SECRET || 'servlocal_secret_2026';
 const ADMIN_EMAILS = process.env.ADMIN_EMAILS
   ? process.env.ADMIN_EMAILS.split(',').map(email => email.trim())
   : ['Marckley.lindor14@gmail.com'];
-
-// Mot de passe admin (le même pour tous les admins)
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Jesula1982';
 
 // Resend
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_EMAIL = process.env.FROM_EMAIL || 'Myra <notifications@resend.dev>';
 
+// Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-const storage = multer.memoryStorage();
-const upload = multer({ storage });
+// CORS strict
+const allowedOrigins = [
+  'https://serv-local-p1hcec7kx-marckleylindor14s-projects.vercel.app',
+  'http://localhost:5173',
+];
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Origine non autorisée par CORS'));
+    }
+  },
+  credentials: true,
+}));
 
-app.use(cors());
-app.use(express.json());
+app.use(helmet());
+app.use(express.json({ limit: '10kb' }));
 
+// Rate limiting global
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  message: { error: 'Trop de requêtes, réessayez plus tard.' }
+});
+app.use(limiter);
+
+// Rate limiting plus strict pour les routes d'authentification
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { error: 'Trop de tentatives, réessayez plus tard.' }
+});
+
+// Logging
 app.use((req, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
@@ -74,23 +103,6 @@ function nextId(items) {
   if (!items.length) return 1;
   return Math.max(...items.map(s => Number(s._id) || 0)) + 1;
 }
-function validateServiceInput(body) {
-  const errors = [];
-  const { title, category, description, city, type } = body || {};
-  if (!title || !String(title).trim()) errors.push('title est requis');
-  else if (String(title).trim().length < 2) errors.push('title doit contenir au moins 2 caractères');
-  if (!category || !String(category).trim()) errors.push('category est requise');
-  else if (String(category).trim().length < 2) errors.push('category doit contenir au moins 2 caractères');
-  if (!description || !String(description).trim()) errors.push('description est requise');
-  else if (String(description).trim().length < 10) errors.push('description doit contenir au moins 10 caractères');
-  if (!city || !String(city).trim()) errors.push('city est requise');
-  if (!type || !['offer', 'demand'].includes(type)) errors.push('type doit être offer ou demand');
-  if (body.price != null && body.price !== '') {
-    const price = Number(body.price);
-    if (isNaN(price) || price < 0) errors.push('price doit être un nombre positif');
-  }
-  return errors;
-}
 
 // ---------- Middleware auth ----------
 function authenticateToken(req, res, next) {
@@ -112,6 +124,20 @@ function authenticateAdmin(req, res, next) {
     next();
   });
 }
+
+// ---------- Configuration multer sécurisée ----------
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 Mo
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png') {
+      cb(null, true);
+    } else {
+      cb(new Error('Type de fichier non autorisé. Seuls JPEG et PNG sont acceptés.'));
+    }
+  }
+});
 
 // ---------- Upload Cloudinary ----------
 app.post('/api/upload', authenticateToken, upload.single('image'), async (req, res) => {
@@ -169,13 +195,7 @@ app.put('/api/user/profile', authenticateToken, async (req, res) => {
     if (name) users[index].name = name;
     if (photo) users[index].photo = photo;
     await writeJSON(USERS_FILE, users);
-    res.json({
-      id: users[index]._id,
-      name: users[index].name,
-      email: users[index].email,
-      photo: users[index].photo || null,
-      verificationStatus: users[index].verificationStatus || 'none'
-    });
+    res.json({ id: users[index]._id, name: users[index].name, email: users[index].email, photo: users[index].photo || null });
   } catch (error) {
     res.status(500).json({ error: 'Erreur interne' });
   }
@@ -201,10 +221,7 @@ app.put('/api/user/change-password', authenticateToken, async (req, res) => {
 
 app.get('/api/user/stats', authenticateToken, async (req, res) => {
   try {
-    const [services, bookings] = await Promise.all([
-      readJSON(DATA_FILE),
-      readJSON(BOOKINGS_FILE)
-    ]);
+    const [services, bookings] = await Promise.all([readJSON(DATA_FILE), readJSON(BOOKINGS_FILE)]);
     const userId = req.user.id;
     const userName = req.user.name;
     const myServices = services.filter(s => s.providerName === userName);
@@ -226,30 +243,23 @@ app.get('/api/user/stats', authenticateToken, async (req, res) => {
 app.post('/api/user/request-verification', authenticateToken, upload.single('document'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Document requis.' });
-
     const streamUpload = () =>
       new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
           { folder: 'myra-verifications', format: 'jpg' },
-          (error, result) => {
-            if (result) resolve(result);
-            else reject(error);
-          }
+          (error, result) => { if (result) resolve(result); else reject(error); }
         );
         streamifier.createReadStream(req.file.buffer).pipe(stream);
       });
-
     const result = await streamUpload();
     const documentUrl = result.secure_url;
 
     const users = await readJSON(USERS_FILE);
     const index = users.findIndex(u => u._id === req.user.id);
     if (index === -1) return res.status(404).json({ error: 'Utilisateur non trouvé' });
-
     users[index].verificationStatus = 'pending';
     users[index].verificationDocument = documentUrl;
     await writeJSON(USERS_FILE, users);
-
     res.json({ message: 'Votre demande de vérification a bien été envoyée. Elle sera examinée par notre équipe.' });
   } catch (error) {
     console.error('Erreur demande vérification:', error);
@@ -261,11 +271,7 @@ app.get('/api/admin/verification-requests', authenticateAdmin, async (req, res) 
   try {
     const users = await readJSON(USERS_FILE);
     const requests = users.filter(u => u.verificationStatus === 'pending').map(u => ({
-      _id: u._id,
-      name: u.name,
-      email: u.email,
-      verificationDocument: u.verificationDocument,
-      verificationStatus: u.verificationStatus
+      _id: u._id, name: u.name, email: u.email, verificationDocument: u.verificationDocument, verificationStatus: u.verificationStatus
     }));
     res.json(requests);
   } catch (error) {
@@ -306,11 +312,9 @@ app.post('/api/create-checkout-session', authenticateToken, async (req, res) => 
   try {
     const { serviceId, bookingId } = req.body;
     if (!serviceId || !bookingId) return res.status(400).json({ error: 'serviceId et bookingId requis.' });
-
     const services = await readJSON(DATA_FILE);
     const service = services.find(s => Number(s._id) === Number(serviceId));
     if (!service) return res.status(404).json({ error: 'Service non trouvé.' });
-
     const bookings = await readJSON(BOOKINGS_FILE);
     const booking = bookings.find(b => Number(b._id) === Number(bookingId));
     if (!booking) return res.status(404).json({ error: 'Réservation non trouvée.' });
@@ -324,29 +328,19 @@ app.post('/api/create-checkout-session', authenticateToken, async (req, res) => 
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      line_items: [
-        {
-          price_data: {
-            currency: 'eur',
-            product_data: {
-              name: service.title,
-              description: service.description?.substring(0, 200),
-            },
-            unit_amount: amount,
-          },
-          quantity: 1,
+      line_items: [{
+        price_data: {
+          currency: 'eur',
+          product_data: { name: service.title, description: service.description?.substring(0, 200) },
+          unit_amount: amount,
         },
-      ],
+        quantity: 1,
+      }],
       mode: 'payment',
-      success_url: `${process.env.FRONTEND_URL || 'https://servlocal-app.vercel.app'}/payment-success?session_id={CHECKOUT_SESSION_ID}&booking_id=${bookingId}`,
-      cancel_url: `${process.env.FRONTEND_URL || 'https://servlocal-app.vercel.app'}/my-bookings`,
-      metadata: {
-        bookingId: String(bookingId),
-        serviceId: String(serviceId),
-        userId: String(req.user.id),
-      },
+      success_url: `${process.env.FRONTEND_URL || 'https://serv-local-p1hcec7kx-marckleylindor14s-projects.vercel.app'}/payment-success?session_id={CHECKOUT_SESSION_ID}&booking_id=${bookingId}`,
+      cancel_url: `${process.env.FRONTEND_URL || 'https://serv-local-p1hcec7kx-marckleylindor14s-projects.vercel.app'}/my-bookings`,
+      metadata: { bookingId: String(bookingId), serviceId: String(serviceId), userId: String(req.user.id) },
     });
-
     res.json({ url: session.url });
   } catch (error) {
     console.error('Erreur Stripe:', error);
@@ -358,34 +352,38 @@ app.get('/api/booking/confirm', async (req, res) => {
   try {
     const { session_id } = req.query;
     if (!session_id) return res.status(400).json({ error: 'session_id manquant.' });
-
     const session = await stripe.checkout.sessions.retrieve(session_id);
-    if (session.payment_status !== 'paid') {
-      return res.status(400).json({ error: 'Paiement non confirmé.' });
-    }
-
+    if (session.payment_status !== 'paid') return res.status(400).json({ error: 'Paiement non confirmé.' });
     const bookingId = session.metadata?.bookingId;
     if (!bookingId) return res.status(400).json({ error: 'Métadonnées manquantes.' });
-
     const bookings = await readJSON(BOOKINGS_FILE);
     const index = bookings.findIndex(b => Number(b._id) === Number(bookingId));
     if (index === -1) return res.status(404).json({ error: 'Réservation introuvable.' });
-
     bookings[index].paymentStatus = 'paid';
     bookings[index].status = 'confirmed';
     await writeJSON(BOOKINGS_FILE, bookings);
-
-    res.redirect(`${process.env.FRONTEND_URL || 'https://servlocal-app.vercel.app'}/payment-success?booking_id=${bookingId}&status=paid`);
+    res.redirect(`${process.env.FRONTEND_URL || 'https://serv-local-p1hcec7kx-marckleylindor14s-projects.vercel.app'}/payment-success?booking_id=${bookingId}&status=paid`);
   } catch (error) {
     console.error('Erreur confirmation Stripe:', error);
     res.status(500).json({ error: 'Erreur interne.' });
   }
 });
 
+// ---------- Validation des services ----------
+const validateService = [
+  body('title').trim().isLength({ min: 2 }).withMessage('Le titre doit contenir au moins 2 caractères.'),
+  body('category').trim().notEmpty().withMessage('La catégorie est requise.'),
+  body('description').trim().isLength({ min: 10 }).withMessage('La description doit contenir au moins 10 caractères.'),
+  body('city').trim().notEmpty().withMessage('La ville est requise.'),
+  body('price').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('Le prix doit être un nombre positif.'),
+  body('type').optional().isIn(['offer', 'demand']).withMessage('Le type doit être offer ou demand.')
+];
+
 // ---------- Routes services ----------
 app.get('/api/services', async (req, res) => {
   try { res.json(await readJSON(DATA_FILE)); } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
+
 app.get('/api/services/:id', async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -396,10 +394,11 @@ app.get('/api/services/:id', async (req, res) => {
     res.json(service);
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
-app.post('/api/services', authenticateToken, async (req, res) => {
+
+app.post('/api/services', authenticateToken, validateService, async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation échouée', details: errors.array() });
   try {
-    const errors = validateServiceInput(req.body);
-    if (errors.length) return res.status(400).json({ error: 'Validation échouée', details: errors });
     const services = await readJSON(DATA_FILE);
     const users = await readJSON(USERS_FILE);
     const currentUser = users.find(u => u._id === req.user.id);
@@ -407,17 +406,17 @@ app.post('/api/services', authenticateToken, async (req, res) => {
     const body = req.body;
     const newService = {
       _id: nextId(services),
-      title: String(body.title).trim(),
-      category: String(body.category).trim(),
-      description: String(body.description).trim(),
-      city: String(body.city).trim(),
+      title: body.title.trim(),
+      category: body.category.trim(),
+      description: body.description.trim(),
+      city: body.city.trim(),
       price: body.price != null && body.price !== '' ? String(body.price) : '',
       providerName: currentUser.name,
       providerId: currentUser._id,
       image: currentUser?.photo || DEFAULT_IMAGE,
       gallery: body.gallery || [],
-      verified: currentUser.verificationStatus === 'verified',
       type: body.type || 'offer',
+      verified: currentUser.verificationStatus === 'verified',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -426,22 +425,23 @@ app.post('/api/services', authenticateToken, async (req, res) => {
     res.status(201).json(newService);
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
-app.put('/api/services/:id', authenticateToken, async (req, res) => {
+
+app.put('/api/services/:id', authenticateToken, validateService, async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation échouée', details: errors.array() });
   try {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'ID invalide' });
-    const errors = validateServiceInput(req.body);
-    if (errors.length) return res.status(400).json({ error: 'Validation échouée', details: errors });
     const services = await readJSON(DATA_FILE);
     const index = services.findIndex(s => Number(s._id) === id);
     if (index === -1) return res.status(404).json({ error: 'Service non trouvé' });
     const body = req.body;
     services[index] = {
       ...services[index],
-      title: String(body.title).trim(),
-      category: String(body.category).trim(),
-      description: String(body.description).trim(),
-      city: String(body.city).trim(),
+      title: body.title.trim(),
+      category: body.category.trim(),
+      description: body.description.trim(),
+      city: body.city.trim(),
       price: body.price != null && body.price !== '' ? String(body.price) : services[index].price,
       providerName: body.providerName || services[index].providerName,
       image: body.image || services[index].image,
@@ -453,6 +453,7 @@ app.put('/api/services/:id', authenticateToken, async (req, res) => {
     res.json(services[index]);
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
+
 app.delete('/api/services/:id', authenticateToken, async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -467,68 +468,54 @@ app.delete('/api/services/:id', authenticateToken, async (req, res) => {
 });
 
 // ---------- Routes auth ----------
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', authLimiter, [
+  body('name').trim().notEmpty().withMessage('Le nom est requis.'),
+  body('email').isEmail().normalizeEmail().withMessage('Email invalide.'),
+  body('password').isLength({ min: 6 }).withMessage('Le mot de passe doit contenir au moins 6 caractères.')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation échouée', details: errors.array() });
   try {
     const { name, email, password } = req.body;
-    if (!name || !email || !password) return res.status(400).json({ error: 'Nom, email et mot de passe requis' });
     const users = await readJSON(USERS_FILE);
     if (users.find(u => u.email === email)) return res.status(409).json({ error: 'Cet email est déjà utilisé' });
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = {
-      _id: nextId(users),
-      name,
-      email,
-      password: hashedPassword,
-      verificationStatus: 'none',
-      createdAt: new Date().toISOString()
-    };
+    const newUser = { _id: nextId(users), name, email, password: hashedPassword, createdAt: new Date().toISOString() };
     users.push(newUser);
     await writeJSON(USERS_FILE, users);
     res.status(201).json({ message: 'Compte créé avec succès' });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
-app.post('/api/auth/login', async (req, res) => {
+
+app.post('/api/auth/login', authLimiter, [
+  body('email').isEmail().normalizeEmail().withMessage('Email invalide.'),
+  body('password').notEmpty().withMessage('Mot de passe requis.')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation échouée', details: errors.array() });
   try {
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
-
-    // Vérification admin
     if (ADMIN_EMAILS.includes(email) && password === ADMIN_PASSWORD) {
-      const token = jwt.sign({ id: 0, name: 'Admin', email: email }, JWT_SECRET, { expiresIn: '7d' });
-      return res.json({ token, user: { id: 0, name: 'Admin', email: email, isAdmin: true } });
+      const token = jwt.sign({ id: 0, name: 'Admin', email }, JWT_SECRET, { expiresIn: '7d' });
+      return res.json({ token, user: { id: 0, name: 'Admin', email, isAdmin: true } });
     }
-
     const users = await readJSON(USERS_FILE);
     const user = users.find(u => u.email === email);
     if (!user) return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
     const token = jwt.sign({ id: user._id, name: user.name, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        photo: user.photo || null,
-        isAdmin: ADMIN_EMAILS.includes(user.email)
-      }
-    });
+    res.json({ token, user: { id: user._id, name: user.name, email: user.email, isAdmin: ADMIN_EMAILS.includes(user.email) } });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
+
 app.get('/api/auth/me', authenticateToken, async (req, res) => {
   try {
     if (ADMIN_EMAILS.includes(req.user.email)) return res.json({ id: 0, name: 'Admin', email: req.user.email, isAdmin: true });
     const users = await readJSON(USERS_FILE);
     const user = users.find(u => u._id === req.user.id);
     if (!user) return res.status(404).json({ error: 'Utilisateur non trouvé' });
-    res.json({
-      id: user._id,
-      name: user.name,
-      email: user.email,
-      photo: user.photo || null,
-      isAdmin: ADMIN_EMAILS.includes(user.email)
-    });
+    res.json({ id: user._id, name: user.name, email: user.email, photo: user.photo || null, isAdmin: false });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
 
@@ -544,13 +531,15 @@ app.get('/api/services/:id/reviews', async (req, res) => {
     res.json({ reviews: serviceReviews, averageRating: Number(averageRating) });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
-app.post('/api/services/:id/reviews', authenticateToken, async (req, res) => {
+
+app.post('/api/services/:id/reviews', authenticateToken, [
+  body('rating').isInt({ min: 1, max: 5 }).withMessage('La note doit être un entier entre 1 et 5.'),
+  body('comment').optional().trim().isLength({ max: 500 }).withMessage('Le commentaire ne doit pas dépasser 500 caractères.')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation échouée', details: errors.array() });
   try {
     const serviceId = Number(req.params.id);
-    const { rating, comment } = req.body;
-    if (!rating || !Number.isInteger(rating) || rating < 1 || rating > 5) {
-      return res.status(400).json({ error: 'La note doit être un entier entre 1 et 5.' });
-    }
     const services = await readJSON(DATA_FILE);
     const service = services.find(s => Number(s._id) === serviceId);
     if (!service) return res.status(404).json({ error: 'Service non trouvé' });
@@ -562,8 +551,8 @@ app.post('/api/services/:id/reviews', authenticateToken, async (req, res) => {
       serviceId,
       userId: req.user.id,
       userName: req.user.name,
-      rating,
-      comment: comment ? String(comment).trim() : '',
+      rating: req.body.rating,
+      comment: req.body.comment ? req.body.comment.trim() : '',
       createdAt: new Date().toISOString()
     };
     reviews.push(newReview);
@@ -581,17 +570,24 @@ app.get('/api/bookings', authenticateToken, async (req, res) => {
     res.json(bookings.filter(b => b.clientId === req.user.id));
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
+
 app.get('/api/bookings/provider', authenticateToken, async (req, res) => {
   try {
     const bookings = await readJSON(BOOKINGS_FILE);
     res.json(bookings.filter(b => b.providerName === req.user.name));
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
-app.post('/api/services/:id/bookings', authenticateToken, async (req, res) => {
+
+app.post('/api/services/:id/bookings', authenticateToken, [
+  body('date').notEmpty().withMessage('La date est requise.'),
+  body('timeSlot').notEmpty().withMessage('Le créneau est requis.'),
+  body('message').optional().trim().isLength({ max: 500 }).withMessage('Message trop long.')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation échouée', details: errors.array() });
   try {
     const serviceId = Number(req.params.id);
     const { date, timeSlot, message } = req.body;
-    if (!date || !timeSlot) return res.status(400).json({ error: 'Date et créneau horaire requis.' });
     const services = await readJSON(DATA_FILE);
     const service = services.find(s => Number(s._id) === serviceId);
     if (!service) return res.status(404).json({ error: 'Service non trouvé' });
@@ -613,8 +609,7 @@ app.post('/api/services/:id/bookings', authenticateToken, async (req, res) => {
     };
     bookings.push(newBooking);
     await writeJSON(BOOKINGS_FILE, bookings);
-
-    // Email au prestataire
+    // Email au prestataire (inchangé)
     if (service.providerId) {
       try {
         const users = await readJSON(USERS_FILE);
@@ -624,21 +619,15 @@ app.post('/api/services/:id/bookings', authenticateToken, async (req, res) => {
             from: FROM_EMAIL,
             to: [provider.email],
             subject: `Nouvelle réservation pour "${service.title}"`,
-            html: `<p>Bonjour ${provider.name},</p>
-                   <p>Vous avez reçu une nouvelle réservation pour votre service <strong>${service.title}</strong>.</p>
-                   <p>Date : ${date} (${timeSlot})</p>
-                   ${message ? `<p>Message : ${message}</p>` : ''}
-                   <p>Connectez-vous à Myra pour la confirmer ou la refuser.</p>`
+            html: `<p>Bonjour ${provider.name},</p><p>Vous avez reçu une nouvelle réservation pour votre service <strong>${service.title}</strong>.</p><p>Date : ${date} (${timeSlot})</p>${message ? `<p>Message : ${message}</p>` : ''}<p>Connectez-vous à Myra pour la confirmer ou la refuser.</p>`
           });
         }
-      } catch (emailErr) {
-        console.error('Erreur envoi email prestataire:', emailErr);
-      }
+      } catch (emailErr) { console.error('Erreur envoi email prestataire:', emailErr); }
     }
-
     res.status(201).json(newBooking);
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
+
 app.put('/api/bookings/:id', authenticateToken, async (req, res) => {
   try {
     const bookingId = Number(req.params.id);
@@ -651,7 +640,7 @@ app.put('/api/bookings/:id', authenticateToken, async (req, res) => {
     if (bookings[index].providerName !== req.user.name) return res.status(403).json({ error: 'Non autorisé.' });
     bookings[index].status = status;
     await writeJSON(BOOKINGS_FILE, bookings);
-
+    // Email au client
     const booking = bookings[index];
     if (booking.clientId) {
       try {
@@ -663,16 +652,11 @@ app.put('/api/bookings/:id', authenticateToken, async (req, res) => {
             from: FROM_EMAIL,
             to: [client.email],
             subject: `Votre réservation "${booking.serviceTitle}" a été ${statusText}`,
-            html: `<p>Bonjour ${client.name},</p>
-                   <p>Votre réservation pour <strong>${booking.serviceTitle}</strong> a été <strong>${statusText}</strong>.</p>
-                   <p>À bientôt sur Myra !</p>`
+            html: `<p>Bonjour ${client.name},</p><p>Votre réservation pour <strong>${booking.serviceTitle}</strong> a été <strong>${statusText}</strong>.</p><p>À bientôt sur Myra !</p>`
           });
         }
-      } catch (emailErr) {
-        console.error('Erreur envoi email client:', emailErr);
-      }
+      } catch (emailErr) { console.error('Erreur envoi email client:', emailErr); }
     }
-
     res.json(booking);
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
@@ -684,10 +668,16 @@ app.get('/api/conversations', authenticateToken, async (req, res) => {
     res.json(conversations.filter(c => c.participants.includes(req.user.id)));
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
-app.post('/api/conversations', authenticateToken, async (req, res) => {
+
+app.post('/api/conversations', authenticateToken, [
+  body('recipientId').isInt().withMessage('ID du destinataire invalide.'),
+  body('serviceId').isInt().withMessage('ID du service invalide.'),
+  body('serviceTitle').trim().notEmpty().withMessage('Titre du service requis.')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation échouée', details: errors.array() });
   try {
     const { recipientId, recipientName, serviceId, serviceTitle } = req.body;
-    if (!recipientId || !recipientName || !serviceId || !serviceTitle) return res.status(400).json({ error: 'Informations manquantes.' });
     const conversations = await readJSON(CONVERSATIONS_FILE);
     let conversation = conversations.find(c =>
       c.serviceId === serviceId &&
@@ -709,6 +699,7 @@ app.post('/api/conversations', authenticateToken, async (req, res) => {
     res.status(201).json(conversation);
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
+
 app.get('/api/conversations/:id/messages', authenticateToken, async (req, res) => {
   try {
     const conversationId = Number(req.params.id);
@@ -720,11 +711,15 @@ app.get('/api/conversations/:id/messages', authenticateToken, async (req, res) =
     res.json(conversationMessages);
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
-app.post('/api/conversations/:id/messages', authenticateToken, async (req, res) => {
+
+app.post('/api/conversations/:id/messages', authenticateToken, [
+  body('text').trim().notEmpty().withMessage('Le message ne peut pas être vide.')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation échouée', details: errors.array() });
   try {
     const conversationId = Number(req.params.id);
     const { text } = req.body;
-    if (!text || !String(text).trim()) return res.status(400).json({ error: 'Message vide.' });
     const conversations = await readJSON(CONVERSATIONS_FILE);
     const conversation = conversations.find(c => c._id === conversationId);
     if (!conversation || !conversation.participants.includes(req.user.id)) return res.status(403).json({ error: 'Accès refusé.' });
@@ -734,7 +729,7 @@ app.post('/api/conversations/:id/messages', authenticateToken, async (req, res) 
       conversationId,
       senderId: req.user.id,
       senderName: req.user.name,
-      text: String(text).trim(),
+      text: text.trim(),
       createdAt: new Date().toISOString()
     };
     messages.push(newMessage);
@@ -763,6 +758,7 @@ app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
     });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
+
 app.put('/api/admin/services/:id/verify', authenticateAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -774,6 +770,7 @@ app.put('/api/admin/services/:id/verify', authenticateAdmin, async (req, res) =>
     res.json(services[index]);
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
+
 app.delete('/api/admin/services/:id', authenticateAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -785,6 +782,7 @@ app.delete('/api/admin/services/:id', authenticateAdmin, async (req, res) => {
     res.json({ message: 'Service supprimé par admin' });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
+
 app.delete('/api/admin/users/:id', authenticateAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -803,9 +801,7 @@ app.get('/api/cities', async (req, res) => {
     const services = await readJSON(DATA_FILE);
     const cities = [...new Set(services.map(s => s.city).filter(Boolean))].sort();
     res.json(cities);
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
+  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
 
 // ---------- Notifications ----------
@@ -821,13 +817,22 @@ app.get('/api/notifications', authenticateToken, async (req, res) => {
 // Healthcheck
 app.get('/', (req, res) => res.status(200).send('OK'));
 
-// 404 & Error handler
-app.use((req, res) => res.status(404).json({ error: `Route ${req.method} ${req.originalUrl} non trouvée` }));
+// ---------- Gestion des erreurs ----------
 app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: 'Le fichier est trop volumineux. Maximum 5 Mo.' });
+    }
+    return res.status(400).json({ error: err.message });
+  }
+  if (err.message === 'Type de fichier non autorisé. Seuls JPEG et PNG sont acceptés.') {
+    return res.status(400).json({ error: err.message });
+  }
   console.error('Erreur non gérée:', err.message);
   res.status(500).json({ error: 'Erreur interne' });
 });
 
+// ---------- Démarrage ----------
 app.listen(PORT, () => {
-  console.log(`✅ Serveur Myra démarré sur le port ${PORT}`);
+  console.log(`✅ Serveur Myra sécurisé démarré sur le port ${PORT}`);
 });
