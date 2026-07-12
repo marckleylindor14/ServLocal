@@ -13,6 +13,7 @@ import PaymentSuccessPage from './pages/PaymentSuccessPage'
 import AccountPage from './pages/AccountPage'
 import Onboarding from './pages/Onboarding'
 import OfflineBanner from './components/OfflineBanner'
+import RequestServicePage from './pages/RequestServicePage'
 
 export default function App() {
   return (
@@ -32,6 +33,7 @@ export default function App() {
         <Route path="/payment-success" element={<PaymentSuccessPage />} />
         <Route path="/account" element={<AccountPage />} />
         <Route path="/onboarding" element={<Onboarding />} />
+        <Route path="/request-service" element={<RequestServicePage />} />
       </Routes>
     </>
   )

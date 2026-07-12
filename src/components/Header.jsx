@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { PlusCircle, ListChecks, LogOut, LogIn, Calendar, LayoutDashboard, MessageSquare, Shield, User } from 'lucide-react'
+import { PlusCircle, ListChecks, LogOut, LogIn, Calendar, LayoutDashboard, MessageSquare, Shield, User, HelpCircle } from 'lucide-react'
 import API_URL from '../config'
 
 export default function Header() {
@@ -77,6 +77,10 @@ export default function Header() {
             <PlusCircle size={22} />
             <span className="text-[10px] mt-0.5">Proposer</span>
           </Link>
+          <Link to="/request-service" className="flex flex-col items-center text-muted-foreground hover:text-foreground transition p-2">
+            <HelpCircle size={22} />
+            <span className="text-[10px] mt-0.5">Demander</span>
+          </Link>
           <Link to="/my-services" className="flex flex-col items-center text-muted-foreground hover:text-foreground transition p-2">
             <ListChecks size={22} />
             <span className="text-[10px] mt-0.5">Services</span>
@@ -103,11 +107,14 @@ export default function Header() {
         </nav>
       )}
 
-      {/* Navigation desktop (inchangée, elle s'affiche dans le header) */}
+      {/* Navigation desktop (liens classiques en haut) */}
       {user && (
         <nav className="hidden md:flex fixed top-14 left-0 right-0 z-40 bg-card/80 backdrop-blur-md border-b border-border/30 justify-center gap-1 py-1.5">
           <Link to="/add-service" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground px-3 py-2 rounded-lg hover:bg-white/5 transition">
             <PlusCircle size={16} /> Proposer
+          </Link>
+          <Link to="/request-service" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground px-3 py-2 rounded-lg hover:bg-white/5 transition">
+            <HelpCircle size={16} /> Demander
           </Link>
           <Link to="/my-services" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground px-3 py-2 rounded-lg hover:bg-white/5 transition">
             <ListChecks size={16} /> Mes services

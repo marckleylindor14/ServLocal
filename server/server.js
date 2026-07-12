@@ -76,7 +76,7 @@ function nextId(items) {
 }
 function validateServiceInput(body) {
   const errors = [];
-  const { title, category, description, city } = body || {};
+  const { title, category, description, city, type } = body || {};
   if (!title || !String(title).trim()) errors.push('title est requis');
   else if (String(title).trim().length < 2) errors.push('title doit contenir au moins 2 caractères');
   if (!category || !String(category).trim()) errors.push('category est requise');
@@ -84,6 +84,7 @@ function validateServiceInput(body) {
   if (!description || !String(description).trim()) errors.push('description est requise');
   else if (String(description).trim().length < 10) errors.push('description doit contenir au moins 10 caractères');
   if (!city || !String(city).trim()) errors.push('city est requise');
+  if (!type || !['offer', 'demand'].includes(type)) errors.push('type doit être offer ou demand');
   if (body.price != null && body.price !== '') {
     const price = Number(body.price);
     if (isNaN(price) || price < 0) errors.push('price doit être un nombre positif');
@@ -119,7 +120,7 @@ app.post('/api/upload', authenticateToken, upload.single('image'), async (req, r
     const streamUpload = () =>
       new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
-          { folder: 'myra-services', format: 'jpg' },  // ← conversion JPEG automatique
+          { folder: 'myra-services', format: 'jpg' },
           (error, result) => {
             if (result) resolve(result);
             else reject(error);
@@ -132,6 +133,29 @@ app.post('/api/upload', authenticateToken, upload.single('image'), async (req, r
   } catch (error) {
     console.error('Erreur Cloudinary:', error);
     res.status(500).json({ error: 'Échec de l\'upload.' });
+  }
+});
+
+app.post('/api/upload-gallery', authenticateToken, upload.array('gallery', 5), async (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'Aucun fichier envoyé.' });
+    const uploadPromises = req.files.map(file => {
+      return new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder: 'myra-services', format: 'jpg' },
+          (error, result) => {
+            if (result) resolve(result.secure_url);
+            else reject(error);
+          }
+        );
+        streamifier.createReadStream(file.buffer).pipe(stream);
+      });
+    });
+    const urls = await Promise.all(uploadPromises);
+    res.json({ urls });
+  } catch (error) {
+    console.error('Erreur Cloudinary (galerie):', error);
+    res.status(500).json({ error: 'Échec de l\'upload de la galerie.' });
   }
 });
 
@@ -149,7 +173,8 @@ app.put('/api/user/profile', authenticateToken, async (req, res) => {
       id: users[index]._id,
       name: users[index].name,
       email: users[index].email,
-      photo: users[index].photo || null
+      photo: users[index].photo || null,
+      verificationStatus: users[index].verificationStatus || 'none'
     });
   } catch (error) {
     res.status(500).json({ error: 'Erreur interne' });
@@ -196,6 +221,7 @@ app.get('/api/user/stats', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Erreur interne' });
   }
 });
+
 // ---------- Vérification d'identité ----------
 app.post('/api/user/request-verification', authenticateToken, upload.single('document'), async (req, res) => {
   try {
@@ -391,6 +417,7 @@ app.post('/api/services', authenticateToken, async (req, res) => {
       image: currentUser?.photo || DEFAULT_IMAGE,
       gallery: body.gallery || [],
       verified: currentUser.verificationStatus === 'verified',
+      type: body.type || 'offer',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -419,6 +446,7 @@ app.put('/api/services/:id', authenticateToken, async (req, res) => {
       providerName: body.providerName || services[index].providerName,
       image: body.image || services[index].image,
       gallery: body.gallery || services[index].gallery,
+      type: body.type || services[index].type,
       updatedAt: new Date().toISOString()
     };
     await writeJSON(DATA_FILE, services);
@@ -451,6 +479,7 @@ app.post('/api/auth/register', async (req, res) => {
       name,
       email,
       password: hashedPassword,
+      verificationStatus: 'none',
       createdAt: new Date().toISOString()
     };
     users.push(newUser);
@@ -463,7 +492,7 @@ app.post('/api/auth/login', async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
 
-    // Vérification admin (si l'email est dans la liste ET le mot de passe correspond à ADMIN_PASSWORD)
+    // Vérification admin
     if (ADMIN_EMAILS.includes(email) && password === ADMIN_PASSWORD) {
       const token = jwt.sign({ id: 0, name: 'Admin', email: email }, JWT_SECRET, { expiresIn: '7d' });
       return res.json({ token, user: { id: 0, name: 'Admin', email: email, isAdmin: true } });
@@ -475,18 +504,44 @@ app.post('/api/auth/login', async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
     const token = jwt.sign({ id: user._id, name: user.name, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token, user: { id: user._id, name: user.name, email: user.email, isAdmin: ADMIN_EMAILS.includes(user.email) } });
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        photo: user.photo || null,
+        isAdmin: ADMIN_EMAILS.includes(user.email)
+      }
+    });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
 app.get('/api/auth/me', authenticateToken, async (req, res) => {
   try {
-    if (ADMIN_EMAILS.includes(req.user.email)) {
-      return res.json({ id: 0, name: 'Admin', email: req.user.email, isAdmin: true });
-    }
+    if (ADMIN_EMAILS.includes(req.user.email)) return res.json({ id: 0, name: 'Admin', email: req.user.email, isAdmin: true });
     const users = await readJSON(USERS_FILE);
     const user = users.find(u => u._id === req.user.id);
     if (!user) return res.status(404).json({ error: 'Utilisateur non trouvé' });
-    res.json({ id: user._id, name: user.name, email: user.email, photo: user.photo || null, isAdmin: false });
+    res.json({
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      photo: user.photo || null,
+      isAdmin: ADMIN_EMAILS.includes(user.email)
+    });
+  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+// ---------- Routes avis ----------
+app.get('/api/services/:id/reviews', async (req, res) => {
+  try {
+    const serviceId = Number(req.params.id);
+    const reviews = await readJSON(REVIEWS_FILE);
+    const serviceReviews = reviews.filter(r => r.serviceId === serviceId);
+    const averageRating = serviceReviews.length
+      ? (serviceReviews.reduce((sum, r) => sum + r.rating, 0) / serviceReviews.length).toFixed(1)
+      : 0;
+    res.json({ reviews: serviceReviews, averageRating: Number(averageRating) });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
 app.post('/api/services/:id/reviews', authenticateToken, async (req, res) => {
@@ -703,7 +758,7 @@ app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
       totalConversations: conversations.length,
       totalMessages: messages.length,
       services,
-      users: users.map(u => ({ _id: u._id, name: u.name, email: u.email, createdAt: u.createdAt })),
+      users: users.map(u => ({ _id: u._id, name: u.name, email: u.email, createdAt: u.createdAt, verificationStatus: u.verificationStatus || 'none' })),
       bookings
     });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
