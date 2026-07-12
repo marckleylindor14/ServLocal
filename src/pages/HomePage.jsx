@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import Header from '../components/Header'
@@ -9,13 +9,12 @@ import PageTransition from '../components/PageTransition'
 import API_URL from '../config'
 import {
   Home, Smile, BookOpen, Wrench, PartyPopper, Dog, ShieldCheck,
-  Search, UserPlus, Star, MapPin, CheckCircle, ChevronDown, X, Navigation
+  Search, UserPlus, Star, MapPin, CheckCircle, ChevronDown, X, Navigation, HelpCircle
 } from 'lucide-react'
 
 export default function HomePage() {
   const { user } = useAuth()
   const { addToast } = useToast()
-  const navigate = useNavigate()
   const [allServices, setAllServices] = useState([])
   const [cities, setCities] = useState([])
   const [selectedCity, setSelectedCity] = useState('')
@@ -108,31 +107,21 @@ export default function HomePage() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const offers = Array.isArray(allServices) ? allServices.filter(service => service.type !== 'demand') : []
-  const demands = Array.isArray(allServices) ? allServices.filter(service => service.type === 'demand') : []
-
-  const filteredOffers = offers.filter(service => {
+  const filteredServices = Array.isArray(allServices) ? allServices.filter(service => {
     const matchesCity = !selectedCity || service.city === selectedCity
     const matchesSearch = !searchTerm.trim() ||
       service.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       service.category?.toLowerCase().includes(searchTerm.toLowerCase())
+    // Par défaut, on affiche tout (offres et demandes), on peut filtrer si besoin
     return matchesCity && matchesSearch
-  })
-
-  const filteredDemands = demands.filter(service => {
-    const matchesCity = !selectedCity || service.city === selectedCity
-    const matchesSearch = !searchTerm.trim() ||
-      service.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      service.category?.toLowerCase().includes(searchTerm.toLowerCase())
-    return matchesCity && matchesSearch
-  })
+  }) : []
 
   const suggestionServices = searchTerm.trim() === ''
     ? []
-    : allServices.filter(service =>
+    : (Array.isArray(allServices) ? allServices.filter(service =>
         service.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         service.category?.toLowerCase().includes(searchTerm.toLowerCase())
-      ).slice(0, 6)
+      ).slice(0, 6) : [])
 
   const highlightMatch = (text) => {
     if (!searchTerm.trim()) return text
@@ -152,6 +141,10 @@ export default function HomePage() {
     { icon: PartyPopper, label: "Événements", color: "from-green-400 to-emerald-500" },
     { icon: Dog, label: "Animaux", color: "from-orange-400 to-red-500" },
   ]
+
+  // Séparation des offres et des demandes
+  const offers = allServices.filter(s => s.type !== 'demand')
+  const demands = allServices.filter(s => s.type === 'demand')
 
   return (
     <PageTransition>
@@ -187,6 +180,12 @@ export default function HomePage() {
                 </Link>
               )}
             </div>
+            <div className="mt-4">
+              <Link to="/request-service" className="inline-flex items-center gap-2 text-primary hover:underline font-medium">
+                <HelpCircle size={18} />
+                Ou demander un service
+              </Link>
+            </div>
           </div>
         </section>
 
@@ -194,13 +193,14 @@ export default function HomePage() {
         <section className="py-10 md:py-16 px-4 max-w-6xl mx-auto">
           <div className="text-center mb-8 md:mb-12">
             <h2 className="text-3xl md:text-4xl font-bold mb-2 md:mb-4">Comment ça marche ?</h2>
-            <p className="text-base md:text-lg text-muted-foreground">Trois étapes simples pour trouver le prestataire idéal.</p>
+            <p className="text-base md:text-lg text-muted-foreground">Quatre façons simples d'utiliser Myra.</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 md:gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
             {[
-              { icon: Search, title: "Recherchez", desc: "Dites-nous de quel service vous avez besoin, près de chez vous." },
-              { icon: UserPlus, title: "Comparez", desc: "Consultez les profils vérifiés, les avis et les tarifs." },
-              { icon: CheckCircle, title: "Réservez", desc: "Prenez contact et planifiez votre prestation en toute sécurité." },
+              { icon: Search, title: "Recherchez", desc: "Parcourez les services disponibles près de chez vous." },
+              { icon: HelpCircle, title: "Demandez", desc: "Exprimez votre besoin, les prestataires vous contacteront." },
+              { icon: UserPlus, title: "Proposez", desc: "Créez votre annonce et développez votre clientèle." },
+              { icon: CheckCircle, title: "Réservez", desc: "Planifiez votre prestation en toute sécurité." },
             ].map((step, i) => {
               const IconComponent = step.icon
               return (
@@ -222,11 +222,12 @@ export default function HomePage() {
             <h2 className="text-3xl md:text-4xl font-bold mb-2 md:mb-4">Pourquoi choisir Myra ?</h2>
             <p className="text-base md:text-lg text-muted-foreground">La plateforme locale qui place la confiance au cœur de chaque échange.</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 md:gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
             {[
               { icon: ShieldCheck, title: "Profils vérifiés", desc: "Tous nos prestataires passent par un contrôle d'identité.", color: "text-green-400" },
               { icon: MapPin, title: "Ultra local", desc: "Des services disponibles dans votre quartier, en quelques minutes.", color: "text-blue-400" },
-              { icon: Star, title: "Avis clients", desc: "Des notes et commentaires transparents pour vous aider à choisir.", color: "text-yellow-400" },
+              { icon: HelpCircle, title: "Demandes simplifiées", desc: "Vous avez besoin d'aide ? Publiez une demande et recevez des propositions.", color: "text-yellow-400" },
+              { icon: Star, title: "Avis clients", desc: "Des notes et commentaires transparents pour vous aider à choisir.", color: "text-purple-400" },
             ].map((item, i) => {
               const IconComponent = item.icon
               return (
@@ -244,7 +245,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* RECHERCHE AVEC SUGGESTIONS */}
+        {/* RECHERCHE AVEC SUGGESTIONS (inchangé) */}
         <div id="search-section" className="pt-4 md:pt-8">
           <section className="max-w-4xl mx-auto px-4 py-8 md:py-12 text-center">
             <h2 className="text-3xl md:text-4xl font-extrabold mb-4">
@@ -378,7 +379,7 @@ export default function HomePage() {
             </div>
           </section>
 
-          {/* SERVICES DISPONIBLES (offres) */}
+          {/* Services disponibles (Offres) */}
           <section className="max-w-6xl mx-auto px-4 py-8 md:py-12">
             <div className="mb-6">
               <h3 className="text-2xl md:text-3xl font-bold">
@@ -394,7 +395,7 @@ export default function HomePage() {
                   <SkeletonCard />
                   <SkeletonCard />
                 </>
-              ) : filteredOffers.length === 0 ? (
+              ) : filteredServices.filter(s => s.type !== 'demand').length === 0 ? (
                 <EmptyState
                   title="Aucun service trouvé"
                   description="Il n'y a pas encore de service dans cette ville ou pour cette recherche. Soyez le premier à proposer vos talents !"
@@ -402,7 +403,7 @@ export default function HomePage() {
                   onAction={() => navigate('/add-service')}
                 />
               ) : (
-                filteredOffers.map((service, index) => (
+                filteredServices.filter(s => s.type !== 'demand').map((service, index) => (
                   <Link
                     to={`/provider/${service._id}`}
                     key={service._id}
@@ -432,33 +433,36 @@ export default function HomePage() {
             </div>
           </section>
 
-          {/* DEMANDES DE SERVICES */}
+          {/* Demandes de services */}
           <section className="max-w-6xl mx-auto px-4 py-8 md:py-12">
             <div className="mb-6">
-              <h3 className="text-2xl md:text-3xl font-bold">Demandes de services</h3>
+              <h3 className="text-2xl md:text-3xl font-bold">
+                {selectedCity ? `Demandes à ${selectedCity}` : 'Demandes de services'}
+              </h3>
               <div className="h-1 w-16 bg-primary mt-2 rounded-full"></div>
             </div>
+
             <div className="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory scrollbar-hide">
               {loading ? (
                 <>
                   <SkeletonCard />
                   <SkeletonCard />
                 </>
-              ) : filteredDemands.length === 0 ? (
+              ) : filteredServices.filter(s => s.type === 'demand').length === 0 ? (
                 <EmptyState
                   title="Aucune demande"
-                  description="Soyez le premier à exprimer votre besoin. Les prestataires vous contacteront."
+                  description="Soyez le premier à exprimer votre besoin !"
                   actionLabel="Demander un service"
                   onAction={() => navigate('/request-service')}
                 />
               ) : (
-                filteredDemands.map((service, index) => (
+                filteredServices.filter(s => s.type === 'demand').map((service, index) => (
                   <Link
                     to={`/provider/${service._id}`}
                     key={service._id}
-                    ref={el => serviceRefs.current[offers.length + index] = el}
+                    ref={el => serviceRefs.current[index] = el}
                     className="min-w-[260px] bg-card backdrop-blur-md border border-border rounded-2xl p-4 snap-start card-hover opacity-0 translate-y-4 transition-all duration-500 ease-out"
-                    style={{ transitionDelay: `${(offers.length + index) * 100}ms` }}
+                    style={{ transitionDelay: `${index * 100}ms` }}
                   >
                     <div className="flex items-center gap-3 mb-3">
                       <img src={service.image || 'https://i.pravatar.cc/100?img=4'} alt={service.title} className="w-12 h-12 rounded-full object-cover" />
@@ -472,7 +476,7 @@ export default function HomePage() {
                       <span className="ml-2 text-muted-foreground text-sm">5.0</span>
                     </div>
                     <p className="text-muted-foreground text-sm">{service.category}</p>
-                    <p className="text-sm mt-1">{service.price || 'Gratuit'}</p>
+                    <p className="text-sm mt-1">{service.price || 'Budget non défini'}</p>
                     {service.city && <p className="text-xs text-muted-foreground mt-1"><MapPin size={12} className="inline mr-1" />{service.city}</p>}
                   </Link>
                 ))
