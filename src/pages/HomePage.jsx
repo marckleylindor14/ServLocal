@@ -112,7 +112,6 @@ export default function HomePage() {
     const matchesSearch = !searchTerm.trim() ||
       service.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       service.category?.toLowerCase().includes(searchTerm.toLowerCase())
-    // Par défaut, on affiche tout (offres et demandes), on peut filtrer si besoin
     return matchesCity && matchesSearch
   }) : []
 
@@ -142,7 +141,6 @@ export default function HomePage() {
     { icon: Dog, label: "Animaux", color: "from-orange-400 to-red-500" },
   ]
 
-  // Séparation des offres et des demandes
   const offers = allServices.filter(s => s.type !== 'demand')
   const demands = allServices.filter(s => s.type === 'demand')
 
@@ -245,7 +243,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* RECHERCHE AVEC SUGGESTIONS (inchangé) */}
+        {/* RECHERCHE AVEC SUGGESTIONS */}
         <div id="search-section" className="pt-4 md:pt-8">
           <section className="max-w-4xl mx-auto px-4 py-8 md:py-12 text-center">
             <h2 className="text-3xl md:text-4xl font-extrabold mb-4">
@@ -385,7 +383,7 @@ export default function HomePage() {
               <h3 className="text-2xl md:text-3xl font-bold">
                 {selectedCity ? `Services à ${selectedCity}` : 'Les services disponibles'}
               </h3>
-              <div className="h-1 w-16 bg-primary mt-2 rounded-full"></div>
+              <div className="title-bar"></div>
             </div>
 
             <div className="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory scrollbar-hide">
@@ -439,7 +437,7 @@ export default function HomePage() {
               <h3 className="text-2xl md:text-3xl font-bold">
                 {selectedCity ? `Demandes à ${selectedCity}` : 'Demandes de services'}
               </h3>
-              <div className="h-1 w-16 bg-primary mt-2 rounded-full"></div>
+              <div className="title-bar"></div>
             </div>
 
             <div className="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory scrollbar-hide">

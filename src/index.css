@@ -81,3 +81,10 @@ input:focus, textarea:focus, select:focus {
     padding-bottom: 70px;
   }
 }
+.title-bar {
+  height: 4px;
+  width: 72px;
+  background: linear-gradient(to right, var(--color-primary, #DE8259), rgba(222,130,89,0.2));
+  border-radius: 2px;
+  margin-top: 0.5rem;
+}
