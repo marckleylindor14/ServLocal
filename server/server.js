@@ -56,7 +56,24 @@ app.use(cors({
   },
   credentials: true,
 }));
+const allowedOrigins = [
+  /\.vercel\.app$/,
+  'http://localhost:5173',
+];
 
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.some(pattern => {
+      if (typeof pattern === 'string') return pattern === origin;
+      return pattern.test(origin);
+    })) {
+      callback(null, true);
+    } else {
+      callback(new Error('Origine non autorisée par CORS'));
+    }
+  },
+  credentials: true,
+}));
 app.use(helmet());
 app.use(express.json({ limit: '10kb' }));
 
