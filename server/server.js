@@ -10,11 +10,17 @@ const streamifier = require('streamifier');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { body, validationResult } = require('express-validator');
-const { Resend } = require('resend');
 
 let stripe = null;
 if (process.env.STRIPE_SECRET_KEY) {
   stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+}
+
+let resend = null;
+let FROM_EMAIL = 'Myra <notifications@resend.dev>';
+if (process.env.RESEND_API_KEY) {
+  resend = new (require('resend').Resend)(process.env.RESEND_API_KEY);
+  FROM_EMAIL = process.env.FROM_EMAIL || 'Myra <notifications@resend.dev>';
 }
 
 const app = express();
@@ -32,30 +38,12 @@ const ADMIN_EMAILS = process.env.ADMIN_EMAILS
   : ['Marckley.lindor14@gmail.com'];
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Jesula1982';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM_EMAIL = process.env.FROM_EMAIL || 'Myra <notifications@resend.dev>';
-
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-const allowedOrigins = [
-  'https://serv-local-p1hcec7kx-marckleylindor14s-projects.vercel.app',
-  'http://localhost:5173',
-];
-
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Origine non autorisée par CORS'));
-    }
-  },
-  credentials: true,
-}));
 const allowedOrigins = [
   /\.vercel\.app$/,
   'http://localhost:5173',
@@ -74,6 +62,7 @@ app.use(cors({
   },
   credentials: true,
 }));
+
 app.use(helmet());
 app.use(express.json({ limit: '10kb' }));
 
@@ -364,7 +353,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     if (!email) return res.status(400).json({ error: 'Email requis.' });
     const users = await readJSON(USERS_FILE);
     const user = users.find(u => u.email === email);
-    if (user) {
+    if (user && resend) {
       const resetToken = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
       const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
       await resend.emails.send({
@@ -491,7 +480,7 @@ app.post('/api/services/:id/bookings', authenticateToken, [
     };
     bookings.push(newBooking);
     await writeJSON(BOOKINGS_FILE, bookings);
-    if (service.providerId) {
+    if (service.providerId && resend) {
       try {
         const users = await readJSON(USERS_FILE);
         const provider = users.find(u => u._id === service.providerId);
@@ -522,7 +511,7 @@ app.put('/api/bookings/:id', authenticateToken, async (req, res) => {
     bookings[index].status = status;
     await writeJSON(BOOKINGS_FILE, bookings);
     const booking = bookings[index];
-    if (booking.clientId) {
+    if (booking.clientId && resend) {
       try {
         const users = await readJSON(USERS_FILE);
         const client = users.find(u => u._id === booking.clientId);
