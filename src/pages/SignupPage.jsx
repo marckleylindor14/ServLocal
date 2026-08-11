@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useToast } from '../context/ToastContext'
 import PageTransition from '../components/PageTransition'
+import CGUModal from '../components/CGUModal'
 import API_URL from '../config'
 import { Loader2, Eye, EyeOff } from 'lucide-react'
 
@@ -12,11 +13,17 @@ export default function SignupPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [acceptedCGU, setAcceptedCGU] = useState(false)
+  const [showCGU, setShowCGU] = useState(false)
   const navigate = useNavigate()
   const { addToast } = useToast()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (!acceptedCGU) {
+      addToast('Veuillez accepter les conditions générales.', 'error')
+      return
+    }
     setError('')
     setLoading(true)
     try {
@@ -63,8 +70,26 @@ export default function SignupPage() {
               {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
             </button>
           </div>
-          <button type="submit" disabled={loading}
-            className="w-full bg-primary text-primary-foreground py-3 rounded-full font-semibold hover:bg-primary/90 transition flex items-center justify-center gap-2 disabled:opacity-70">
+
+          {/* Case à cocher CGU */}
+          <div className="flex items-start gap-2">
+            <input
+              type="checkbox"
+              id="cgu"
+              checked={acceptedCGU}
+              onChange={(e) => setAcceptedCGU(e.target.checked)}
+              className="mt-1 rounded border-border bg-transparent accent-primary"
+            />
+            <label htmlFor="cgu" className="text-sm text-muted-foreground">
+              J'accepte les{' '}
+              <button type="button" onClick={() => setShowCGU(true)} className="text-primary hover:underline">
+                conditions générales d'utilisation
+              </button>
+            </label>
+          </div>
+
+          <button type="submit" disabled={loading || !acceptedCGU}
+            className="w-full bg-primary text-primary-foreground py-3 rounded-full font-semibold hover:bg-primary/90 transition flex items-center justify-center gap-2 disabled:opacity-50">
             {loading && <Loader2 size={18} className="animate-spin" />}
             {loading ? 'Inscription...' : 'Créer mon compte'}
           </button>
@@ -72,6 +97,9 @@ export default function SignupPage() {
             Déjà un compte ? <Link to="/login" className="text-primary hover:underline">Se connecter</Link>
           </p>
         </form>
+
+        {/* Modale CGU */}
+        {showCGU && <CGUModal onClose={() => setShowCGU(false)} />}
       </div>
     </PageTransition>
   )
