@@ -733,35 +733,53 @@ if (stripe) {
     try {
       const { serviceId, bookingId } = req.body;
       if (!serviceId || !bookingId) return res.status(400).json({ error: 'serviceId et bookingId requis.' });
+  
       const services = await readJSON(DATA_FILE);
       const service = services.find(s => Number(s._id) === Number(serviceId));
       if (!service) return res.status(404).json({ error: 'Service non trouvé.' });
+  
       const bookings = await readJSON(BOOKINGS_FILE);
       const booking = bookings.find(b => Number(b._id) === Number(bookingId));
       if (!booking) return res.status(404).json({ error: 'Réservation non trouvée.' });
-      let amount = 0;
+  
+      let baseAmount = 0;
       if (service.price) {
         const parsed = parseFloat(service.price);
-        if (!isNaN(parsed)) amount = Math.round(parsed * 100);
+        if (!isNaN(parsed)) baseAmount = Math.round(parsed * 100); // montant en centimes
       }
-      if (amount <= 0) return res.status(400).json({ error: 'Ce service n\'a pas de prix valide.' });
+      if (baseAmount <= 0) return res.status(400).json({ error: 'Ce service n\'a pas de prix valide.' });
+  
+      // Appliquer 10 % de commission
+      const totalAmount = Math.round(baseAmount * 1.1);
+  
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
         line_items: [{
           price_data: {
             currency: 'eur',
-            product_data: { name: service.title, description: service.description?.substring(0, 200) },
-            unit_amount: amount,
+            product_data: {
+              name: service.title,
+              description: `Prix initial : ${service.price} € (commission incluse)`,
+            },
+            unit_amount: totalAmount,
           },
           quantity: 1,
         }],
         mode: 'payment',
         success_url: `${process.env.FRONTEND_URL || 'https://servlocal-app.vercel.app'}/payment-success?session_id={CHECKOUT_SESSION_ID}&booking_id=${bookingId}`,
         cancel_url: `${process.env.FRONTEND_URL || 'https://servlocal-app.vercel.app'}/my-bookings`,
-        metadata: { bookingId: String(bookingId), serviceId: String(serviceId), userId: String(req.user.id) },
+        metadata: {
+          bookingId: String(bookingId),
+          serviceId: String(serviceId),
+          userId: String(req.user.id),
+        },
       });
+  
       res.json({ url: session.url });
-    } catch (error) { res.status(500).json({ error: 'Impossible de créer la session de paiement.' }); }
+    } catch (error) {
+      console.error('Erreur Stripe:', error);
+      res.status(500).json({ error: 'Impossible de créer la session de paiement.' });
+    }
   });
 
   app.get('/api/booking/confirm', async (req, res) => {

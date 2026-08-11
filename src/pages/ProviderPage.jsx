@@ -199,7 +199,12 @@ export default function ProviderPage() {
             <p className="text-muted-foreground text-sm md:text-base mb-4">{pro.description}</p>
             <div className="mb-4">
               <h3 className="text-lg md:text-xl font-semibold">Tarif</h3>
-              <p className="text-primary font-medium">{pro.price || 'Non spécifié'}</p>
+              <p className="text-primary font-medium">
+  {pro.price ? `${pro.price} €` : 'Non spécifié'}
+</p>
+<p className="text-xs text-muted-foreground mt-1">
+  Une commission de 10 % est incluse lors du paiement.
+</p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
               <button onClick={startConversation} className="flex-1 bg-primary text-primary-foreground font-semibold py-3 px-6 rounded-full hover:bg-primary/90 transition text-sm md:text-base">
