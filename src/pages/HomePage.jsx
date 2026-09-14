@@ -431,56 +431,7 @@ export default function HomePage() {
             </div>
           </section>
 
-          {/* Demandes de services */}
-          <section className="max-w-6xl mx-auto px-4 py-8 md:py-12">
-            <div className="mb-6">
-              <h3 className="text-2xl md:text-3xl font-bold">
-                {selectedCity ? `Demandes à ${selectedCity}` : 'Demandes de services'}
-              </h3>
-              <div className="title-bar"></div>
-            </div>
-
-            <div className="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory scrollbar-hide">
-              {loading ? (
-                <>
-                  <SkeletonCard />
-                  <SkeletonCard />
-                </>
-              ) : filteredServices.filter(s => s.type === 'demand').length === 0 ? (
-                <EmptyState
-                  title="Aucune demande"
-                  description="Soyez le premier à exprimer votre besoin !"
-                  actionLabel="Demander un service"
-                  onAction={() => navigate('/request-service')}
-                />
-              ) : (
-                filteredServices.filter(s => s.type === 'demand').map((service, index) => (
-                  <Link
-                    to={`/provider/${service._id}`}
-                    key={service._id}
-                    ref={el => serviceRefs.current[index] = el}
-                    className="min-w-[260px] bg-card backdrop-blur-md border border-border rounded-2xl p-4 snap-start card-hover opacity-0 translate-y-4 transition-all duration-500 ease-out"
-                    style={{ transitionDelay: `${index * 100}ms` }}
-                  >
-                    <div className="flex items-center gap-3 mb-3">
-                      <img src={service.image || 'https://i.pravatar.cc/100?img=4'} alt={service.title} className="w-12 h-12 rounded-full object-cover" />
-                      <div>
-                        <p className="font-bold text-base">{service.title}</p>
-                        <span className="inline-block bg-blue-400/20 text-blue-400 text-xs px-2 py-0.5 rounded-full mt-1">Demande</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center mb-2">
-                      {[...Array(5)].map((_, i) => <span key={i} className="text-primary text-sm">⭐</span>)}
-                      <span className="ml-2 text-muted-foreground text-sm">5.0</span>
-                    </div>
-                    <p className="text-muted-foreground text-sm">{service.category}</p>
-                    <p className="text-sm mt-1">{service.price || 'Budget non défini'}</p>
-                    {service.city && <p className="text-xs text-muted-foreground mt-1"><MapPin size={12} className="inline mr-1" />{service.city}</p>}
-                  </Link>
-                ))
-              )}
-            </div>
-          </section>
+          
         </div>
 
         <footer className="py-8 text-center text-muted-foreground border-t border-border text-sm">

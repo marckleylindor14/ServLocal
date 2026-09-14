@@ -41,7 +41,7 @@ export default function Header() {
   const isAdmin = user?.isAdmin
 
   const navItemClass = ({ isActive }) =>
-    `flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full transition-all duration-200 ${
+    `flex items-center gap-2 text-sm font-medium px-3.5 py-2 rounded-full transition-all duration-200 ${
       isActive
         ? 'bg-primary/15 text-primary'
         : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
@@ -53,60 +53,64 @@ export default function Header() {
         className="fixed top-0 left-0 right-0 z-50 bg-card/70 backdrop-blur-xl border-b border-border/40"
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
-        <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex justify-between items-center">
-          <Link to="/" className="flex items-center gap-2.5 group">
-            <img
-              src="/LOGO MYRA.png"
-              alt="Myra"
-              className="h-9 w-9 object-contain transition-transform group-hover:scale-105"
-            />
-            <span className="text-xl font-bold tracking-tight">Myra</span>
-          </Link>
+        <div className="px-4 md:px-6 h-16 flex justify-between items-center gap-4">
+          {/* Logo + navigation alignés à gauche */}
+          <div className="flex items-center gap-6 min-w-0">
+            <Link to="/" className="flex items-center gap-2.5 group shrink-0">
+              <img
+                src="/LOGO MYRA.png"
+                alt="Myra"
+                className="h-9 w-9 object-contain transition-transform group-hover:scale-105"
+              />
+              <span className="text-xl font-bold tracking-tight">Myra</span>
+            </Link>
 
-          <nav className="hidden md:flex items-center gap-1">
-            <NavLink to="/add-service" className={navItemClass}>
-              <PlusCircle size={16} />
-              Proposer
-            </NavLink>
-            <NavLink to="/request-service" className={navItemClass}>
-              <HelpCircle size={16} />
-              Demander
-            </NavLink>
-            {user && (
-              <>
-                <NavLink to="/my-services" className={navItemClass}>
-                  <ListChecks size={16} />
-                  Mes services
-                </NavLink>
-                <NavLink to="/my-bookings" className={({ isActive }) => `${navItemClass({ isActive })} relative`}>
-                  <Calendar size={16} />
-                  Réservations
-                  <Badge count={notif.pendingBookings} />
-                </NavLink>
-                <NavLink to="/dashboard" className={({ isActive }) => `${navItemClass({ isActive })} relative`}>
-                  <LayoutDashboard size={16} />
-                  Dashboard
-                  <Badge count={notif.pendingBookings} />
-                </NavLink>
-                <NavLink to="/messages" className={navItemClass}>
-                  <MessageSquare size={16} />
-                  Messages
-                </NavLink>
-                {isAdmin && (
-                  <NavLink to="/admin" className={({ isActive }) =>
-                    `flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-full transition-all ${
-                      isActive ? 'bg-primary text-primary-foreground' : 'bg-primary/15 text-primary hover:bg-primary/25'
-                    }`
-                  }>
-                    <Shield size={16} />
-                    Admin
+            <nav className="hidden md:flex items-center gap-1">
+              <NavLink to="/add-service" className={navItemClass}>
+                <PlusCircle size={16} />
+                Proposer
+              </NavLink>
+              <NavLink to="/request-service" className={navItemClass}>
+                <HelpCircle size={16} />
+                Demander
+              </NavLink>
+              {user && (
+                <>
+                  <NavLink to="/my-services" className={navItemClass}>
+                    <ListChecks size={16} />
+                    Mes services
                   </NavLink>
-                )}
-              </>
-            )}
-          </nav>
+                  <NavLink to="/my-bookings" className={({ isActive }) => `${navItemClass({ isActive })} relative`}>
+                    <Calendar size={16} />
+                    Réservations
+                    <Badge count={notif.pendingBookings} />
+                  </NavLink>
+                  <NavLink to="/dashboard" className={({ isActive }) => `${navItemClass({ isActive })} relative`}>
+                    <LayoutDashboard size={16} />
+                    Dashboard
+                    <Badge count={notif.pendingBookings} />
+                  </NavLink>
+                  <NavLink to="/messages" className={navItemClass}>
+                    <MessageSquare size={16} />
+                    Messages
+                  </NavLink>
+                  {isAdmin && (
+                    <NavLink to="/admin" className={({ isActive }) =>
+                      `flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-full transition-all ${
+                        isActive ? 'bg-primary text-primary-foreground' : 'bg-primary/15 text-primary hover:bg-primary/25'
+                      }`
+                    }>
+                      <Shield size={16} />
+                      Admin
+                    </NavLink>
+                  )}
+                </>
+              )}
+            </nav>
+          </div>
 
-          <div className="flex items-center gap-3">
+          {/* Zone utilisateur à droite */}
+          <div className="flex items-center gap-3 shrink-0">
             {user ? (
               <>
                 <Link
