@@ -18,6 +18,7 @@ import ResetPasswordPage from './pages/ResetPasswordPage'
 import LandingPage from './pages/LandingPage'
 import Onboarding from './pages/Onboarding'
 import OfflineBanner from './components/OfflineBanner'
+import BottomNav from './components/BottomNav'
 
 export default function App() {
   const { user } = useAuth()
@@ -43,6 +44,7 @@ export default function App() {
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/onboarding" element={<Onboarding />} />
       </Routes>
+      {user && <BottomNav />}
     </>
   )
 }
