@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import Header from '../components/Header'
@@ -9,12 +9,13 @@ import PageTransition from '../components/PageTransition'
 import API_URL from '../config'
 import {
   Home, Smile, BookOpen, Wrench, PartyPopper, Dog, ShieldCheck,
-  Search, UserPlus, Star, MapPin, CheckCircle, ChevronDown, X, Navigation, HelpCircle
+  Search, UserPlus, Star, MapPin, CheckCircle, ChevronDown, X, Navigation, HelpCircle, Sparkles, TrendingUp, Zap
 } from 'lucide-react'
 
 export default function HomePage() {
   const { user } = useAuth()
   const { addToast } = useToast()
+  const navigate = useNavigate()
   const [allServices, setAllServices] = useState([])
   const [cities, setCities] = useState([])
   const [selectedCity, setSelectedCity] = useState('')
@@ -24,7 +25,6 @@ export default function HomePage() {
   const [geoMessage, setGeoMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const searchRef = useRef(null)
-  const serviceRefs = useRef([])
 
   useEffect(() => {
     fetch(`${API_URL}/api/services`)
@@ -79,25 +79,6 @@ export default function HomePage() {
   }, [cities])
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('animate-in')
-          }
-        })
-      },
-      { threshold: 0.1 }
-    )
-
-    serviceRefs.current.forEach(ref => {
-      if (ref) observer.observe(ref)
-    })
-
-    return () => observer.disconnect()
-  }, [allServices, loading])
-
-  useEffect(() => {
     const handleClickOutside = (e) => {
       if (searchRef.current && !searchRef.current.contains(e.target)) {
         setShowSuggestions(false)
@@ -112,7 +93,7 @@ export default function HomePage() {
     const matchesSearch = !searchTerm.trim() ||
       service.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       service.category?.toLowerCase().includes(searchTerm.toLowerCase())
-    return matchesCity && matchesSearch
+    return matchesCity && matchesSearch && service.type !== 'demand'
   }) : []
 
   const suggestionServices = searchTerm.trim() === ''
@@ -133,139 +114,97 @@ export default function HomePage() {
   }
 
   const categories = [
-    { icon: Home, label: "Maison", color: "from-blue-400 to-blue-500" },
-    { icon: Smile, label: "Bien-être", color: "from-pink-400 to-rose-500" },
-    { icon: BookOpen, label: "Cours", color: "from-yellow-400 to-amber-500" },
-    { icon: Wrench, label: "Tech & Réparation", color: "from-purple-400 to-violet-500" },
-    { icon: PartyPopper, label: "Événements", color: "from-green-400 to-emerald-500" },
-    { icon: Dog, label: "Animaux", color: "from-orange-400 to-red-500" },
+    { icon: Home, label: "Maison", color: "from-blue-400 to-blue-600" },
+    { icon: Smile, label: "Bien-être", color: "from-pink-400 to-rose-600" },
+    { icon: BookOpen, label: "Cours", color: "from-yellow-400 to-amber-600" },
+    { icon: Wrench, label: "Tech & Réparation", color: "from-purple-400 to-violet-600" },
+    { icon: PartyPopper, label: "Événements", color: "from-green-400 to-emerald-600" },
+    { icon: Dog, label: "Animaux", color: "from-orange-400 to-red-600" },
   ]
-
-  const offers = allServices.filter(s => s.type !== 'demand')
-  const demands = allServices.filter(s => s.type === 'demand')
 
   return (
     <PageTransition>
       <div className="min-h-screen bg-background text-foreground font-sans scroll-smooth">
         <Header />
 
-        {/* HERO */}
-        <section className="relative pt-20 md:pt-28 pb-12 md:pb-20 px-4 text-center overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
-          <div className="max-w-3xl mx-auto relative z-10">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight mb-4 md:mb-6 leading-tight">
-              Tous les services du quotidien, <br />
-              <span className="text-primary">à deux pas de chez vous</span>
+        <section className="relative pt-24 md:pt-32 pb-8 md:pb-16 px-4 overflow-hidden">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
+          <div className="relative max-w-5xl mx-auto text-center">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-medium mb-6">
+              <Sparkles size={14} />
+              Services locaux, en confiance
+            </div>
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold tracking-tight mb-6 leading-[1.1]">
+              Trouvez l'aide <br />
+              <span className="bg-gradient-to-r from-primary via-orange-400 to-primary bg-clip-text text-transparent">
+                à deux pas de chez vous
+              </span>
             </h1>
-            <p className="text-base md:text-lg text-muted-foreground mb-6 md:mb-10 max-w-xl mx-auto px-2">
-              Myra vous connecte avec des prestataires locaux de confiance. Coiffure, bricolage, jardinage… trouvez l&apos;aide qu&apos;il vous faut en quelques clics.
+            <p className="text-base md:text-xl text-muted-foreground mb-10 max-w-xl mx-auto px-2 leading-relaxed">
+              Des milliers de prestataires locaux, vérifiés et notés, prêts à vous aider.
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
-              <a href="#search-section" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground font-semibold px-6 py-3 rounded-full hover:bg-primary/90 transition text-sm md:text-base">
-                <Search size={18} />
-                Trouver un service
-                <ChevronDown size={16} className="ml-1 animate-bounce hidden sm:block" />
-              </a>
-              {!user ? (
-                <Link to="/signup" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 border border-primary text-primary font-semibold px-6 py-3 rounded-full hover:bg-primary hover:text-primary-foreground transition text-sm md:text-base">
-                  <UserPlus size={18} />
-                  Devenir prestataire
-                </Link>
-              ) : (
-                <Link to="/add-service" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 border border-primary text-primary font-semibold px-6 py-3 rounded-full hover:bg-primary hover:text-primary-foreground transition text-sm md:text-base">
-                  <UserPlus size={18} />
-                  Proposer un service
-                </Link>
+
+            <div ref={searchRef} className="relative max-w-2xl mx-auto">
+              <div className="flex items-center glass rounded-3xl shadow-2xl overflow-hidden p-1.5">
+                <span className="pl-4 text-muted-foreground">
+                  <Search size={20} />
+                </span>
+                <input
+                  type="text"
+                  placeholder="Coiffeur, plombier, cours de piano…"
+                  className="w-full py-3.5 px-3 bg-transparent text-foreground placeholder-muted-foreground outline-none text-base"
+                  value={searchTerm}
+                  onChange={(e) => { setSearchTerm(e.target.value); setShowSuggestions(true) }}
+                  onFocus={() => { if (searchTerm.trim()) setShowSuggestions(true) }}
+                />
+                {searchTerm && (
+                  <button onClick={() => { setSearchTerm(''); setShowSuggestions(false) }} className="p-2 text-muted-foreground hover:text-foreground transition">
+                    <X size={18} />
+                  </button>
+                )}
+                <button className="bg-primary text-primary-foreground font-semibold px-6 py-3 rounded-2xl hover:bg-primary/90 transition text-sm shadow-lg shadow-primary/30">
+                  Rechercher
+                </button>
+              </div>
+
+              {showSuggestions && searchTerm.trim() && (
+                <div className="absolute top-full left-0 right-0 mt-3 glass-strong rounded-2xl shadow-2xl overflow-hidden z-50">
+                  {suggestionServices.length > 0 ? (
+                    suggestionServices.map(service => (
+                      <Link
+                        key={service._id}
+                        to={`/provider/${service._id}`}
+                        onClick={() => { setShowSuggestions(false); setSearchTerm('') }}
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition border-b border-border/40 last:border-0"
+                      >
+                        <img src={service.image || 'https://i.pravatar.cc/100?img=4'} alt={service.title} className="w-10 h-10 rounded-full object-cover" />
+                        <div className="text-left min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">{highlightMatch(service.title)}</p>
+                          <p className="text-xs text-muted-foreground">{service.category}</p>
+                        </div>
+                        <span className="text-xs text-primary font-medium whitespace-nowrap">{service.price || 'Gratuit'}</span>
+                      </Link>
+                    ))
+                  ) : (
+                    <p className="px-4 py-4 text-sm text-muted-foreground text-center">Aucun service pour "{searchTerm}"</p>
+                  )}
+                </div>
               )}
             </div>
-            <div className="mt-4">
-              <Link to="/request-service" className="inline-flex items-center gap-2 text-primary hover:underline font-medium">
-                <HelpCircle size={18} />
-                Ou demander un service
-              </Link>
-            </div>
-          </div>
-        </section>
 
-        {/* COMMENT ÇA MARCHE */}
-        <section className="py-10 md:py-16 px-4 max-w-6xl mx-auto">
-          <div className="text-center mb-8 md:mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold mb-2 md:mb-4">Comment ça marche ?</h2>
-            <p className="text-base md:text-lg text-muted-foreground">Quatre façons simples d'utiliser Myra.</p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
-            {[
-              { icon: Search, title: "Recherchez", desc: "Parcourez les services disponibles près de chez vous." },
-              { icon: HelpCircle, title: "Demandez", desc: "Exprimez votre besoin, les prestataires vous contacteront." },
-              { icon: UserPlus, title: "Proposez", desc: "Créez votre annonce et développez votre clientèle." },
-              { icon: CheckCircle, title: "Réservez", desc: "Planifiez votre prestation en toute sécurité." },
-            ].map((step, i) => {
-              const IconComponent = step.icon
-              return (
-                <div key={i} className="text-center bg-card backdrop-blur-md border border-border rounded-2xl p-6 card-hover">
-                  <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
-                    <IconComponent size={28} className="text-primary" />
-                  </div>
-                  <h3 className="text-xl font-semibold mb-2">{step.title}</h3>
-                  <p className="text-sm text-muted-foreground">{step.desc}</p>
-                </div>
-              )
-            })}
-          </div>
-        </section>
-
-        {/* POURQUOI MYRA */}
-        <section className="py-10 md:py-16 px-4 max-w-6xl mx-auto">
-          <div className="text-center mb-8 md:mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold mb-2 md:mb-4">Pourquoi choisir Myra ?</h2>
-            <p className="text-base md:text-lg text-muted-foreground">La plateforme locale qui place la confiance au cœur de chaque échange.</p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
-            {[
-              { icon: ShieldCheck, title: "Profils vérifiés", desc: "Tous nos prestataires passent par un contrôle d'identité.", color: "text-green-400" },
-              { icon: MapPin, title: "Ultra local", desc: "Des services disponibles dans votre quartier, en quelques minutes.", color: "text-blue-400" },
-              { icon: HelpCircle, title: "Demandes simplifiées", desc: "Vous avez besoin d'aide ? Publiez une demande et recevez des propositions.", color: "text-yellow-400" },
-              { icon: Star, title: "Avis clients", desc: "Des notes et commentaires transparents pour vous aider à choisir.", color: "text-purple-400" },
-            ].map((item, i) => {
-              const IconComponent = item.icon
-              return (
-                <div key={i} className="bg-card backdrop-blur-md border border-border rounded-2xl p-5 flex gap-4 items-start card-hover">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <IconComponent size={20} className={item.color} />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold mb-1">{item.title}</h3>
-                    <p className="text-sm text-muted-foreground">{item.desc}</p>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </section>
-
-        {/* RECHERCHE AVEC SUGGESTIONS */}
-        <div id="search-section" className="pt-4 md:pt-8">
-          <section className="max-w-4xl mx-auto px-4 py-8 md:py-12 text-center">
-            <h2 className="text-3xl md:text-4xl font-extrabold mb-4">
-              Quel service cherchez-vous ?
-            </h2>
-            <p className="text-base md:text-lg text-muted-foreground mb-6 md:mb-8">
-              Tous les services, en confiance, à deux pas
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mb-2">
-              <div className="relative w-full max-w-xs">
+            <div className="mt-6 flex flex-wrap gap-3 justify-center items-center">
+              <div className="relative">
                 <select
                   value={selectedCity}
                   onChange={(e) => { setSelectedCity(e.target.value); setGeoMessage('') }}
-                  className="w-full bg-card border border-border rounded-full py-3 pl-5 pr-10 text-foreground outline-none focus:border-primary transition appearance-none"
+                  className="appearance-none glass rounded-full py-2.5 pl-4 pr-10 text-sm text-foreground outline-none focus:border-primary/50 transition"
                 >
                   <option value="">Toutes les villes</option>
                   {Array.isArray(cities) && cities.map(city => (
                     <option key={city} value={city}>{city}</option>
                   ))}
                 </select>
-                <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                <ChevronDown size={14} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
               </div>
               <button
                 onClick={() => {
@@ -303,147 +242,296 @@ export default function HomePage() {
                   )
                 }}
                 disabled={detectingCity}
-                className="flex items-center gap-1 text-sm font-medium bg-primary/10 text-primary px-4 py-2 rounded-full hover:bg-primary/20 transition disabled:opacity-50"
+                className="flex items-center gap-1.5 text-sm font-medium glass rounded-full px-4 py-2.5 text-primary hover:bg-primary/10 transition disabled:opacity-50"
               >
-                <Navigation size={16} className={detectingCity ? 'animate-pulse' : ''} />
-                {detectingCity ? 'Détection...' : 'Me localiser'}
+                <Navigation size={14} className={detectingCity ? 'animate-pulse' : ''} />
+                {detectingCity ? 'Localisation…' : 'Autour de moi'}
               </button>
             </div>
-            {geoMessage && <p className="text-xs text-muted-foreground mb-4">{geoMessage}</p>}
+            {geoMessage && <p className="text-xs text-muted-foreground mt-3">{geoMessage}</p>}
+          </div>
+        </section>
 
-            <div ref={searchRef} className="relative max-w-xl mx-auto">
-              <div className="flex items-center bg-card backdrop-blur-md border border-border rounded-full shadow-lg shadow-primary/20 overflow-hidden">
-                <span className="pl-5 text-muted-foreground">🔍</span>
-                <input
-                  type="text"
-                  placeholder="Ex : coiffeur, réparation vélo..."
-                  className="w-full py-4 px-4 bg-transparent text-foreground placeholder-muted-foreground outline-none text-base"
-                  value={searchTerm}
-                  onChange={(e) => { setSearchTerm(e.target.value); setShowSuggestions(true) }}
-                  onFocus={() => { if (searchTerm.trim()) setShowSuggestions(true) }}
-                />
-                {searchTerm && (
-                  <button onClick={() => { setSearchTerm(''); setShowSuggestions(false) }} className="pr-3 text-muted-foreground hover:text-foreground transition">
-                    <X size={18} />
-                  </button>
-                )}
-                <button className="hidden sm:block bg-primary text-primary-foreground font-semibold px-5 py-2 m-1 rounded-full hover:bg-primary/90 transition text-sm">Rechercher</button>
-              </div>
-
-              {showSuggestions && searchTerm.trim() && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-card backdrop-blur-md border border-border rounded-2xl shadow-2xl overflow-hidden z-50">
-                  {suggestionServices.length > 0 ? (
-                    suggestionServices.map(service => (
-                      <Link
-                        key={service._id}
-                        to={`/provider/${service._id}`}
-                        onClick={() => { setShowSuggestions(false); setSearchTerm('') }}
-                        className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition border-b border-border last:border-0"
-                      >
-                        <img src={service.image || 'https://i.pravatar.cc/100?img=4'} alt={service.title} className="w-10 h-10 rounded-full object-cover" />
-                        <div className="text-left min-w-0">
-                          <p className="text-sm font-medium truncate">{highlightMatch(service.title)}</p>
-                          <p className="text-xs text-muted-foreground">{service.category}</p>
-                        </div>
-                        <span className="ml-auto text-xs text-primary font-medium whitespace-nowrap">{service.price || 'Gratuit'}</span>
-                      </Link>
-                    ))
-                  ) : (
-                    <p className="px-4 py-3 text-sm text-muted-foreground text-center">Aucun service trouvé pour "{searchTerm}"</p>
-                  )}
-                </div>
-              )}
-            </div>
-          </section>
-
-          {/* Catégories */}
-          <section className="max-w-6xl mx-auto px-4 py-6 md:py-8">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
-              {categories.map((cat) => {
-                const Icon = cat.icon
-                return (
-                  <div
-                    key={cat.label}
-                    onClick={() => { setSearchTerm(cat.label); setShowSuggestions(true) }}
-                    className="bg-card backdrop-blur-sm rounded-2xl p-4 text-center hover:scale-105 transition cursor-pointer border border-border card-hover"
-                  >
-                    <div className={`w-12 h-12 mx-auto mb-2 rounded-full bg-gradient-to-br ${cat.color} flex items-center justify-center`}>
+        <section className="max-w-6xl mx-auto px-4 py-8 md:py-12">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {categories.map((cat) => {
+              const Icon = cat.icon
+              return (
+                <button
+                  key={cat.label}
+                  onClick={() => { setSearchTerm(cat.label); setShowSuggestions(true); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
+                  className="group relative overflow-hidden rounded-2xl p-4 text-center transition-all hover:-translate-y-1"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/[0.04] to-transparent border border-border/40 rounded-2xl group-hover:border-primary/30 transition" />
+                  <div className="relative">
+                    <div className={`w-11 h-11 mx-auto mb-2 rounded-xl bg-gradient-to-br ${cat.color} flex items-center justify-center shadow-lg`}>
                       <Icon size={20} className="text-white" />
                     </div>
-                    <p className="font-semibold text-sm">{cat.label}</p>
+                    <p className="font-semibold text-xs text-foreground">{cat.label}</p>
                   </div>
-                )
-              })}
-            </div>
-          </section>
+                </button>
+              )
+            })}
+          </div>
+        </section>
 
-          {/* Services disponibles (Offres) */}
-          <section className="max-w-6xl mx-auto px-4 py-8 md:py-12">
-            <div className="mb-6">
-              <h3 className="text-2xl md:text-3xl font-bold">
-                {selectedCity ? `Services à ${selectedCity}` : 'Les services disponibles'}
-              </h3>
-              <div className="title-bar"></div>
+        <section className="max-w-6xl mx-auto px-4 py-8 md:py-16">
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium mb-3">
+              <Zap size={12} />
+              Simple et rapide
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold mb-3">Comment ça marche</h2>
+            <p className="text-muted-foreground max-w-md mx-auto">Quatre étapes pour trouver ou proposer un service.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:auto-rows-[200px]">
+            <div className="md:col-span-2 md:row-span-2 card-hover p-8 flex flex-col justify-between relative overflow-hidden">
+              <div className="absolute -top-20 -right-20 w-64 h-64 bg-primary/10 rounded-full blur-3xl" />
+              <div className="relative">
+                <div className="w-14 h-14 rounded-2xl bg-primary/15 flex items-center justify-center mb-6">
+                  <Search size={28} className="text-primary" />
+                </div>
+                <h3 className="text-2xl md:text-3xl font-bold mb-3">Cherchez près de chez vous</h3>
+                <p className="text-muted-foreground max-w-md leading-relaxed">
+                  Filtrez par ville, catégorie ou mot-clé. Des centaines de prestataires locaux à portée de main.
+                </p>
+              </div>
+              <div className="relative flex gap-2 mt-6">
+                {['Coiffeur', 'Plombier', 'Cours', 'Ménage'].map(tag => (
+                  <span key={tag} className="px-3 py-1 rounded-full bg-white/5 border border-border/40 text-xs text-muted-foreground">
+                    {tag}
+                  </span>
+                ))}
+              </div>
             </div>
 
-            <div className="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory scrollbar-hide">
-              {loading ? (
-                <>
-                  <SkeletonCard />
-                  <SkeletonCard />
-                  <SkeletonCard />
-                </>
-              ) : filteredServices.filter(s => s.type !== 'demand').length === 0 ? (
-                <EmptyState
-                  title="Aucun service trouvé"
-                  description="Il n'y a pas encore de service dans cette ville ou pour cette recherche. Soyez le premier à proposer vos talents !"
-                  actionLabel="Proposer un service"
-                  onAction={() => navigate('/add-service')}
-                />
-              ) : (
-                filteredServices.filter(s => s.type !== 'demand').map((service, index) => (
-                  <Link
-                    to={`/provider/${service._id}`}
-                    key={service._id}
-                    ref={el => serviceRefs.current[index] = el}
-                    className="min-w-[260px] bg-card backdrop-blur-md border border-border rounded-2xl p-4 snap-start card-hover opacity-0 translate-y-4 transition-all duration-500 ease-out"
-                    style={{ transitionDelay: `${index * 100}ms` }}
-                  >
-                    <div className="flex items-center gap-3 mb-3">
-                      <img src={service.image || 'https://i.pravatar.cc/100?img=4'} alt={service.title} className="w-12 h-12 rounded-full object-cover" />
-                      <div>
-                        <p className="font-bold text-base">{service.title}</p>
-                        <span className="flex items-center text-xs text-primary">
-                          <ShieldCheck size={14} className="mr-1" /> {service.verified ? 'Vérifié' : 'Non vérifié'}
-                        </span>
+            <div className="card-hover p-6 flex flex-col justify-between">
+              <div className="w-12 h-12 rounded-xl bg-green-400/15 flex items-center justify-center">
+                <UserPlus size={22} className="text-green-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold mb-1">Proposez</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">Vendez vos talents en quelques clics.</p>
+              </div>
+            </div>
+
+            <div className="card-hover p-6 flex flex-col justify-between">
+              <div className="w-12 h-12 rounded-xl bg-blue-400/15 flex items-center justify-center">
+                <HelpCircle size={22} className="text-blue-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold mb-1">Demandez</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">Exprimez votre besoin, on vous répond.</p>
+              </div>
+            </div>
+
+            <div className="md:col-span-3 card-hover p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center gap-6 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-96 h-96 bg-green-400/5 rounded-full blur-3xl" />
+              <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center shadow-lg shrink-0">
+                <CheckCircle size={28} className="text-white" />
+              </div>
+              <div className="relative flex-1">
+                <h3 className="text-xl md:text-2xl font-bold mb-2">Réservez en toute confiance</h3>
+                <p className="text-muted-foreground text-sm md:text-base leading-relaxed">
+                  Paiement sécurisé, profils vérifiés, avis transparents. Une expérience sereine du début à la fin.
+                </p>
+              </div>
+              <div className="relative flex items-center gap-3 shrink-0">
+                <ShieldCheck size={24} className="text-green-400" />
+                <Star size={24} className="text-yellow-400" />
+                <MapPin size={24} className="text-blue-400" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="max-w-6xl mx-auto px-4 py-8 md:py-16">
+          <div className="flex items-end justify-between mb-8">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium mb-3">
+                <TrendingUp size={12} />
+                Populaires
+              </div>
+              <h2 className="text-3xl md:text-4xl font-bold">
+                {selectedCity ? `À ${selectedCity}` : 'Les services disponibles'}
+              </h2>
+              <div className="title-bar" />
+            </div>
+            {filteredServices.length > 3 && (
+              <button
+                onClick={() => navigate('/add-service')}
+                className="hidden md:flex items-center gap-2 text-sm text-primary hover:underline"
+              >
+                Voir tout
+              </button>
+            )}
+          </div>
+
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </div>
+          ) : filteredServices.length === 0 ? (
+            <EmptyState
+              title="Aucun service trouvé"
+              description="Il n'y a pas encore de service ici. Soyez le premier à proposer vos talents !"
+              actionLabel="Proposer un service"
+              onAction={() => navigate('/add-service')}
+            />
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredServices.map((service) => (
+                <Link
+                  to={`/provider/${service._id}`}
+                  key={service._id}
+                  className="card-hover p-5 flex flex-col"
+                >
+                  <div className="flex items-start gap-3 mb-4">
+                    <img
+                      src={service.image || 'https://i.pravatar.cc/100?img=4'}
+                      alt={service.title}
+                      className="w-14 h-14 rounded-2xl object-cover border border-border/60"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-base truncate">{service.title}</p>
+                      <p className="text-xs text-muted-foreground">{service.category}</p>
+                      <div className="flex items-center gap-1 mt-1.5">
+                        {service.verified ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full">
+                            <ShieldCheck size={10} /> Vérifié
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground">Non vérifié</span>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center mb-2">
-                      {[...Array(5)].map((_, i) => <span key={i} className="text-primary text-sm">⭐</span>)}
-                      <span className="ml-2 text-muted-foreground text-sm">5.0</span>
+                  </div>
+
+                  <div className="flex items-center gap-1 mb-3">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} size={12} className="fill-primary text-primary" />
+                    ))}
+                    <span className="ml-1 text-xs text-muted-foreground">5.0</span>
+                  </div>
+
+                  <div className="mt-auto flex items-center justify-between pt-3 border-t border-border/40">
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      {service.city && (
+                        <>
+                          <MapPin size={12} />
+                          <span className="truncate">{service.city}</span>
+                        </>
+                      )}
                     </div>
-                    <p className="text-muted-foreground text-sm">{service.category}</p>
-                    <p className="text-sm mt-1">{service.price || 'Gratuit'}</p>
-                    {service.city && <p className="text-xs text-muted-foreground mt-1"><MapPin size={12} className="inline mr-1" />{service.city}</p>}
-                  </Link>
-                ))
-              )}
+                    <span className="text-primary font-bold text-sm">
+                      {service.price ? `${service.price} €` : 'Gratuit'}
+                    </span>
+                  </div>
+                </Link>
+              ))}
             </div>
-          </section>
+          )}
+        </section>
 
-          
-        </div>
+        <section className="max-w-6xl mx-auto px-4 py-12 md:py-20">
+          <div className="text-center mb-10">
+            <h2 className="text-3xl md:text-4xl font-bold mb-3">Pourquoi Myra ?</h2>
+            <p className="text-muted-foreground max-w-md mx-auto">La confiance au cœur de chaque échange.</p>
+          </div>
 
-        <footer className="py-8 text-center text-muted-foreground border-t border-border text-sm">
-          Myra — La confiance au coin de votre rue
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+            <div className="col-span-2 md:col-span-2 md:row-span-2 card-hover p-6 md:p-8 flex flex-col justify-between relative overflow-hidden">
+              <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-green-400/10 rounded-full blur-3xl" />
+              <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center shadow-lg mb-6">
+                <ShieldCheck size={26} className="text-white" />
+              </div>
+              <div className="relative">
+                <h3 className="text-2xl font-bold mb-3">Profils vérifiés</h3>
+                <p className="text-muted-foreground leading-relaxed">
+                  Chaque prestataire qui le souhaite passe par un contrôle d'identité pour garantir votre sécurité.
+                </p>
+              </div>
+            </div>
+
+            <div className="card-hover p-5 flex flex-col justify-between">
+              <div className="w-11 h-11 rounded-xl bg-blue-400/15 flex items-center justify-center">
+                <MapPin size={20} className="text-blue-400" />
+              </div>
+              <div>
+                <h3 className="font-bold mb-1 text-sm">Ultra local</h3>
+                <p className="text-xs text-muted-foreground">Dans votre quartier.</p>
+              </div>
+            </div>
+
+            <div className="card-hover p-5 flex flex-col justify-between">
+              <div className="w-11 h-11 rounded-xl bg-yellow-400/15 flex items-center justify-center">
+                <Star size={20} className="text-yellow-400" />
+              </div>
+              <div>
+                <h3 className="font-bold mb-1 text-sm">Avis vérifiés</h3>
+                <p className="text-xs text-muted-foreground">Transparence totale.</p>
+              </div>
+            </div>
+
+            <div className="card-hover p-5 flex flex-col justify-between">
+              <div className="w-11 h-11 rounded-xl bg-purple-400/15 flex items-center justify-center">
+                <Zap size={20} className="text-purple-400" />
+              </div>
+              <div>
+                <h3 className="font-bold mb-1 text-sm">Rapide</h3>
+                <p className="text-xs text-muted-foreground">En quelques clics.</p>
+              </div>
+            </div>
+
+            <div className="card-hover p-5 flex flex-col justify-between">
+              <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center">
+                <Sparkles size={20} className="text-primary" />
+              </div>
+              <div>
+                <h3 className="font-bold mb-1 text-sm">Gratuit</h3>
+                <p className="text-xs text-muted-foreground">Sans frais cachés.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="max-w-4xl mx-auto px-4 py-12 md:py-20">
+          <div className="card-hover p-8 md:p-12 text-center relative overflow-hidden">
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-primary/15 rounded-full blur-3xl -top-40" />
+            <div className="relative">
+              <h2 className="text-3xl md:text-4xl font-bold mb-4">
+                Prêt à <span className="text-primary">vous lancer</span> ?
+              </h2>
+              <p className="text-muted-foreground mb-8 max-w-md mx-auto">
+                Rejoignez Myra gratuitement et découvrez une nouvelle façon de rendre service.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Link
+                  to="/add-service"
+                  className="inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground font-semibold px-8 py-4 rounded-full hover:bg-primary/90 transition shadow-lg shadow-primary/30"
+                >
+                  <UserPlus size={18} />
+                  Proposer un service
+                </Link>
+                <Link
+                  to="/request-service"
+                  className="inline-flex items-center justify-center gap-2 glass text-foreground font-semibold px-8 py-4 rounded-full hover:bg-white/5 transition"
+                >
+                  <HelpCircle size={18} />
+                  Demander un service
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <footer className="py-10 text-center text-muted-foreground border-t border-border/40 text-xs">
+          <p className="font-semibold text-foreground mb-1">Myra</p>
+          <p>La confiance au coin de votre rue</p>
         </footer>
-
-        <style>{`
-          .animate-in {
-            opacity: 1 !important;
-            transform: translateY(0) !important;
-          }
-        `}</style>
       </div>
     </PageTransition>
   )
