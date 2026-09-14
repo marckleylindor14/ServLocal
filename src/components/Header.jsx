@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { PlusCircle, ListChecks, LogOut, LogIn, Calendar, LayoutDashboard, MessageSquare, Shield, User, HelpCircle } from 'lucide-react'
 import API_URL from '../config'
@@ -32,7 +32,7 @@ export default function Header() {
   const Badge = ({ count }) => {
     if (!count || count === 0) return null
     return (
-      <span className="absolute -top-1 -right-2 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+      <span className="absolute -top-1 -right-1.5 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center">
         {count > 9 ? '9+' : count}
       </span>
     )
@@ -40,103 +40,157 @@ export default function Header() {
 
   const isAdmin = user?.isAdmin
 
+  const navItemClass = ({ isActive }) =>
+    `flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full transition-all duration-200 ${
+      isActive
+        ? 'bg-primary/15 text-primary'
+        : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+    }`
+
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-50 bg-card/90 backdrop-blur-lg border-b border-border/50" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-        <div className="max-w-6xl mx-auto px-5 py-3 flex justify-between items-center">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-primary/15 flex items-center justify-center">
-              <img src="/LOGO MYRA.png" alt="Myra" className="h-6 w-6 object-contain" />
-            </div>
+      <header
+        className="fixed top-0 left-0 right-0 z-50 bg-card/70 backdrop-blur-xl border-b border-border/40"
+        style={{ paddingTop: 'env(safe-area-inset-top)' }}
+      >
+        <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex justify-between items-center">
+          <Link to="/" className="flex items-center gap-2.5 group">
+            <img
+              src="/LOGO MYRA.png"
+              alt="Myra"
+              className="h-9 w-9 object-contain transition-transform group-hover:scale-105"
+            />
             <span className="text-xl font-bold tracking-tight">Myra</span>
           </Link>
+
+          <nav className="hidden md:flex items-center gap-1">
+            <NavLink to="/add-service" className={navItemClass}>
+              <PlusCircle size={16} />
+              Proposer
+            </NavLink>
+            <NavLink to="/request-service" className={navItemClass}>
+              <HelpCircle size={16} />
+              Demander
+            </NavLink>
+            {user && (
+              <>
+                <NavLink to="/my-services" className={navItemClass}>
+                  <ListChecks size={16} />
+                  Mes services
+                </NavLink>
+                <NavLink to="/my-bookings" className={({ isActive }) => `${navItemClass({ isActive })} relative`}>
+                  <Calendar size={16} />
+                  Réservations
+                  <Badge count={notif.pendingBookings} />
+                </NavLink>
+                <NavLink to="/dashboard" className={({ isActive }) => `${navItemClass({ isActive })} relative`}>
+                  <LayoutDashboard size={16} />
+                  Dashboard
+                  <Badge count={notif.pendingBookings} />
+                </NavLink>
+                <NavLink to="/messages" className={navItemClass}>
+                  <MessageSquare size={16} />
+                  Messages
+                </NavLink>
+                {isAdmin && (
+                  <NavLink to="/admin" className={({ isActive }) =>
+                    `flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-full transition-all ${
+                      isActive ? 'bg-primary text-primary-foreground' : 'bg-primary/15 text-primary hover:bg-primary/25'
+                    }`
+                  }>
+                    <Shield size={16} />
+                    Admin
+                  </NavLink>
+                )}
+              </>
+            )}
+          </nav>
 
           <div className="flex items-center gap-3">
             {user ? (
               <>
-                <Link to="/account" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition">
-                  <User size={18} /> {user.name}
+                <Link
+                  to="/account"
+                  className="flex items-center gap-2 px-3 py-2 rounded-full hover:bg-white/5 transition"
+                >
+                  {user.photo ? (
+                    <img src={user.photo} alt={user.name} className="w-7 h-7 rounded-full object-cover border border-border" />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center">
+                      <User size={14} className="text-primary" />
+                    </div>
+                  )}
+                  <span className="text-sm font-medium text-foreground hidden sm:block">{user.name}</span>
                 </Link>
-                <button onClick={handleLogout} aria-label="Se déconnecter" className="border border-primary/60 text-primary text-sm px-4 py-2 rounded-full font-semibold hover:bg-primary hover:text-primary-foreground transition">
-                  <LogOut size={16} className="md:mr-1" /> <span className="hidden md:inline">Déco</span>
+                <button
+                  onClick={handleLogout}
+                  aria-label="Se déconnecter"
+                  className="p-2.5 rounded-full border border-border/60 text-muted-foreground hover:text-primary hover:border-primary/50 transition"
+                >
+                  <LogOut size={16} />
                 </button>
               </>
             ) : (
-              <Link to="/login" className="bg-primary text-primary-foreground text-sm px-5 py-2.5 rounded-full font-semibold hover:bg-primary/90 transition shadow-lg shadow-primary/20">
-                <LogIn size={16} className="md:mr-1" /> <span className="hidden md:inline">Connexion</span>
+              <Link
+                to="/login"
+                className="flex items-center gap-2 bg-primary text-primary-foreground text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-primary/90 transition shadow-lg shadow-primary/20"
+              >
+                <LogIn size={16} />
+                Connexion
               </Link>
             )}
           </div>
         </div>
       </header>
 
-      {/* Barre de navigation inférieure (mobile uniquement) */}
       {user && (
-        <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-lg border-t border-border/50 md:hidden flex justify-around items-center py-2" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-          <Link to="/add-service" className="flex flex-col items-center text-muted-foreground hover:text-foreground transition p-2">
-            <PlusCircle size={22} />
-            <span className="text-[10px] mt-0.5">Proposer</span>
-          </Link>
-          <Link to="/request-service" className="flex flex-col items-center text-muted-foreground hover:text-foreground transition p-2">
-            <HelpCircle size={22} />
-            <span className="text-[10px] mt-0.5">Demander</span>
-          </Link>
-          <Link to="/my-services" className="flex flex-col items-center text-muted-foreground hover:text-foreground transition p-2">
-            <ListChecks size={22} />
-            <span className="text-[10px] mt-0.5">Services</span>
-          </Link>
-          <Link to="/my-bookings" className="relative flex flex-col items-center text-muted-foreground hover:text-foreground transition p-2">
-            <Calendar size={22} />
-            <Badge count={notif.pendingBookings} />
-            <span className="text-[10px] mt-0.5">Résas</span>
-          </Link>
-          <Link to="/dashboard" className="flex flex-col items-center text-muted-foreground hover:text-foreground transition p-2">
-            <LayoutDashboard size={22} />
-            <span className="text-[10px] mt-0.5">Dashboard</span>
-          </Link>
-          <Link to="/messages" className="flex flex-col items-center text-muted-foreground hover:text-foreground transition p-2">
-            <MessageSquare size={22} />
-            <span className="text-[10px] mt-0.5">Messages</span>
-          </Link>
-          {isAdmin && (
-            <Link to="/admin" className="flex flex-col items-center text-primary hover:text-primary/80 transition p-2">
-              <Shield size={22} />
-              <span className="text-[10px] mt-0.5">Admin</span>
-            </Link>
-          )}
-        </nav>
-      )}
-
-      {/* Navigation desktop (liens classiques en haut) */}
-      {user && (
-        <nav className="hidden md:flex fixed top-14 left-0 right-0 z-40 bg-card/80 backdrop-blur-md border-b border-border/30 justify-center gap-1 py-1.5">
-          <Link to="/add-service" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground px-3 py-2 rounded-lg hover:bg-white/5 transition">
-            <PlusCircle size={16} /> Proposer
-          </Link>
-          <Link to="/request-service" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground px-3 py-2 rounded-lg hover:bg-white/5 transition">
-            <HelpCircle size={16} /> Demander
-          </Link>
-          <Link to="/my-services" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground px-3 py-2 rounded-lg hover:bg-white/5 transition">
-            <ListChecks size={16} /> Mes services
-          </Link>
-          <Link to="/my-bookings" className="relative flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground px-3 py-2 rounded-lg hover:bg-white/5 transition">
-            <Calendar size={16} />
-            <Badge count={notif.pendingBookings} />
-            Réservations
-          </Link>
-          <Link to="/dashboard" className="relative flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground px-3 py-2 rounded-lg hover:bg-white/5 transition">
-            <LayoutDashboard size={16} />
-            <Badge count={notif.pendingBookings} />
-            Dashboard
-          </Link>
-          <Link to="/messages" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground px-3 py-2 rounded-lg hover:bg-white/5 transition">
-            <MessageSquare size={16} /> Messages
-          </Link>
-          {isAdmin && (
-            <Link to="/admin" className="flex items-center gap-1.5 text-sm font-medium bg-primary/20 text-primary px-3 py-1.5 rounded-lg hover:bg-primary/30 transition">
-              <Shield size={16} /> Admin
-            </Link>
-          )}
+        <nav
+          className="fixed bottom-0 left-0 right-0 z-50 bg-card/90 backdrop-blur-xl border-t border-border/40 md:hidden"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        >
+          <div className="flex justify-around items-center py-2">
+            <NavLink to="/add-service" className={({ isActive }) =>
+              `flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition ${
+                isActive ? 'text-primary' : 'text-muted-foreground'
+              }`
+            }>
+              <PlusCircle size={20} />
+              <span className="text-[10px] font-medium">Proposer</span>
+            </NavLink>
+            <NavLink to="/request-service" className={({ isActive }) =>
+              `flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition ${
+                isActive ? 'text-primary' : 'text-muted-foreground'
+              }`
+            }>
+              <HelpCircle size={20} />
+              <span className="text-[10px] font-medium">Demander</span>
+            </NavLink>
+            <NavLink to="/my-bookings" className={({ isActive }) =>
+              `relative flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition ${
+                isActive ? 'text-primary' : 'text-muted-foreground'
+              }`
+            }>
+              <Calendar size={20} />
+              <Badge count={notif.pendingBookings} />
+              <span className="text-[10px] font-medium">Résas</span>
+            </NavLink>
+            <NavLink to="/messages" className={({ isActive }) =>
+              `flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition ${
+                isActive ? 'text-primary' : 'text-muted-foreground'
+              }`
+            }>
+              <MessageSquare size={20} />
+              <span className="text-[10px] font-medium">Messages</span>
+            </NavLink>
+            <NavLink to="/account" className={({ isActive }) =>
+              `flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition ${
+                isActive ? 'text-primary' : 'text-muted-foreground'
+              }`
+            }>
+              <User size={20} />
+              <span className="text-[10px] font-medium">Compte</span>
+            </NavLink>
+          </div>
         </nav>
       )}
     </>
