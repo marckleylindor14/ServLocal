@@ -528,10 +528,10 @@ export default function HomePage() {
           </div>
         </section>
 
-        <footer className="py-10 text-center text-muted-foreground border-t border-border/40 text-xs">
-          <p className="font-semibold text-foreground mb-1">Myra</p>
-          <p>La confiance au coin de votre rue</p>
-        </footer>
+        <footer className="py-10 pb-28 md:pb-10 text-center text-muted-foreground border-t border-border/40 text-xs">
+  <p className="font-semibold text-foreground mb-1">Myra</p>
+  <p>La confiance au coin de votre rue</p>
+</footer>
       </div>
     </PageTransition>
   )
