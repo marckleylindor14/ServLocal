@@ -126,3 +126,11 @@ input:focus, textarea:focus, select:focus {
     padding-bottom: 0;
   }
 }
+@keyframes typing-dot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+.typing-dot {
+  animation: typing-dot 1.2s ease-in-out infinite;
+}
