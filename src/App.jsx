@@ -3,6 +3,7 @@ import { useAuth } from './context/AuthContext'
 import HomePage from './pages/HomePage'
 import ProviderPage from './pages/ProviderPage'
 import AddServicePage from './pages/AddServicePage'
+import RequestServicePage from './pages/RequestServicePage'
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import MyServicesPage from './pages/MyServicesPage'
@@ -15,6 +16,7 @@ import AccountPage from './pages/AccountPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import LandingPage from './pages/LandingPage'
+import Onboarding from './pages/Onboarding'
 import OfflineBanner from './components/OfflineBanner'
 
 export default function App() {
@@ -27,6 +29,7 @@ export default function App() {
         <Route path="/" element={user ? <HomePage /> : <LandingPage />} />
         <Route path="/provider/:id" element={<ProviderPage />} />
         <Route path="/add-service" element={<AddServicePage />} />
+        <Route path="/request-service" element={<RequestServicePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/my-services" element={<MyServicesPage />} />
@@ -38,6 +41,7 @@ export default function App() {
         <Route path="/account" element={<AccountPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/onboarding" element={<Onboarding />} />
       </Routes>
     </>
   )
