@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import Header from '../components/Header'
 import PageTransition from '../components/PageTransition'
 import API_URL from '../config'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, ExternalLink, Trash2 } from 'lucide-react'
 
 export default function AdminPage() {
   const { user } = useAuth()
@@ -113,6 +113,48 @@ export default function AdminPage() {
     addToast('Signalement marqué comme traité.', 'success')
   }
 
+  const handleDeleteReportedService = async (report) => {
+    if (!confirm('Supprimer ce service signalé ?')) return
+    await fetch(`${API_URL}/api/admin/services/${report.targetId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    })
+    await fetch(`${API_URL}/api/admin/reports/${report._id}/treated`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    })
+    setReports(prev => prev.filter(r => r._id !== report._id))
+    if (stats) {
+      setStats(prev => ({
+        ...prev,
+        services: prev.services.filter(s => Number(s._id) !== Number(report.targetId)),
+        totalServices: prev.totalServices - 1
+      }))
+    }
+    addToast('Service supprimé et signalement traité.', 'success')
+  }
+
+  const handleDeleteReportedUser = async (report) => {
+    if (!confirm('Supprimer cet utilisateur signalé ?')) return
+    await fetch(`${API_URL}/api/admin/users/${report.targetId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    })
+    await fetch(`${API_URL}/api/admin/reports/${report._id}/treated`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    })
+    setReports(prev => prev.filter(r => r._id !== report._id))
+    if (stats) {
+      setStats(prev => ({
+        ...prev,
+        users: prev.users.filter(u => Number(u._id) !== Number(report.targetId)),
+        totalUsers: prev.totalUsers - 1
+      }))
+    }
+    addToast('Utilisateur supprimé et signalement traité.', 'success')
+  }
+
   if (!user || !user.isAdmin) return null
 
   return (
@@ -133,9 +175,9 @@ export default function AdminPage() {
               </h3>
               <div className="space-y-4">
                 {reports.map(report => (
-                  <div key={report._id} className="border-b border-border pb-3 last:border-0">
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                      <div className="flex-1">
+                  <div key={report._id} className="border-b border-border pb-4 last:border-0">
+                    <div className="flex flex-col gap-3">
+                      <div>
                         <p className="font-medium text-sm">
                           {report.targetType === 'service' ? 'Service' : 'Utilisateur'} : <span className="text-primary">{report.targetName || `#${report.targetId}`}</span>
                         </p>
@@ -145,12 +187,46 @@ export default function AdminPage() {
                           Signalé par {report.reporterName} · {new Date(report.createdAt).toLocaleString('fr-FR')}
                         </p>
                       </div>
-                      <button
-                        onClick={() => handleMarkReportTreated(report._id)}
-                        className="text-xs border border-primary text-primary px-3 py-1.5 rounded-full hover:bg-primary hover:text-primary-foreground transition self-start whitespace-nowrap"
-                      >
-                        Marquer traité
-                      </button>
+
+                      <div className="flex flex-wrap gap-2">
+                        {report.targetType === 'service' && (
+                          <Link
+                            to={`/provider/${report.targetId}`}
+                            target="_blank"
+                            className="flex items-center gap-1.5 text-xs border border-border text-foreground px-3 py-1.5 rounded-full hover:border-primary transition"
+                          >
+                            <ExternalLink size={12} />
+                            Voir le service
+                          </Link>
+                        )}
+
+                        {report.targetType === 'service' && (
+                          <button
+                            onClick={() => handleDeleteReportedService(report)}
+                            className="flex items-center gap-1.5 text-xs border border-red-400 text-red-400 px-3 py-1.5 rounded-full hover:bg-red-400 hover:text-white transition"
+                          >
+                            <Trash2 size={12} />
+                            Supprimer le service
+                          </button>
+                        )}
+
+                        {report.targetType === 'user' && (
+                          <button
+                            onClick={() => handleDeleteReportedUser(report)}
+                            className="flex items-center gap-1.5 text-xs border border-red-400 text-red-400 px-3 py-1.5 rounded-full hover:bg-red-400 hover:text-white transition"
+                          >
+                            <Trash2 size={12} />
+                            Supprimer l'utilisateur
+                          </button>
+                        )}
+
+                        <button
+                          onClick={() => handleMarkReportTreated(report._id)}
+                          className="text-xs border border-primary text-primary px-3 py-1.5 rounded-full hover:bg-primary hover:text-primary-foreground transition"
+                        >
+                          Marquer traité
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
