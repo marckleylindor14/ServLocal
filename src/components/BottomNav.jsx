@@ -26,7 +26,7 @@ export default function BottomNav() {
   const Badge = ({ count }) => {
     if (!count || count === 0) return null
     return (
-      <span className="absolute -top-1 right-2 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center">
+      <span className="absolute -top-1 -right-2 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center border-2 border-background">
         {count > 9 ? '9+' : count}
       </span>
     )
@@ -58,9 +58,11 @@ export default function BottomNav() {
           <span className="text-[10px] font-medium">Demander</span>
         </NavLink>
 
-        <NavLink to="/my-bookings" className={({ isActive }) => `${itemClass({ isActive })} relative`}>
-          <Calendar size={22} />
-          <Badge count={notif.pendingBookings} />
+        <NavLink to="/my-bookings" className={itemClass}>
+          <div className="relative">
+            <Calendar size={22} />
+            <Badge count={notif.pendingBookings} />
+          </div>
           <span className="text-[10px] font-medium">Résas</span>
         </NavLink>
 
