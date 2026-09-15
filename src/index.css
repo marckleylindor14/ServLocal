@@ -105,6 +105,14 @@ input:focus, textarea:focus, select:focus {
   animation: shimmer 1.5s ease-in-out infinite;
 }
 
+@keyframes typing-dot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+.typing-dot {
+  animation: typing-dot 1.2s ease-in-out infinite;
+}
+
 .title-bar {
   height: 3px;
   width: 56px;
@@ -115,22 +123,3 @@ input:focus, textarea:focus, select:focus {
 
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-
-@media (max-width: 767px) {
-  body {
-    padding-bottom: calc(80px + env(safe-area-inset-bottom));
-  }
-}
-@media (min-width: 768px) {
-  body {
-    padding-bottom: 0;
-  }
-}
-@keyframes typing-dot {
-  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-  30% { transform: translateY(-4px); opacity: 1; }
-}
-
-.typing-dot {
-  animation: typing-dot 1.2s ease-in-out infinite;
-}
