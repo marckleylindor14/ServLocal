@@ -19,6 +19,7 @@ import LandingPage from './pages/LandingPage'
 import Onboarding from './pages/Onboarding'
 import OfflineBanner from './components/OfflineBanner'
 import BottomNav from './components/BottomNav'
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 
 export default function App() {
   const { user } = useAuth()
@@ -43,6 +44,7 @@ export default function App() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/onboarding" element={<Onboarding />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
       </Routes>
       {user && <BottomNav />}
     </>
