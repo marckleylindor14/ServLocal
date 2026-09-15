@@ -137,7 +137,6 @@ export default function MessagesPage() {
       <div className="min-h-screen bg-background text-foreground font-sans">
         <Header />
 
-        {/* Vue mobile : liste des conversations */}
         <div className={`md:hidden fixed inset-0 top-16 z-40 bg-background transition-transform duration-300 ${showList ? 'translate-x-0' : '-translate-x-full'}`}>
           <div className="flex flex-col h-full">
             <div className="px-4 py-3 border-b border-border/40">
@@ -188,7 +187,6 @@ export default function MessagesPage() {
           </div>
         </div>
 
-        {/* Vue mobile : conversation ouverte */}
         <div className={`md:hidden fixed inset-0 top-16 z-40 bg-background transition-transform duration-300 ${showList ? 'translate-x-full' : 'translate-x-0'}`}>
           {selectedConv && (
             <div className="flex flex-col h-full">
@@ -285,8 +283,7 @@ export default function MessagesPage() {
           )}
         </div>
 
-        {/* Vue desktop : deux colonnes */}
-        <div className="hidden md:flex max-w-6xl mx-auto px-4 py-6 h-[calc(100vh-4rem)]">
+        <div className="hidden md:flex max-w-6xl mx-auto px-4 pt-24 pb-6 h-screen">
           <div className="w-80 bg-card/50 border border-border/40 rounded-2xl overflow-hidden flex flex-col mr-4">
             <div className="px-4 py-3 border-b border-border/40">
               <h2 className="text-xl font-bold mb-3">Messages</h2>
