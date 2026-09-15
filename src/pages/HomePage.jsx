@@ -528,7 +528,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        <footer className="py-10 pb-28 md:pb-10 text-center text-muted-foreground border-t border-border/40 text-xs">
+        <footer className="pt-10 pb-40 md:pb-16 text-center text-muted-foreground border-t border-border/40 text-xs">
   <p className="font-semibold text-foreground mb-1">Myra</p>
   <p>La confiance au coin de votre rue</p>
 </footer>
