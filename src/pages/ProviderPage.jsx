@@ -7,7 +7,7 @@ import { useToast } from '../context/ToastContext'
 import PageTransition from '../components/PageTransition'
 import ReportModal from '../components/ReportModal'
 import API_URL from '../config'
-import { X, ImageOff, CheckCircle, Flag } from 'lucide-react'
+import { X, ImageOff, CheckCircle, Flag, HandCoins } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 export default function ProviderPage() {
@@ -30,11 +30,20 @@ export default function ProviderPage() {
   const [lightboxImage, setLightboxImage] = useState(null)
   const [loadedImages, setLoadedImages] = useState({})
   const [showReport, setShowReport] = useState(false)
+  const [proposedPrice, setProposedPrice] = useState('')
+  const [proposalMessage, setProposalMessage] = useState('')
+  const [proposalSubmitting, setProposalSubmitting] = useState(false)
+  const [proposalSuccess, setProposalSuccess] = useState(false)
 
   useEffect(() => {
     fetch(`${API_URL}/api/services/${id}`)
       .then(res => res.json())
-      .then(data => setPro(data))
+      .then(data => {
+        setPro(data)
+        if (data && data.type === 'demand' && data.price) {
+          setProposedPrice(String(data.price))
+        }
+      })
       .catch(() => setPro(null))
 
     fetch(`${API_URL}/api/services/${id}/reviews`)
@@ -118,6 +127,41 @@ export default function ProviderPage() {
     }
   }
 
+  const handleProposalSubmit = async (e) => {
+    e.preventDefault()
+    if (!user) {
+      navigate('/login')
+      return
+    }
+    if (!proposedPrice || Number(String(proposedPrice).replace(',', '.')) <= 0) {
+      addToast('Veuillez indiquer un prix valide.', 'error')
+      return
+    }
+    setProposalSubmitting(true)
+    try {
+      const res = await fetch(`${API_URL}/api/services/${id}/proposals`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ price: proposedPrice, message: proposalMessage })
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setProposalSuccess(true)
+        setProposalMessage('')
+        addToast('Proposition envoyée !', 'success')
+      } else {
+        addToast(data.error || 'Erreur', 'error')
+      }
+    } catch {
+      addToast('Impossible de contacter le serveur.', 'error')
+    } finally {
+      setProposalSubmitting(false)
+    }
+  }
+
   const startConversation = async () => {
     if (!user) { navigate('/login'); return }
     try {
@@ -149,11 +193,13 @@ export default function ProviderPage() {
 
   if (!pro) return <div className="min-h-screen bg-background text-foreground flex items-center justify-center">Chargement...</div>
 
+  const isDemand = pro.type === 'demand'
+
   return (
     <PageTransition>
       <div className="min-h-screen bg-background text-foreground font-sans">
         <Header />
-        <div className="pt-16 md:pt-20"></div>
+        <div className="pt-20 pb-32 md:pb-8"></div>
         <main className="max-w-3xl mx-auto px-4 py-6 md:py-8 space-y-6 relative">
           <AnimatePresence>
             {bookingSuccess && (
@@ -185,41 +231,57 @@ export default function ProviderPage() {
           </AnimatePresence>
 
           <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6">
-            <div className="flex flex-col sm:flex-row items-start gap-4 mb-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-4">
               <img src={pro.image || 'https://i.pravatar.cc/100?img=4'} alt={pro.title} className="w-16 h-16 md:w-20 md:h-20 rounded-full object-cover border-2 border-primary" />
               <div className="flex-1">
-                <h2 className="text-xl md:text-2xl font-bold">{pro.title}</h2>
-                <p className="text-primary font-semibold text-sm md:text-base">{pro.category}</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <StarRating rating={averageRating} readonly />
-                  <span className="text-xs md:text-sm text-muted-foreground">({averageRating})</span>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-xl md:text-2xl font-bold">{pro.title}</h2>
+                    <p className="text-primary font-semibold text-sm md:text-base">{pro.category}</p>
+                    {isDemand && (
+                      <span className="inline-block bg-blue-400/20 text-blue-400 text-xs px-2 py-0.5 rounded-full mt-1">
+                        Demande de service
+                      </span>
+                    )}
+                    {!isDemand && (
+                      <div className="flex items-center gap-2 mt-1">
+                        <StarRating rating={averageRating} readonly />
+                        <span className="text-xs md:text-sm text-muted-foreground">({averageRating})</span>
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setShowReport(true)}
+                    className="p-2 text-muted-foreground hover:text-red-400 transition shrink-0"
+                    aria-label="Signaler"
+                  >
+                    <Flag size={18} />
+                  </button>
                 </div>
               </div>
-              <button
-                onClick={() => setShowReport(true)}
-                className="p-2 text-muted-foreground hover:text-red-400 transition shrink-0"
-                aria-label="Signaler ce service"
-              >
-                <Flag size={18} />
-              </button>
             </div>
             <p className="text-muted-foreground text-sm md:text-base mb-4">{pro.description}</p>
             <div className="mb-4">
-              <h3 className="text-lg md:text-xl font-semibold">Tarif</h3>
+              <h3 className="text-lg md:text-xl font-semibold">{isDemand ? 'Budget proposé' : 'Tarif'}</h3>
               <p className="text-primary font-medium">
-                {pro.price ? `${pro.price} €` : 'Non spécifié'}
+                {pro.price ? `${pro.price} €` : isDemand ? 'À discuter' : 'Non spécifié'}
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Une commission de 10 % est incluse lors du paiement.
-              </p>
+              {!isDemand && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Une commission de 10 % est incluse lors du paiement.
+                </p>
+              )}
             </div>
+
             <div className="flex flex-col sm:flex-row gap-3">
               <button onClick={startConversation} className="flex-1 bg-primary text-primary-foreground font-semibold py-3 px-6 rounded-full hover:bg-primary/90 transition text-sm md:text-base">
                 Envoyer un message
               </button>
-              <button onClick={handlePay} className="flex-1 bg-green-600 text-white font-semibold py-3 px-6 rounded-full hover:bg-green-700 transition text-sm md:text-base">
-                Payer ce service
-              </button>
+              {!isDemand && (
+                <button onClick={handlePay} className="flex-1 bg-green-600 text-white font-semibold py-3 px-6 rounded-full hover:bg-green-700 transition text-sm md:text-base">
+                  Payer ce service
+                </button>
+              )}
             </div>
           </div>
 
@@ -257,58 +319,112 @@ export default function ProviderPage() {
             </div>
           )}
 
-          <div id="booking-section" className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6">
-            <h3 className="text-lg md:text-2xl font-bold mb-4">Réserver ce service</h3>
-            {user ? (
-              <form onSubmit={handleBookingSubmit} className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Date</label>
-                  <input type="date" required value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 text-foreground outline-none focus:border-primary transition text-sm" />
+          {isDemand ? (
+            <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6">
+              <h3 className="text-lg md:text-2xl font-bold mb-4 flex items-center gap-2">
+                <HandCoins size={22} className="text-primary" />
+                Proposer votre prix
+              </h3>
+              {!user ? (
+                <p className="text-sm text-muted-foreground">
+                  <Link to="/login" className="text-primary hover:underline">Connectez-vous</Link> pour répondre à cette demande.
+                </p>
+              ) : proposalSuccess ? (
+                <div className="text-center py-6">
+                  <CheckCircle size={48} className="text-green-400 mx-auto mb-3" />
+                  <p className="text-foreground font-semibold">Proposition envoyée !</p>
+                  <p className="text-sm text-muted-foreground mt-1">La personne examinera votre offre.</p>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Créneau</label>
-                  <select required value={bookingTime} onChange={(e) => setBookingTime(e.target.value)} className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 text-foreground outline-none focus:border-primary transition text-sm">
-                    <option value="">Sélectionnez un créneau</option>
-                    <option value="08:00-10:00">08:00 - 10:00</option>
-                    <option value="10:00-12:00">10:00 - 12:00</option>
-                    <option value="14:00-16:00">14:00 - 16:00</option>
-                    <option value="16:00-18:00">16:00 - 18:00</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Message (optionnel)</label>
-                  <textarea rows={3} placeholder="Décrivez votre besoin..." value={bookingMessage} onChange={(e) => setBookingMessage(e.target.value)} className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 text-foreground placeholder-muted-foreground outline-none focus:border-primary transition resize-none text-sm" />
-                </div>
-                {bookingError && <p className="text-red-400 text-xs">{bookingError}</p>}
-                <button type="submit" className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-full hover:bg-primary/90 transition text-sm">Réserver</button>
-              </form>
-            ) : (
-              <p className="text-xs text-muted-foreground"><Link to="/login" className="text-primary hover:underline">Connectez-vous</Link> pour réserver.</p>
-            )}
-          </div>
-
-          <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6">
-            <h3 className="text-lg md:text-2xl font-bold mb-4">Avis</h3>
-            {reviews.length === 0 && <p className="text-muted-foreground text-sm">Aucun avis pour le moment.</p>}
-            {reviews.map((review) => (
-              <div key={review._id} className="border-b border-border py-3 last:border-0">
-                <div className="flex items-center gap-2 mb-1"><StarRating rating={review.rating} readonly /><span className="text-xs font-medium">{review.userName}</span></div>
-                {review.comment && <p className="text-muted-foreground text-xs mt-1">{review.comment}</p>}
+              ) : (
+                <form onSubmit={handleProposalSubmit} className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Votre prix (€) *</label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      required
+                      value={proposedPrice}
+                      onChange={(e) => setProposedPrice(e.target.value)}
+                      placeholder="Ex : 80"
+                      className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 text-foreground outline-none focus:border-primary transition text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Message (optionnel)</label>
+                    <textarea
+                      rows={3}
+                      value={proposalMessage}
+                      onChange={(e) => setProposalMessage(e.target.value)}
+                      placeholder="Expliquez votre offre, vos disponibilités..."
+                      className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 text-foreground placeholder-muted-foreground outline-none focus:border-primary transition resize-none text-sm"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={proposalSubmitting}
+                    className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-full hover:bg-primary/90 transition text-sm disabled:opacity-50"
+                  >
+                    {proposalSubmitting ? 'Envoi...' : 'Envoyer ma proposition'}
+                  </button>
+                </form>
+              )}
+            </div>
+          ) : (
+            <>
+              <div id="booking-section" className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6">
+                <h3 className="text-lg md:text-2xl font-bold mb-4">Réserver ce service</h3>
+                {user ? (
+                  <form onSubmit={handleBookingSubmit} className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Date</label>
+                      <input type="date" required value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 text-foreground outline-none focus:border-primary transition text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Créneau</label>
+                      <select required value={bookingTime} onChange={(e) => setBookingTime(e.target.value)} className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 text-foreground outline-none focus:border-primary transition text-sm">
+                        <option value="">Sélectionnez un créneau</option>
+                        <option value="08:00-10:00">08:00 - 10:00</option>
+                        <option value="10:00-12:00">10:00 - 12:00</option>
+                        <option value="14:00-16:00">14:00 - 16:00</option>
+                        <option value="16:00-18:00">16:00 - 18:00</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Message (optionnel)</label>
+                      <textarea rows={3} placeholder="Décrivez votre besoin..." value={bookingMessage} onChange={(e) => setBookingMessage(e.target.value)} className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 text-foreground placeholder-muted-foreground outline-none focus:border-primary transition resize-none text-sm" />
+                    </div>
+                    {bookingError && <p className="text-red-400 text-xs">{bookingError}</p>}
+                    <button type="submit" className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-full hover:bg-primary/90 transition text-sm">Réserver</button>
+                  </form>
+                ) : (
+                  <p className="text-xs text-muted-foreground"><Link to="/login" className="text-primary hover:underline">Connectez-vous</Link> pour réserver.</p>
+                )}
               </div>
-            ))}
-            {user ? (
-              <form onSubmit={handleReviewSubmit} className="mt-4 pt-4 border-t border-border space-y-3">
-                <h4 className="font-semibold text-sm">Laisser un avis</h4>
-                <div><p className="text-xs mb-1">Votre note</p><StarRating rating={newRating} onRate={setNewRating} /></div>
-                <textarea placeholder="Partagez votre expérience..." className="w-full bg-white/5 border border-border rounded-lg py-2 px-3 text-foreground placeholder-muted-foreground outline-none focus:border-primary transition resize-none text-xs" rows={3} value={comment} onChange={(e) => setComment(e.target.value)} />
-                {errorMessage && <p className="text-red-400 text-xs">{errorMessage}</p>}
-                {successMessage && <p className="text-green-400 text-xs">{successMessage}</p>}
-                <button type="submit" className="bg-primary text-primary-foreground font-semibold py-2 px-6 rounded-full hover:bg-primary/90 transition text-sm">Publier</button>
-              </form>
-            ) : (
-              <p className="text-xs text-muted-foreground mt-4 pt-4 border-t border-border"><Link to="/login" className="text-primary hover:underline">Connectez-vous</Link> pour laisser un avis.</p>
-            )}
-          </div>
+
+              <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6">
+                <h3 className="text-lg md:text-2xl font-bold mb-4">Avis</h3>
+                {reviews.length === 0 && <p className="text-muted-foreground text-sm">Aucun avis pour le moment.</p>}
+                {reviews.map((review) => (
+                  <div key={review._id} className="border-b border-border py-3 last:border-0">
+                    <div className="flex items-center gap-2 mb-1"><StarRating rating={review.rating} readonly /><span className="text-xs font-medium">{review.userName}</span></div>
+                    {review.comment && <p className="text-muted-foreground text-xs mt-1">{review.comment}</p>}
+                  </div>
+                ))}
+                {user ? (
+                  <form onSubmit={handleReviewSubmit} className="mt-4 pt-4 border-t border-border space-y-3">
+                    <h4 className="font-semibold text-sm">Laisser un avis</h4>
+                    <div><p className="text-xs mb-1">Votre note</p><StarRating rating={newRating} onRate={setNewRating} /></div>
+                    <textarea placeholder="Partagez votre expérience..." className="w-full bg-white/5 border border-border rounded-lg py-2 px-3 text-foreground placeholder-muted-foreground outline-none focus:border-primary transition resize-none text-xs" rows={3} value={comment} onChange={(e) => setComment(e.target.value)} />
+                    {errorMessage && <p className="text-red-400 text-xs">{errorMessage}</p>}
+                    {successMessage && <p className="text-green-400 text-xs">{successMessage}</p>}
+                    <button type="submit" className="bg-primary text-primary-foreground font-semibold py-2 px-6 rounded-full hover:bg-primary/90 transition text-sm">Publier</button>
+                  </form>
+                ) : (
+                  <p className="text-xs text-muted-foreground mt-4 pt-4 border-t border-border"><Link to="/login" className="text-primary hover:underline">Connectez-vous</Link> pour laisser un avis.</p>
+                )}
+              </div>
+            </>
+          )}
         </main>
 
         {lightboxImage && (

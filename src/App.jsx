@@ -8,6 +8,7 @@ import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import MyServicesPage from './pages/MyServicesPage'
 import MyBookingsPage from './pages/MyBookingsPage'
+import MyDemandsPage from './pages/MyDemandsPage'
 import ProviderDashboardPage from './pages/ProviderDashboardPage'
 import MessagesPage from './pages/MessagesPage'
 import AdminPage from './pages/AdminPage'
@@ -15,11 +16,11 @@ import PaymentSuccessPage from './pages/PaymentSuccessPage'
 import AccountPage from './pages/AccountPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import LandingPage from './pages/LandingPage'
 import Onboarding from './pages/Onboarding'
 import OfflineBanner from './components/OfflineBanner'
 import BottomNav from './components/BottomNav'
-import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 
 export default function App() {
   const { user } = useAuth()
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/my-services" element={<MyServicesPage />} />
         <Route path="/my-bookings" element={<MyBookingsPage />} />
+        <Route path="/my-demands" element={<MyDemandsPage />} />
         <Route path="/dashboard" element={<ProviderDashboardPage />} />
         <Route path="/messages" element={<MessagesPage />} />
         <Route path="/admin" element={<AdminPage />} />
@@ -43,8 +45,8 @@ export default function App() {
         <Route path="/account" element={<AccountPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
         <Route path="/onboarding" element={<Onboarding />} />
-        <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
       </Routes>
       {user && <BottomNav />}
     </>

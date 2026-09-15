@@ -10,6 +10,7 @@ const streamifier = require('streamifier');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { body, validationResult } = require('express-validator');
+const PROPOSALS_FILE = path.join(__dirname, 'proposals.json');
 
 let stripe = null;
 if (process.env.STRIPE_SECRET_KEY) {
@@ -776,6 +777,92 @@ app.put('/api/admin/reports/:id/treated', authenticateAdmin, async (req, res) =>
     reports[index].status = 'treated';
     await writeJSON(REPORTS_FILE, reports);
     res.json({ message: 'Signalement marqué comme traité.' });
+  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
+});
+app.post('/api/services/:id/proposals', authenticateToken, [
+  body('price').notEmpty().withMessage('Prix requis.'),
+  body('message').optional().trim().isLength({ max: 500 })
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation échouée', details: errors.array() });
+  try {
+    const serviceId = Number(req.params.id);
+    const services = await readJSON(DATA_FILE);
+    const service = services.find(s => Number(s._id) === serviceId);
+    if (!service) return res.status(404).json({ error: 'Service non trouvé' });
+    if (service.type !== 'demand') return res.status(400).json({ error: 'Ce service n\'est pas une demande.' });
+    if (service.providerName === req.user.name) return res.status(400).json({ error: 'Vous ne pouvez pas répondre à votre propre demande.' });
+
+    const proposals = await readJSON(PROPOSALS_FILE);
+    const existing = proposals.find(p => p.serviceId === serviceId && p.proposerId === req.user.id);
+    if (existing) return res.status(409).json({ error: 'Vous avez déjà proposé une offre sur cette demande.' });
+
+    const priceNumber = parseFloat(String(req.body.price).replace(',', '.').replace(/[^0-9.]/g, ''));
+    if (isNaN(priceNumber) || priceNumber < 0) return res.status(400).json({ error: 'Prix invalide.' });
+
+    const newProposal = {
+      _id: nextId(proposals),
+      serviceId,
+      serviceTitle: service.title,
+      demandOwnerId: service.providerId,
+      demandOwnerName: service.providerName,
+      proposerId: req.user.id,
+      proposerName: req.user.name,
+      proposerEmail: req.user.email,
+      price: priceNumber,
+      message: req.body.message ? req.body.message.trim() : '',
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    proposals.push(newProposal);
+    await writeJSON(PROPOSALS_FILE, proposals);
+    res.status(201).json(newProposal);
+  } catch (error) {
+    console.error('Erreur proposition:', error);
+    res.status(500).json({ error: 'Erreur interne' });
+  }
+});
+
+app.get('/api/proposals/my-demands', authenticateToken, async (req, res) => {
+  try {
+    const proposals = await readJSON(PROPOSALS_FILE);
+    res.json(proposals.filter(p => p.demandOwnerName === req.user.name));
+  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+app.get('/api/proposals/my-proposals', authenticateToken, async (req, res) => {
+  try {
+    const proposals = await readJSON(PROPOSALS_FILE);
+    res.json(proposals.filter(p => p.proposerId === req.user.id));
+  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+app.put('/api/proposals/:id', authenticateToken, [
+  body('status').isIn(['accepted', 'refused']).withMessage('Statut invalide.')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation échouée', details: errors.array() });
+  try {
+    const id = Number(req.params.id);
+    const proposals = await readJSON(PROPOSALS_FILE);
+    const index = proposals.findIndex(p => Number(p._id) === id);
+    if (index === -1) return res.status(404).json({ error: 'Proposition non trouvée' });
+    if (proposals[index].demandOwnerName !== req.user.name) return res.status(403).json({ error: 'Non autorisé.' });
+    proposals[index].status = req.body.status;
+    await writeJSON(PROPOSALS_FILE, proposals);
+    res.json(proposals[index]);
+  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+app.get('/api/services/:id/proposals', authenticateToken, async (req, res) => {
+  try {
+    const serviceId = Number(req.params.id);
+    const services = await readJSON(DATA_FILE);
+    const service = services.find(s => Number(s._id) === serviceId);
+    if (!service) return res.status(404).json({ error: 'Service non trouvé' });
+    if (service.providerName !== req.user.name) return res.status(403).json({ error: 'Non autorisé.' });
+    const proposals = await readJSON(PROPOSALS_FILE);
+    res.json(proposals.filter(p => p.serviceId === serviceId));
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
 if (stripe) {
