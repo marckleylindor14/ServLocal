@@ -24,6 +24,7 @@ export default function HomePage() {
   const [detectingCity, setDetectingCity] = useState(false)
   const [geoMessage, setGeoMessage] = useState('')
   const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState('offers')
   const searchRef = useRef(null)
 
   useEffect(() => {
@@ -93,7 +94,8 @@ export default function HomePage() {
     const matchesSearch = !searchTerm.trim() ||
       service.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       service.category?.toLowerCase().includes(searchTerm.toLowerCase())
-    return matchesCity && matchesSearch && service.type !== 'demand'
+    const matchesType = activeTab === 'offers' ? service.type !== 'demand' : service.type === 'demand'
+    return matchesCity && matchesSearch && matchesType
   }) : []
 
   const suggestionServices = searchTerm.trim() === ''
@@ -297,7 +299,7 @@ export default function HomePage() {
                   Filtrez par ville, catégorie ou mot-clé. Des centaines de prestataires locaux à portée de main.
                 </p>
               </div>
-              <div className="relative flex gap-2 mt-6">
+              <div className="relative flex gap-2 mt-6 flex-wrap">
                 {['Coiffeur', 'Plombier', 'Cours', 'Ménage'].map(tag => (
                   <span key={tag} className="px-3 py-1 rounded-full bg-white/5 border border-border/40 text-xs text-muted-foreground">
                     {tag}
@@ -347,25 +349,52 @@ export default function HomePage() {
         </section>
 
         <section className="max-w-6xl mx-auto px-4 py-8 md:py-16">
-          <div className="flex items-end justify-between mb-8">
-            <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium mb-3">
-                <TrendingUp size={12} />
-                Populaires
-              </div>
-              <h2 className="text-3xl md:text-4xl font-bold">
-                {selectedCity ? `À ${selectedCity}` : 'Les services disponibles'}
-              </h2>
-              <div className="title-bar" />
+          <div className="mb-6 md:mb-8">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium mb-3">
+              <TrendingUp size={12} />
+              {activeTab === 'offers' ? 'Populaires' : 'Demandes récentes'}
             </div>
-            {filteredServices.length > 3 && (
-              <button
-                onClick={() => navigate('/add-service')}
-                className="hidden md:flex items-center gap-2 text-sm text-primary hover:underline"
-              >
-                Voir tout
-              </button>
-            )}
+            <h2 className="text-3xl md:text-4xl font-bold">
+              {selectedCity
+                ? activeTab === 'offers' ? `Services à ${selectedCity}` : `Demandes à ${selectedCity}`
+                : activeTab === 'offers' ? 'Les services disponibles' : 'Demandes de services'}
+            </h2>
+            <div className="title-bar" />
+          </div>
+
+          <div className="flex gap-2 mb-6 overflow-x-auto scrollbar-hide pb-1">
+            <button
+              onClick={() => setActiveTab('offers')}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition whitespace-nowrap ${
+                activeTab === 'offers'
+                  ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
+                  : 'glass text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <UserPlus size={16} />
+              Services proposés
+              {!loading && (
+                <span className={`text-[11px] px-1.5 py-0.5 rounded-full ${activeTab === 'offers' ? 'bg-white/20' : 'bg-white/10'}`}>
+                  {allServices.filter(s => s.type !== 'demand').length}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('demands')}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition whitespace-nowrap ${
+                activeTab === 'demands'
+                  ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
+                  : 'glass text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <HelpCircle size={16} />
+              Demandes
+              {!loading && (
+                <span className={`text-[11px] px-1.5 py-0.5 rounded-full ${activeTab === 'demands' ? 'bg-white/20' : 'bg-white/10'}`}>
+                  {allServices.filter(s => s.type === 'demand').length}
+                </span>
+              )}
+            </button>
           </div>
 
           {loading ? (
@@ -376,10 +405,14 @@ export default function HomePage() {
             </div>
           ) : filteredServices.length === 0 ? (
             <EmptyState
-              title="Aucun service trouvé"
-              description="Il n'y a pas encore de service ici. Soyez le premier à proposer vos talents !"
-              actionLabel="Proposer un service"
-              onAction={() => navigate('/add-service')}
+              title={activeTab === 'offers' ? 'Aucun service trouvé' : 'Aucune demande trouvée'}
+              description={
+                activeTab === 'offers'
+                  ? "Il n'y a pas encore de service ici. Soyez le premier à proposer vos talents !"
+                  : "Il n'y a pas encore de demande ici. Soyez le premier à exprimer votre besoin !"
+              }
+              actionLabel={activeTab === 'offers' ? 'Proposer un service' : 'Demander un service'}
+              onAction={() => navigate(activeTab === 'offers' ? '/add-service' : '/request-service')}
             />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -387,8 +420,14 @@ export default function HomePage() {
                 <Link
                   to={`/provider/${service._id}`}
                   key={service._id}
-                  className="card-hover p-5 flex flex-col"
+                  className="card-hover p-5 flex flex-col relative"
                 >
+                  {service.type === 'demand' && (
+                    <span className="absolute top-4 right-4 text-[10px] font-semibold text-blue-400 bg-blue-400/15 px-2 py-0.5 rounded-full">
+                      Demande
+                    </span>
+                  )}
+
                   <div className="flex items-start gap-3 mb-4">
                     <img
                       src={service.image || 'https://i.pravatar.cc/100?img=4'}
@@ -410,12 +449,14 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1 mb-3">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} size={12} className="fill-primary text-primary" />
-                    ))}
-                    <span className="ml-1 text-xs text-muted-foreground">5.0</span>
-                  </div>
+                  {service.type !== 'demand' && (
+                    <div className="flex items-center gap-1 mb-3">
+                      {[...Array(5)].map((_, i) => (
+                        <Star key={i} size={12} className="fill-primary text-primary" />
+                      ))}
+                      <span className="ml-1 text-xs text-muted-foreground">5.0</span>
+                    </div>
+                  )}
 
                   <div className="mt-auto flex items-center justify-between pt-3 border-t border-border/40">
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -427,7 +468,7 @@ export default function HomePage() {
                       )}
                     </div>
                     <span className="text-primary font-bold text-sm">
-                      {service.price ? `${service.price} €` : 'Gratuit'}
+                      {service.price ? `${service.price} €` : service.type === 'demand' ? 'Budget libre' : 'Gratuit'}
                     </span>
                   </div>
                 </Link>
@@ -529,9 +570,9 @@ export default function HomePage() {
         </section>
 
         <footer className="pt-10 pb-40 md:pb-16 text-center text-muted-foreground border-t border-border/40 text-xs">
-  <p className="font-semibold text-foreground mb-1">Myra</p>
-  <p>La confiance au coin de votre rue</p>
-</footer>
+          <p className="font-semibold text-foreground mb-1">Myra</p>
+          <p>La confiance au coin de votre rue</p>
+        </footer>
       </div>
     </PageTransition>
   )
