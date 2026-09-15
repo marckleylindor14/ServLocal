@@ -5,8 +5,9 @@ import StarRating from '../components/StarRating'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import PageTransition from '../components/PageTransition'
+import ReportModal from '../components/ReportModal'
 import API_URL from '../config'
-import { X, ImageOff, CheckCircle } from 'lucide-react'
+import { X, ImageOff, CheckCircle, Flag } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 export default function ProviderPage() {
@@ -28,6 +29,7 @@ export default function ProviderPage() {
   const [bookingSuccess, setBookingSuccess] = useState(false)
   const [lightboxImage, setLightboxImage] = useState(null)
   const [loadedImages, setLoadedImages] = useState({})
+  const [showReport, setShowReport] = useState(false)
 
   useEffect(() => {
     fetch(`${API_URL}/api/services/${id}`)
@@ -153,7 +155,6 @@ export default function ProviderPage() {
         <Header />
         <div className="pt-16 md:pt-20"></div>
         <main className="max-w-3xl mx-auto px-4 py-6 md:py-8 space-y-6 relative">
-          {/* Animation de succès après réservation */}
           <AnimatePresence>
             {bookingSuccess && (
               <motion.div
@@ -183,11 +184,10 @@ export default function ProviderPage() {
             )}
           </AnimatePresence>
 
-          {/* Infos service (inchangé) */}
           <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-4">
+            <div className="flex flex-col sm:flex-row items-start gap-4 mb-4">
               <img src={pro.image || 'https://i.pravatar.cc/100?img=4'} alt={pro.title} className="w-16 h-16 md:w-20 md:h-20 rounded-full object-cover border-2 border-primary" />
-              <div>
+              <div className="flex-1">
                 <h2 className="text-xl md:text-2xl font-bold">{pro.title}</h2>
                 <p className="text-primary font-semibold text-sm md:text-base">{pro.category}</p>
                 <div className="flex items-center gap-2 mt-1">
@@ -195,16 +195,23 @@ export default function ProviderPage() {
                   <span className="text-xs md:text-sm text-muted-foreground">({averageRating})</span>
                 </div>
               </div>
+              <button
+                onClick={() => setShowReport(true)}
+                className="p-2 text-muted-foreground hover:text-red-400 transition shrink-0"
+                aria-label="Signaler ce service"
+              >
+                <Flag size={18} />
+              </button>
             </div>
             <p className="text-muted-foreground text-sm md:text-base mb-4">{pro.description}</p>
             <div className="mb-4">
               <h3 className="text-lg md:text-xl font-semibold">Tarif</h3>
               <p className="text-primary font-medium">
-  {pro.price ? `${pro.price} €` : 'Non spécifié'}
-</p>
-<p className="text-xs text-muted-foreground mt-1">
-  Une commission de 10 % est incluse lors du paiement.
-</p>
+                {pro.price ? `${pro.price} €` : 'Non spécifié'}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Une commission de 10 % est incluse lors du paiement.
+              </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
               <button onClick={startConversation} className="flex-1 bg-primary text-primary-foreground font-semibold py-3 px-6 rounded-full hover:bg-primary/90 transition text-sm md:text-base">
@@ -216,7 +223,6 @@ export default function ProviderPage() {
             </div>
           </div>
 
-          {/* Galerie (inchangée) */}
           {Array.isArray(pro.gallery) && pro.gallery.length > 0 && (
             <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6">
               <h3 className="text-lg md:text-xl font-bold mb-4">Galerie d'exemples</h3>
@@ -251,7 +257,6 @@ export default function ProviderPage() {
             </div>
           )}
 
-          {/* Réservation (inchangé) */}
           <div id="booking-section" className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6">
             <h3 className="text-lg md:text-2xl font-bold mb-4">Réserver ce service</h3>
             {user ? (
@@ -282,7 +287,6 @@ export default function ProviderPage() {
             )}
           </div>
 
-          {/* Avis (inchangé) */}
           <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6">
             <h3 className="text-lg md:text-2xl font-bold mb-4">Avis</h3>
             {reviews.length === 0 && <p className="text-muted-foreground text-sm">Aucun avis pour le moment.</p>}
@@ -307,12 +311,20 @@ export default function ProviderPage() {
           </div>
         </main>
 
-        {/* Lightbox (inchangée) */}
         {lightboxImage && (
           <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setLightboxImage(null)}>
             <button className="absolute top-4 right-4 text-white bg-black/40 rounded-full p-2" onClick={() => setLightboxImage(null)}><X size={24} /></button>
             <img src={lightboxImage} alt="Vue agrandie" className="max-w-full max-h-full rounded-xl" onClick={(e) => e.stopPropagation()} />
           </div>
+        )}
+
+        {showReport && (
+          <ReportModal
+            targetType="service"
+            targetId={pro._id}
+            targetName={pro.title}
+            onClose={() => setShowReport(false)}
+          />
         )}
       </div>
     </PageTransition>

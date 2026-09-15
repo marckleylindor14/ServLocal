@@ -31,6 +31,7 @@ const REVIEWS_FILE = path.join(__dirname, 'reviews.json');
 const BOOKINGS_FILE = path.join(__dirname, 'bookings.json');
 const CONVERSATIONS_FILE = path.join(__dirname, 'conversations.json');
 const MESSAGES_FILE = path.join(__dirname, 'messages.json');
+const REPORTS_FILE = path.join(__dirname, 'reports.json');
 const DEFAULT_IMAGE = 'https://i.pravatar.cc/100?img=4';
 const JWT_SECRET = process.env.JWT_SECRET || 'servlocal_secret_2026';
 const ADMIN_EMAILS = process.env.ADMIN_EMAILS
@@ -727,7 +728,56 @@ app.put('/api/admin/reject-user/:id', authenticateAdmin, async (req, res) => {
     res.json({ message: 'Vérification refusée.' });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
+app.post('/api/reports', authenticateToken, [
+  body('targetType').isIn(['service', 'user']).withMessage('Type de cible invalide.'),
+  body('targetId').notEmpty().withMessage('ID de la cible requis.'),
+  body('reason').trim().notEmpty().withMessage('Motif requis.'),
+  body('details').optional().trim().isLength({ max: 500 }).withMessage('Détails trop longs.')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation échouée', details: errors.array() });
+  try {
+    const reports = await readJSON(REPORTS_FILE);
+    const newReport = {
+      _id: nextId(reports),
+      reporterId: req.user.id,
+      reporterName: req.user.name,
+      targetType: req.body.targetType,
+      targetId: req.body.targetId,
+      targetName: req.body.targetName || '',
+      reason: req.body.reason.trim(),
+      details: req.body.details ? req.body.details.trim() : '',
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    reports.push(newReport);
+    await writeJSON(REPORTS_FILE, reports);
+    res.status(201).json({ message: 'Signalement enregistré.' });
+  } catch (error) {
+    console.error('Erreur signalement:', error);
+    res.status(500).json({ error: 'Erreur interne' });
+  }
+});
 
+app.get('/api/admin/reports', authenticateAdmin, async (req, res) => {
+  try {
+    const reports = await readJSON(REPORTS_FILE);
+    const pending = reports.filter(r => r.status === 'pending').sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    res.json(pending);
+  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+app.put('/api/admin/reports/:id/treated', authenticateAdmin, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const reports = await readJSON(REPORTS_FILE);
+    const index = reports.findIndex(r => Number(r._id) === id);
+    if (index === -1) return res.status(404).json({ error: 'Signalement non trouvé' });
+    reports[index].status = 'treated';
+    await writeJSON(REPORTS_FILE, reports);
+    res.json({ message: 'Signalement marqué comme traité.' });
+  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
+});
 if (stripe) {
   app.post('/api/create-checkout-session', authenticateToken, async (req, res) => {
     try {
