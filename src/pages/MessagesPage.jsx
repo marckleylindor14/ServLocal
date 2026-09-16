@@ -25,7 +25,6 @@ export default function MessagesPage() {
   const messagesContainerRef = useRef(null)
   const pollingIntervalRef = useRef(null)
 
-  // Charger les conversations
   useEffect(() => {
     if (!user) {
       navigate('/login')
@@ -39,7 +38,6 @@ export default function MessagesPage() {
       .catch(() => addToast('Impossible de charger les conversations.', 'error'))
   }, [user, navigate, addToast])
 
-  // Polling pour les nouveaux messages de la conversation ouverte
   useEffect(() => {
     if (!selectedConv) return
 
@@ -51,7 +49,6 @@ export default function MessagesPage() {
         const data = await res.json()
         if (Array.isArray(data)) {
           setMessages(data)
-          // Faire défiler vers le bas si de nouveaux messages arrivent
           setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
         }
       } catch (err) {
@@ -59,10 +56,8 @@ export default function MessagesPage() {
       }
     }
 
-    // Lancer le polling toutes les 3 secondes
     pollingIntervalRef.current = setInterval(fetchMessages, 3000)
 
-    // Nettoyer à la fermeture
     return () => {
       if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current)
     }
@@ -78,7 +73,6 @@ export default function MessagesPage() {
       const data = await res.json()
       setMessages(Array.isArray(data) ? data : [])
 
-      // Marquer les messages comme lus
       await fetch(`${API_URL}/api/conversations/${conv._id}/read`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -105,7 +99,6 @@ export default function MessagesPage() {
       if (res.ok) {
         const msg = await res.json()
         setMessages(prev => [...prev, msg])
-        // Marquer immédiatement la conversation comme lue pour ce nouveau message
         await fetch(`${API_URL}/api/conversations/${selectedConv._id}/read`, {
           method: 'PUT',
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -180,7 +173,6 @@ export default function MessagesPage() {
       <div className="min-h-screen bg-background text-foreground font-sans">
         <Header />
 
-        {/* Vue mobile : liste des conversations */}
         <div className={`md:hidden fixed inset-0 top-16 z-40 bg-background transition-transform duration-300 ${showList ? 'translate-x-0' : '-translate-x-full'}`}>
           <div className="flex flex-col h-full">
             <div className="px-4 py-3 border-b border-border/40">
@@ -231,7 +223,6 @@ export default function MessagesPage() {
           </div>
         </div>
 
-        {/* Vue mobile : conversation ouverte */}
         <div className={`md:hidden fixed inset-0 top-16 z-40 bg-background transition-transform duration-300 ${showList ? 'translate-x-full' : 'translate-x-0'}`}>
           {selectedConv && (
             <div className="flex flex-col h-full">
@@ -276,9 +267,9 @@ export default function MessagesPage() {
                           </span>
                           {isOwn && (
                             item.read ? (
-                              <CheckCheck size={14} className="text-blue-400" />
+                              <CheckCheck size={14} className="text-primary-foreground" />
                             ) : (
-                              <Check size={14} className="text-primary-foreground/60" />
+                              <Check size={14} className="text-primary-foreground/50" />
                             )
                           )}
                         </div>
@@ -334,7 +325,6 @@ export default function MessagesPage() {
           )}
         </div>
 
-        {/* Vue desktop : deux colonnes */}
         <div className="hidden md:flex max-w-6xl mx-auto px-4 pt-24 pb-6 h-screen">
           <div className="w-80 bg-card/50 border border-border/40 rounded-2xl overflow-hidden flex flex-col mr-4">
             <div className="px-4 py-3 border-b border-border/40">
@@ -422,9 +412,9 @@ export default function MessagesPage() {
                             </span>
                             {isOwn && (
                               item.read ? (
-                                <CheckCheck size={14} className="text-blue-400" />
+                                <CheckCheck size={14} className="text-primary-foreground" />
                               ) : (
-                                <Check size={14} className="text-primary-foreground/60" />
+                                <Check size={14} className="text-primary-foreground/50" />
                               )
                             )}
                           </div>
