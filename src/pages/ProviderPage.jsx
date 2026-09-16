@@ -172,7 +172,7 @@ export default function ProviderPage() {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         },
         body: JSON.stringify({
-          recipientId: pro._id,
+          recipientId: pro.providerId,
           recipientName: pro.providerName,
           serviceId: pro._id,
           serviceTitle: pro.title
