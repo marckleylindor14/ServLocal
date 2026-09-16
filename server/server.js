@@ -606,6 +606,24 @@ app.post('/api/conversations/:id/messages', authenticateToken, [
     res.status(201).json(newMessage);
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
+app.put('/api/conversations/:id/read', authenticateToken, async (req, res) => {
+  try {
+    const conversationId = Number(req.params.id);
+    const messages = await readJSON(MESSAGES_FILE);
+    let modified = false;
+    const updated = messages.map(m => {
+      if (m.conversationId === conversationId && m.senderId !== req.user.id && !m.read) {
+        modified = true;
+        return { ...m, read: true };
+      }
+      return m;
+    });
+    if (modified) await writeJSON(MESSAGES_FILE, updated);
+    res.json({ message: 'Marqué comme lu.' });
+  } catch (error) {
+    res.status(500).json({ error: 'Erreur interne' });
+  }
+});
 
 app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
   try {
@@ -951,11 +969,37 @@ app.get('/api/cities', async (req, res) => {
 
 app.get('/api/notifications', authenticateToken, async (req, res) => {
   try {
-    const bookings = await readJSON(BOOKINGS_FILE);
+    const [bookings, messages, proposals, conversations] = await Promise.all([
+      readJSON(BOOKINGS_FILE),
+      readJSON(MESSAGES_FILE),
+      readJSON(PROPOSALS_FILE),
+      readJSON(CONVERSATIONS_FILE)
+    ]);
+
     const pendingProvider = bookings.filter(b => b.providerName === req.user.name && b.status === 'pending').length;
     const pendingClient = bookings.filter(b => b.clientId === req.user.id && b.status === 'pending').length;
-    res.json({ pendingBookings: pendingProvider + pendingClient });
-  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
+    const pendingBookings = pendingProvider + pendingClient;
+
+    const myConversationIds = conversations
+      .filter(c => c.participants.includes(req.user.id))
+      .map(c => c._id);
+
+    const unreadMessages = messages.filter(m =>
+      myConversationIds.includes(m.conversationId) &&
+      m.senderId !== req.user.id &&
+      !m.read
+    ).length;
+
+    const pendingProposals = proposals.filter(p =>
+      p.demandOwnerId === req.user.id &&
+      p.status === 'pending'
+    ).length;
+
+    res.json({ pendingBookings, unreadMessages, pendingProposals });
+  } catch (error) {
+    console.error('Erreur notifications:', error);
+    res.status(500).json({ error: 'Erreur interne' });
+  }
 });
 
 app.get('/', (req, res) => res.status(200).send('OK'));

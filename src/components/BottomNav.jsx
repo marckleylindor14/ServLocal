@@ -6,7 +6,7 @@ import API_URL from '../config'
 
 export default function BottomNav() {
   const { user } = useAuth()
-  const [notif, setNotif] = useState({ pendingBookings: 0 })
+  const [notif, setNotif] = useState({ pendingBookings: 0, unreadMessages: 0, pendingProposals: 0 })
 
   useEffect(() => {
     if (!user) return
@@ -15,11 +15,15 @@ export default function BottomNav() {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       })
         .then(res => res.json())
-        .then(data => setNotif(data))
+        .then(data => setNotif({
+          pendingBookings: data.pendingBookings || 0,
+          unreadMessages: data.unreadMessages || 0,
+          pendingProposals: data.pendingProposals || 0
+        }))
         .catch(() => {})
     }
     fetchNotif()
-    const interval = setInterval(fetchNotif, 10000)
+    const interval = setInterval(fetchNotif, 8000)
     return () => clearInterval(interval)
   }, [user])
 
@@ -67,7 +71,10 @@ export default function BottomNav() {
         </NavLink>
 
         <NavLink to="/messages" className={itemClass}>
-          <MessageSquare size={22} />
+          <div className="relative">
+            <MessageSquare size={22} />
+            <Badge count={notif.unreadMessages} />
+          </div>
           <span className="text-[10px] font-medium">Messages</span>
         </NavLink>
       </div>
