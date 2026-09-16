@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import HomePage from './pages/HomePage'
 import ProviderPage from './pages/ProviderPage'
@@ -6,10 +6,8 @@ import AddServicePage from './pages/AddServicePage'
 import RequestServicePage from './pages/RequestServicePage'
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
-import MyServicesPage from './pages/MyServicesPage'
-import MyBookingsPage from './pages/MyBookingsPage'
-import MyDemandsPage from './pages/MyDemandsPage'
-import ProviderDashboardPage from './pages/ProviderDashboardPage'
+import ActivityPage from './pages/ActivityPage'
+import NegotiationPage from './pages/NegotiationPage'
 import MessagesPage from './pages/MessagesPage'
 import AdminPage from './pages/AdminPage'
 import PaymentSuccessPage from './pages/PaymentSuccessPage'
@@ -21,7 +19,6 @@ import LandingPage from './pages/LandingPage'
 import Onboarding from './pages/Onboarding'
 import OfflineBanner from './components/OfflineBanner'
 import BottomNav from './components/BottomNav'
-import NegotiationPage from './pages/NegociacionPage'
 
 export default function App() {
   const { user } = useAuth()
@@ -36,10 +33,8 @@ export default function App() {
         <Route path="/request-service" element={<RequestServicePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
-        <Route path="/my-services" element={<MyServicesPage />} />
-        <Route path="/my-bookings" element={<MyBookingsPage />} />
-        <Route path="/my-demands" element={<MyDemandsPage />} />
-        <Route path="/dashboard" element={<ProviderDashboardPage />} />
+        <Route path="/activity" element={<ActivityPage />} />
+        <Route path="/negotiation/:id" element={<NegotiationPage />} />
         <Route path="/messages" element={<MessagesPage />} />
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/payment-success" element={<PaymentSuccessPage />} />
@@ -48,7 +43,11 @@ export default function App() {
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/privacy" element={<PrivacyPolicyPage />} />
         <Route path="/onboarding" element={<Onboarding />} />
-        <Route path="/negotiation/:id" element={<NegotiationPage />} />
+
+        <Route path="/my-services" element={<Navigate to="/activity" replace />} />
+        <Route path="/my-bookings" element={<Navigate to="/activity" replace />} />
+        <Route path="/my-demands" element={<Navigate to="/activity" replace />} />
+        <Route path="/dashboard" element={<Navigate to="/activity" replace />} />
       </Routes>
       {user && <BottomNav />}
     </>

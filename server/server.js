@@ -401,6 +401,61 @@ app.post('/api/auth/reset-password', async (req, res) => {
   }
 });
 
+app.put('/api/user/profile', authenticateToken, async (req, res) => {
+  try {
+    const { name, photo } = req.body;
+    const users = await readJSON(USERS_FILE);
+    const index = users.findIndex(u => u._id === req.user.id);
+    if (index === -1) return res.status(404).json({ error: 'Utilisateur non trouvé' });
+    if (name) users[index].name = name;
+    if (photo) users[index].photo = photo;
+    await writeJSON(USERS_FILE, users);
+    res.json({
+      id: users[index]._id,
+      name: users[index].name,
+      email: users[index].email,
+      photo: users[index].photo || null
+    });
+  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+app.put('/api/user/change-password', authenticateToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Mot de passe actuel et nouveau requis.' });
+    const users = await readJSON(USERS_FILE);
+    const index = users.findIndex(u => u._id === req.user.id);
+    if (index === -1) return res.status(404).json({ error: 'Utilisateur non trouvé' });
+    const isMatch = await bcrypt.compare(currentPassword, users[index].password);
+    if (!isMatch) return res.status(400).json({ error: 'Mot de passe actuel incorrect.' });
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    users[index].password = hashedPassword;
+    await writeJSON(USERS_FILE, users);
+    res.json({ message: 'Mot de passe mis à jour.' });
+  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+app.get('/api/user/stats', authenticateToken, async (req, res) => {
+  try {
+    const [services, bookings] = await Promise.all([
+      readJSON(DATA_FILE),
+      readJSON(BOOKINGS_FILE)
+    ]);
+    const userId = req.user.id;
+    const userName = req.user.name;
+    const myServices = services.filter(s => s.providerName === userName);
+    const bookingsReceived = bookings.filter(b => b.providerName === userName);
+    const bookingsMade = bookings.filter(b => b.clientId === userId);
+    res.json({
+      totalServices: myServices.length,
+      bookingsReceived: bookingsReceived.length,
+      bookingsMade: bookingsMade.length,
+      pendingReceived: bookingsReceived.filter(b => b.status === 'pending').length,
+      confirmedReceived: bookingsReceived.filter(b => b.status === 'confirmed').length,
+    });
+  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
+});
+
 app.get('/api/services/:id/reviews', async (req, res) => {
   try {
     const serviceId = Number(req.params.id);
@@ -876,6 +931,102 @@ app.put('/api/negotiations/:id/refuse', authenticateToken, async (req, res) => {
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
 
+app.get('/api/activity', authenticateToken, async (req, res) => {
+  try {
+    const [services, bookings, proposals, negotiations] = await Promise.all([
+      readJSON(DATA_FILE),
+      readJSON(BOOKINGS_FILE),
+      readJSON(PROPOSALS_FILE),
+      readJSON(NEGOTIATIONS_FILE)
+    ]);
+
+    const userId = req.user.id;
+
+    const myOffers = services.filter(s => s.providerId === userId && s.type !== 'demand');
+    const myDemands = services.filter(s => s.providerId === userId && s.type === 'demand');
+
+    const proposalsToTreat = proposals.filter(p => p.demandOwnerId === userId && p.status === 'pending');
+    const myProposals = proposals.filter(p => p.proposerId === userId);
+    const proposalsSentPending = myProposals.filter(p => p.status === 'pending');
+    const proposalsHistory = myProposals.filter(p => p.status !== 'pending');
+
+    const myNegotiations = negotiations.filter(n => n.initiatorId === userId || n.recipientId === userId);
+
+    const isMyTurn = (n) => {
+      if (n.status !== 'pending') return false;
+      if (!n.currentProposal) return n.initiatorId === userId;
+      return n.currentProposal.proposedById !== userId;
+    };
+
+    const negotiationsToTreat = myNegotiations.filter(isMyTurn);
+    const negotiationsWaiting = myNegotiations.filter(n => n.status === 'pending' && !isMyTurn(n));
+    const negotiationsHistory = myNegotiations.filter(n => n.status !== 'pending');
+
+    const myBookings = bookings.filter(b => b.clientId === userId || b.providerId === userId);
+
+    const bookingsToPay = myBookings.filter(b =>
+      b.clientId === userId &&
+      (b.status === 'awaiting_payment' || (b.status === 'pending' && b.paymentStatus !== 'paid'))
+    );
+
+    const bookingsToAccept = myBookings.filter(b =>
+      b.providerId === userId &&
+      b.status === 'pending' &&
+      b.source !== 'negotiation'
+    );
+
+    const bookingsInProgress = myBookings.filter(b =>
+      b.status === 'confirmed' ||
+      (b.clientId === userId && b.status === 'pending' && b.paymentStatus !== 'paid' && b.source === 'negotiation')
+    );
+
+    const bookingsHistory = myBookings.filter(b =>
+      b.status === 'cancelled' || b.status === 'completed'
+    );
+
+    const toTreatTotal = proposalsToTreat.length + negotiationsToTreat.length + bookingsToAccept.length + bookingsToPay.length;
+    const inProgressTotal = bookingsInProgress.length + negotiationsWaiting.length + proposalsSentPending.length;
+    const publicationsTotal = myOffers.length + myDemands.length;
+    const historyTotal = bookingsHistory.length + negotiationsHistory.length + proposalsHistory.length;
+
+    res.json({
+      counts: {
+        toTreat: toTreatTotal,
+        proposalsToTreat: proposalsToTreat.length,
+        negotiationsToTreat: negotiationsToTreat.length,
+        bookingsToAccept: bookingsToAccept.length,
+        bookingsToPay: bookingsToPay.length,
+        inProgress: inProgressTotal,
+        publications: publicationsTotal,
+        history: historyTotal
+      },
+      toTreat: {
+        proposals: proposalsToTreat,
+        negotiations: negotiationsToTreat,
+        bookingsToAccept,
+        bookingsToPay
+      },
+      inProgress: {
+        bookings: bookingsInProgress,
+        negotiations: negotiationsWaiting,
+        proposals: proposalsSentPending
+      },
+      publications: {
+        offers: myOffers,
+        demands: myDemands
+      },
+      history: {
+        bookings: bookingsHistory,
+        negotiations: negotiationsHistory,
+        proposals: proposalsHistory
+      }
+    });
+  } catch (error) {
+    console.error('Erreur activity:', error);
+    res.status(500).json({ error: 'Erreur interne' });
+  }
+});
+
 app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
   try {
     const [services, users, reviews, bookings, conversations, messages] = await Promise.all([
@@ -1134,33 +1285,47 @@ app.get('/api/cities', async (req, res) => {
 
 app.get('/api/notifications', authenticateToken, async (req, res) => {
   try {
-    const [bookings, messages, proposals, conversations] = await Promise.all([
+    const [bookings, messages, proposals, negotiations, conversations] = await Promise.all([
       readJSON(BOOKINGS_FILE),
       readJSON(MESSAGES_FILE),
       readJSON(PROPOSALS_FILE),
+      readJSON(NEGOTIATIONS_FILE),
       readJSON(CONVERSATIONS_FILE)
     ]);
 
-    const pendingProvider = bookings.filter(b => b.providerName === req.user.name && b.status === 'pending').length;
-    const pendingClient = bookings.filter(b => b.clientId === req.user.id && b.status === 'pending').length;
-    const pendingBookings = pendingProvider + pendingClient;
+    const userId = req.user.id;
 
     const myConversationIds = conversations
-      .filter(c => c.participants.includes(req.user.id))
+      .filter(c => c.participants.includes(userId))
       .map(c => c._id);
 
     const unreadMessages = messages.filter(m =>
       myConversationIds.includes(m.conversationId) &&
-      m.senderId !== req.user.id &&
+      m.senderId !== userId &&
       !m.read
     ).length;
 
-    const pendingProposals = proposals.filter(p =>
-      p.demandOwnerId === req.user.id &&
-      p.status === 'pending'
+    const proposalsToTreat = proposals.filter(p => p.demandOwnerId === userId && p.status === 'pending').length;
+
+    const bookingsToAccept = bookings.filter(b =>
+      b.providerId === userId && b.status === 'pending' && b.source !== 'negotiation'
     ).length;
 
-    res.json({ pendingBookings, unreadMessages, pendingProposals });
+    const bookingsToPay = bookings.filter(b =>
+      b.clientId === userId &&
+      (b.status === 'awaiting_payment' || (b.status === 'pending' && b.paymentStatus !== 'paid'))
+    ).length;
+
+    const myNegotiations = negotiations.filter(n => n.initiatorId === userId || n.recipientId === userId);
+    const negotiationsToTreat = myNegotiations.filter(n => {
+      if (n.status !== 'pending') return false;
+      if (!n.currentProposal) return n.initiatorId === userId;
+      return n.currentProposal.proposedById !== userId;
+    }).length;
+
+    const toTreatCount = proposalsToTreat + negotiationsToTreat + bookingsToAccept + bookingsToPay;
+
+    res.json({ toTreatCount, unreadMessages });
   } catch (error) {
     console.error('Erreur notifications:', error);
     res.status(500).json({ error: 'Erreur interne' });

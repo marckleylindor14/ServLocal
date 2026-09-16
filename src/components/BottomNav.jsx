@@ -1,12 +1,12 @@
 import { NavLink } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import { Home, PlusCircle, HelpCircle, Calendar, MessageSquare } from 'lucide-react'
+import { Home, PlusCircle, HelpCircle, ClipboardList, MessageSquare } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import API_URL from '../config'
 
 export default function BottomNav() {
   const { user } = useAuth()
-  const [notif, setNotif] = useState({ pendingBookings: 0, unreadMessages: 0, pendingProposals: 0 })
+  const [notif, setNotif] = useState({ toTreatCount: 0, unreadMessages: 0 })
 
   useEffect(() => {
     if (!user) return
@@ -16,14 +16,13 @@ export default function BottomNav() {
       })
         .then(res => res.json())
         .then(data => setNotif({
-          pendingBookings: data.pendingBookings || 0,
-          unreadMessages: data.unreadMessages || 0,
-          pendingProposals: data.pendingProposals || 0
+          toTreatCount: data.toTreatCount || 0,
+          unreadMessages: data.unreadMessages || 0
         }))
         .catch(() => {})
     }
     fetchNotif()
-    const interval = setInterval(fetchNotif, 8000)
+    const interval = setInterval(fetchNotif, 10000)
     return () => clearInterval(interval)
   }, [user])
 
@@ -62,12 +61,12 @@ export default function BottomNav() {
           <span className="text-[10px] font-medium">Demander</span>
         </NavLink>
 
-        <NavLink to="/my-bookings" className={itemClass}>
+        <NavLink to="/activity" className={itemClass}>
           <div className="relative">
-            <Calendar size={22} />
-            <Badge count={notif.pendingBookings} />
+            <ClipboardList size={22} />
+            <Badge count={notif.toTreatCount} />
           </div>
-          <span className="text-[10px] font-medium">Résas</span>
+          <span className="text-[10px] font-medium">Activité</span>
         </NavLink>
 
         <NavLink to="/messages" className={itemClass}>

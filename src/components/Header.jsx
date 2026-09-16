@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { User, LogOut, ListChecks, LayoutDashboard, Shield, Settings, HelpCircle } from 'lucide-react'
+import { User, LogOut, Shield, Settings } from 'lucide-react'
 
 export default function Header() {
   const { user, logout } = useAuth()
@@ -71,31 +71,6 @@ export default function Header() {
                 >
                   <Settings size={16} className="text-muted-foreground" />
                   Mon compte
-                </Link>
-                <Link
-  to="/my-demands"
-  onClick={() => setMenuOpen(false)}
-  className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-white/5 transition"
->
-  <HelpCircle size={16} className="text-muted-foreground" />
-  Propositions reçues
-</Link>
-                <Link
-                  to="/my-services"
-                  onClick={() => setMenuOpen(false)}
-                  className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-white/5 transition"
-                >
-                  <ListChecks size={16} className="text-muted-foreground" />
-                  Mes services
-                </Link>
-
-                <Link
-                  to="/dashboard"
-                  onClick={() => setMenuOpen(false)}
-                  className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-white/5 transition"
-                >
-                  <LayoutDashboard size={16} className="text-muted-foreground" />
-                  Tableau de bord
                 </Link>
 
                 {isAdmin && (
