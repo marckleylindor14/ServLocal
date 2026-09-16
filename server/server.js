@@ -698,11 +698,78 @@ app.put('/api/proposals/:id', authenticateToken, [
     const proposals = await readJSON(PROPOSALS_FILE);
     const index = proposals.findIndex(p => Number(p._id) === id);
     if (index === -1) return res.status(404).json({ error: 'Proposition non trouvée' });
-    if (proposals[index].demandOwnerId !== req.user.id) return res.status(403).json({ error: 'Non autorisé.' });
-    proposals[index].status = req.body.status;
+    if (proposals[index].demandOwnerName !== req.user.name) return res.status(403).json({ error: 'Non autorisé.' });
+    if (proposals[index].status !== 'pending') return res.status(400).json({ error: 'Cette proposition a déjà été traitée.' });
+
+    const proposal = proposals[index];
+    proposal.status = req.body.status;
     await writeJSON(PROPOSALS_FILE, proposals);
-    res.json(proposals[index]);
-  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
+
+    let bookingId = null;
+    let conversationId = null;
+
+    if (req.body.status === 'accepted') {
+      const bookings = await readJSON(BOOKINGS_FILE);
+      const newBooking = {
+        _id: nextId(bookings),
+        serviceId: proposal.serviceId,
+        serviceTitle: proposal.serviceTitle,
+        serviceCategory: '',
+        providerName: proposal.proposerName,
+        providerId: proposal.proposerId,
+        clientId: proposal.demandOwnerId,
+        clientName: proposal.demandOwnerName,
+        date: '',
+        timeSlot: '',
+        message: proposal.message || '',
+        price: proposal.price,
+        status: 'pending',
+        source: 'proposal',
+        createdAt: new Date().toISOString()
+      };
+      bookings.push(newBooking);
+      await writeJSON(BOOKINGS_FILE, bookings);
+      bookingId = newBooking._id;
+
+      const conversations = await readJSON(CONVERSATIONS_FILE);
+      let conversation = conversations.find(c =>
+        c.serviceId === proposal.serviceId &&
+        c.participants.includes(proposal.demandOwnerId) &&
+        c.participants.includes(proposal.proposerId)
+      );
+      if (!conversation) {
+        conversation = {
+          _id: nextId(conversations),
+          participants: [proposal.demandOwnerId, proposal.proposerId],
+          participantsNames: [proposal.demandOwnerName, proposal.proposerName],
+          serviceId: proposal.serviceId,
+          serviceTitle: proposal.serviceTitle,
+          createdAt: new Date().toISOString()
+        };
+        conversations.push(conversation);
+        await writeJSON(CONVERSATIONS_FILE, conversations);
+      }
+      conversationId = conversation._id;
+
+      const messages = await readJSON(MESSAGES_FILE);
+      const systemMessage = {
+        _id: nextId(messages),
+        conversationId: conversation._id,
+        senderId: 0,
+        senderName: 'Système',
+        text: `✅ Proposition acceptée à ${proposal.price} €. Vous pouvez maintenant organiser la prestation.`,
+        read: false,
+        createdAt: new Date().toISOString()
+      };
+      messages.push(systemMessage);
+      await writeJSON(MESSAGES_FILE, messages);
+    }
+
+    res.json({ proposal, bookingId, conversationId });
+  } catch (error) {
+    console.error('Erreur proposition:', error);
+    res.status(500).json({ error: 'Erreur interne' });
+  }
 });
 
 app.get('/api/services/:id/proposals', authenticateToken, async (req, res) => {

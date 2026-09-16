@@ -6,7 +6,7 @@ import Header from '../components/Header'
 import EmptyState from '../components/EmptyState'
 import PageTransition from '../components/PageTransition'
 import API_URL from '../config'
-import { MessageSquare, CheckCircle, XCircle, Euro, User } from 'lucide-react'
+import { MessageSquare, CheckCircle, XCircle, Euro, User, Sparkles } from 'lucide-react'
 
 export default function MyDemandsPage() {
   const { user } = useAuth()
@@ -42,10 +42,20 @@ export default function MyDemandsPage() {
         body: JSON.stringify({ status })
       })
       if (res.ok) {
-        setProposals(prev => prev.map(p => p._id === proposalId ? { ...p, status } : p))
-        addToast(status === 'accepted' ? 'Proposition acceptée.' : 'Proposition refusée.', 'success')
+        const data = await res.json()
+        setProposals(prev => prev.map(p => p._id === proposalId ? data.proposal : p))
+
+        if (status === 'accepted') {
+          addToast('Proposition acceptée ! Réservation créée.', 'success')
+          if (data.conversationId) {
+            setTimeout(() => navigate('/messages'), 800)
+          }
+        } else {
+          addToast('Proposition refusée.', 'success')
+        }
       } else {
-        addToast('Erreur lors de la mise à jour.', 'error')
+        const err = await res.json()
+        addToast(err.error || 'Erreur lors de la mise à jour.', 'error')
       }
     } catch {
       addToast('Impossible de contacter le serveur.', 'error')
@@ -82,7 +92,10 @@ export default function MyDemandsPage() {
         <Header />
         <div className="pt-20 pb-32 md:pb-8"></div>
         <main className="max-w-4xl mx-auto px-4 py-6 md:py-12">
-          <h2 className="text-2xl md:text-3xl font-extrabold mb-6">Propositions reçues</h2>
+          <h2 className="text-2xl md:text-3xl font-extrabold mb-2">Propositions reçues</h2>
+          <p className="text-sm text-muted-foreground mb-6">
+            Toutes les offres faites sur tes demandes de service.
+          </p>
 
           {loading ? (
             <p className="text-muted-foreground">Chargement...</p>
@@ -90,7 +103,7 @@ export default function MyDemandsPage() {
             <EmptyState
               title="Aucune proposition"
               description="Vous n'avez pas encore reçu de propositions sur vos demandes."
-              actionLabel="Voir mes demandes"
+              actionLabel="Voir mes publications"
               onAction={() => navigate('/my-services')}
             />
           ) : (
@@ -117,11 +130,11 @@ export default function MyDemandsPage() {
                     <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
                       <User size={18} className="text-primary" />
                     </div>
-                    <div>
+                    <div className="flex-1">
                       <p className="font-semibold text-sm">{proposal.proposerName}</p>
-                      <p className="text-xs text-muted-foreground">A proposé un prix</p>
+                      <p className="text-xs text-muted-foreground">Propose un prix</p>
                     </div>
-                    <span className="ml-auto flex items-center gap-1 text-primary font-bold text-lg">
+                    <span className="flex items-center gap-1 text-primary font-bold text-lg">
                       <Euro size={16} />
                       {proposal.price}
                     </span>
@@ -160,13 +173,19 @@ export default function MyDemandsPage() {
                   )}
 
                   {proposal.status === 'accepted' && (
-                    <button
-                      onClick={() => startConversation(proposal)}
-                      className="flex items-center gap-1.5 border border-primary text-primary px-4 py-2 rounded-full text-sm font-semibold hover:bg-primary hover:text-primary-foreground transition"
-                    >
-                      <MessageSquare size={14} />
-                      Contacter
-                    </button>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-xs text-green-400 bg-green-400/10 rounded-lg p-2.5">
+                        <Sparkles size={14} />
+                        <span>Réservation créée. Passez au paiement depuis « Mes réservations ».</span>
+                      </div>
+                      <button
+                        onClick={() => startConversation(proposal)}
+                        className="flex items-center gap-1.5 border border-primary text-primary px-4 py-2 rounded-full text-sm font-semibold hover:bg-primary hover:text-primary-foreground transition"
+                      >
+                        <MessageSquare size={14} />
+                        Contacter
+                      </button>
+                    </div>
                   )}
                 </div>
               ))}
