@@ -37,19 +37,7 @@ export default function MessagesPage() {
       .catch(() => addToast('Impossible de charger les conversations.', 'error'))
   }, [user, navigate, addToast])
 
-  const openConversation = async (conv) => {
-    setSelectedConv(conv)
-    setShowList(false)
-    try {
-      const res = await fetch(`${API_URL}/api/conversations/${conv._id}/messages`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      })
-      const data = await res.json()
-      setMessages(Array.isArray(data) ? data : [])
-    } catch {
-      addToast('Impossible de charger les messages.', 'error')
-    }
-  }
+  
   const openConversation = async (conv) => {
     setSelectedConv(conv)
     setShowList(false)
