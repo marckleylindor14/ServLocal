@@ -44,13 +44,13 @@ export default function MyDemandsPage() {
       if (res.ok) {
         const data = await res.json()
         setProposals(prev => prev.map(p => p._id === proposalId ? data.proposal : p))
-
         if (status === 'accepted') {
-          addToast('Proposition acceptée ! Réservation créée.', 'success')
-          if (data.conversationId) {
-            setTimeout(() => navigate('/messages'), 800)
+          addToast('Proposition acceptée ! À vous de fixer le rendez-vous 🤝', 'success')
+          if (data.negotiationId) {
+            setTimeout(() => navigate(`/negotiation/${data.negotiationId}`), 800)
           }
-        } else {
+        }
+         else {
           addToast('Proposition refusée.', 'success')
         }
       } else {

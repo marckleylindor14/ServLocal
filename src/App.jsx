@@ -21,6 +21,7 @@ import LandingPage from './pages/LandingPage'
 import Onboarding from './pages/Onboarding'
 import OfflineBanner from './components/OfflineBanner'
 import BottomNav from './components/BottomNav'
+import NegotiationPage from './pages/NegociacionPage'
 
 export default function App() {
   const { user } = useAuth()
@@ -47,6 +48,7 @@ export default function App() {
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/privacy" element={<PrivacyPolicyPage />} />
         <Route path="/onboarding" element={<Onboarding />} />
+        <Route path="/negotiation/:id" element={<NegotiationPage />} />
       </Routes>
       {user && <BottomNav />}
     </>

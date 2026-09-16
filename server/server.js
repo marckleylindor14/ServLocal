@@ -32,6 +32,7 @@ const BOOKINGS_FILE = path.join(__dirname, 'bookings.json');
 const CONVERSATIONS_FILE = path.join(__dirname, 'conversations.json');
 const MESSAGES_FILE = path.join(__dirname, 'messages.json');
 const PROPOSALS_FILE = path.join(__dirname, 'proposals.json');
+const NEGOTIATIONS_FILE = path.join(__dirname, 'negotiations.json');
 const REPORTS_FILE = path.join(__dirname, 'reports.json');
 const DEFAULT_IMAGE = 'https://i.pravatar.cc/100?img=4';
 const JWT_SECRET = process.env.JWT_SECRET || 'servlocal_secret_2026';
@@ -70,7 +71,7 @@ app.use(express.json({ limit: '10kb' }));
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 500,
+  max: 200,
   message: { error: 'Trop de requêtes, réessayez plus tard.' }
 });
 app.use(limiter);
@@ -281,11 +282,15 @@ app.delete('/api/services/:id', authenticateToken, async (req, res) => {
     const services = await readJSON(DATA_FILE);
     const index = services.findIndex(s => Number(s._id) === id);
     if (index === -1) return res.status(404).json({ error: 'Service non trouvé' });
+
+    const proposals = await readJSON(PROPOSALS_FILE);
+    const filtered = proposals.filter(p => p.serviceId !== id);
+    if (filtered.length !== proposals.length) {
+      await writeJSON(PROPOSALS_FILE, filtered);
+    }
+
     services.splice(index, 1);
     await writeJSON(DATA_FILE, services);
-    const proposals = await readJSON(PROPOSALS_FILE);
-    const filteredProposals = proposals.filter(p => p.serviceId !== id);
-    if (filteredProposals.length !== proposals.length) await writeJSON(PROPOSALS_FILE, filteredProposals);
     res.json({ message: 'Service supprimé' });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
@@ -348,7 +353,7 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
     const users = await readJSON(USERS_FILE);
     const user = users.find(u => u._id === req.user.id);
     if (!user) return res.status(404).json({ error: 'Utilisateur non trouvé' });
-    res.json({ id: user._id, name: user.name, email: user.email, photo: user.photo || null, isAdmin: false, verificationStatus: user.verificationStatus || 'none' });
+    res.json({ id: user._id, name: user.name, email: user.email, photo: user.photo || null, isAdmin: false });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
 
@@ -698,74 +703,41 @@ app.put('/api/proposals/:id', authenticateToken, [
     const proposals = await readJSON(PROPOSALS_FILE);
     const index = proposals.findIndex(p => Number(p._id) === id);
     if (index === -1) return res.status(404).json({ error: 'Proposition non trouvée' });
-    if (proposals[index].demandOwnerName !== req.user.name) return res.status(403).json({ error: 'Non autorisé.' });
+    if (proposals[index].demandOwnerId !== req.user.id) return res.status(403).json({ error: 'Non autorisé.' });
     if (proposals[index].status !== 'pending') return res.status(400).json({ error: 'Cette proposition a déjà été traitée.' });
 
     const proposal = proposals[index];
     proposal.status = req.body.status;
     await writeJSON(PROPOSALS_FILE, proposals);
 
-    let bookingId = null;
-    let conversationId = null;
+    let negotiationId = null;
 
     if (req.body.status === 'accepted') {
-      const bookings = await readJSON(BOOKINGS_FILE);
-      const newBooking = {
-        _id: nextId(bookings),
-        serviceId: proposal.serviceId,
-        serviceTitle: proposal.serviceTitle,
-        serviceCategory: '',
-        providerName: proposal.proposerName,
-        providerId: proposal.proposerId,
-        clientId: proposal.demandOwnerId,
-        clientName: proposal.demandOwnerName,
-        date: '',
-        timeSlot: '',
-        message: proposal.message || '',
-        price: proposal.price,
-        status: 'pending',
-        source: 'proposal',
-        createdAt: new Date().toISOString()
-      };
-      bookings.push(newBooking);
-      await writeJSON(BOOKINGS_FILE, bookings);
-      bookingId = newBooking._id;
-
-      const conversations = await readJSON(CONVERSATIONS_FILE);
-      let conversation = conversations.find(c =>
-        c.serviceId === proposal.serviceId &&
-        c.participants.includes(proposal.demandOwnerId) &&
-        c.participants.includes(proposal.proposerId)
-      );
-      if (!conversation) {
-        conversation = {
-          _id: nextId(conversations),
-          participants: [proposal.demandOwnerId, proposal.proposerId],
-          participantsNames: [proposal.demandOwnerName, proposal.proposerName],
+      const negotiations = await readJSON(NEGOTIATIONS_FILE);
+      let negotiation = negotiations.find(n => n.proposalId === proposal._id);
+      if (!negotiation) {
+        negotiation = {
+          _id: nextId(negotiations),
+          proposalId: proposal._id,
           serviceId: proposal.serviceId,
           serviceTitle: proposal.serviceTitle,
+          price: proposal.price,
+          initiatorId: proposal.demandOwnerId,
+          initiatorName: proposal.demandOwnerName,
+          recipientId: proposal.proposerId,
+          recipientName: proposal.proposerName,
+          currentProposal: null,
+          history: [],
+          status: 'pending',
           createdAt: new Date().toISOString()
         };
-        conversations.push(conversation);
-        await writeJSON(CONVERSATIONS_FILE, conversations);
+        negotiations.push(negotiation);
+        await writeJSON(NEGOTIATIONS_FILE, negotiations);
       }
-      conversationId = conversation._id;
-
-      const messages = await readJSON(MESSAGES_FILE);
-      const systemMessage = {
-        _id: nextId(messages),
-        conversationId: conversation._id,
-        senderId: 0,
-        senderName: 'Système',
-        text: `✅ Proposition acceptée à ${proposal.price} €. Vous pouvez maintenant organiser la prestation.`,
-        read: false,
-        createdAt: new Date().toISOString()
-      };
-      messages.push(systemMessage);
-      await writeJSON(MESSAGES_FILE, messages);
+      negotiationId = negotiation._id;
     }
 
-    res.json({ proposal, bookingId, conversationId });
+    res.json({ proposal, negotiationId });
   } catch (error) {
     console.error('Erreur proposition:', error);
     res.status(500).json({ error: 'Erreur interne' });
@@ -778,41 +750,130 @@ app.get('/api/services/:id/proposals', authenticateToken, async (req, res) => {
     const services = await readJSON(DATA_FILE);
     const service = services.find(s => Number(s._id) === serviceId);
     if (!service) return res.status(404).json({ error: 'Service non trouvé' });
-    if (service.providerName !== req.user.name) return res.status(403).json({ error: 'Non autorisé.' });
+    if (service.providerId !== req.user.id) return res.status(403).json({ error: 'Non autorisé.' });
     const proposals = await readJSON(PROPOSALS_FILE);
     res.json(proposals.filter(p => p.serviceId === serviceId));
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
 
-app.post('/api/reports', authenticateToken, [
-  body('targetType').isIn(['service', 'user']).withMessage('Type de cible invalide.'),
-  body('targetId').notEmpty().withMessage('ID de la cible requis.'),
-  body('reason').trim().notEmpty().withMessage('Motif requis.'),
-  body('details').optional().trim().isLength({ max: 500 }).withMessage('Détails trop longs.')
+app.get('/api/negotiations', authenticateToken, async (req, res) => {
+  try {
+    const negotiations = await readJSON(NEGOTIATIONS_FILE);
+    const mine = negotiations.filter(n =>
+      n.initiatorId === req.user.id || n.recipientId === req.user.id
+    );
+    res.json(mine);
+  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+app.get('/api/negotiations/:id', authenticateToken, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const negotiations = await readJSON(NEGOTIATIONS_FILE);
+    const n = negotiations.find(x => Number(x._id) === id);
+    if (!n) return res.status(404).json({ error: 'Négociation non trouvée' });
+    if (n.initiatorId !== req.user.id && n.recipientId !== req.user.id) {
+      return res.status(403).json({ error: 'Non autorisé' });
+    }
+    res.json(n);
+  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+app.put('/api/negotiations/:id/propose', authenticateToken, [
+  body('date').notEmpty().withMessage('Date requise'),
+  body('timeSlot').notEmpty().withMessage('Créneau requis'),
+  body('location').trim().notEmpty().withMessage('Lieu requis')
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation échouée', details: errors.array() });
   try {
-    const reports = await readJSON(REPORTS_FILE);
-    const newReport = {
-      _id: nextId(reports),
-      reporterId: req.user.id,
-      reporterName: req.user.name,
-      targetType: req.body.targetType,
-      targetId: req.body.targetId,
-      targetName: req.body.targetName || '',
-      reason: req.body.reason.trim(),
-      details: req.body.details ? req.body.details.trim() : '',
-      status: 'pending',
+    const id = Number(req.params.id);
+    const negotiations = await readJSON(NEGOTIATIONS_FILE);
+    const idx = negotiations.findIndex(x => Number(x._id) === id);
+    if (idx === -1) return res.status(404).json({ error: 'Négociation non trouvée' });
+    const n = negotiations[idx];
+    if (n.initiatorId !== req.user.id && n.recipientId !== req.user.id) return res.status(403).json({ error: 'Non autorisé' });
+    if (n.status !== 'pending') return res.status(400).json({ error: 'Négociation terminée' });
+
+    if (n.currentProposal) {
+      n.history.push({ ...n.currentProposal, supersededAt: new Date().toISOString() });
+    }
+    n.currentProposal = {
+      date: req.body.date,
+      timeSlot: req.body.timeSlot,
+      location: req.body.location.trim(),
+      proposedById: req.user.id,
+      proposedByName: req.user.name,
+      proposedAt: new Date().toISOString()
+    };
+    negotiations[idx] = n;
+    await writeJSON(NEGOTIATIONS_FILE, negotiations);
+    res.json(n);
+  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+app.put('/api/negotiations/:id/accept', authenticateToken, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const negotiations = await readJSON(NEGOTIATIONS_FILE);
+    const idx = negotiations.findIndex(x => Number(x._id) === id);
+    if (idx === -1) return res.status(404).json({ error: 'Négociation non trouvée' });
+    const n = negotiations[idx];
+    if (n.initiatorId !== req.user.id && n.recipientId !== req.user.id) return res.status(403).json({ error: 'Non autorisé' });
+    if (n.status !== 'pending') return res.status(400).json({ error: 'Négociation terminée' });
+    if (!n.currentProposal) return res.status(400).json({ error: 'Aucune proposition à accepter' });
+    if (n.currentProposal.proposedById === req.user.id) return res.status(400).json({ error: 'Vous ne pouvez pas accepter votre propre proposition' });
+
+    n.status = 'accepted';
+    n.acceptedAt = new Date().toISOString();
+    negotiations[idx] = n;
+    await writeJSON(NEGOTIATIONS_FILE, negotiations);
+
+    const bookings = await readJSON(BOOKINGS_FILE);
+    const newBooking = {
+      _id: nextId(bookings),
+      serviceId: n.serviceId,
+      serviceTitle: n.serviceTitle,
+      serviceCategory: '',
+      providerName: n.recipientName,
+      providerId: n.recipientId,
+      clientId: n.initiatorId,
+      clientName: n.initiatorName,
+      date: n.currentProposal.date,
+      timeSlot: n.currentProposal.timeSlot,
+      location: n.currentProposal.location,
+      message: '',
+      price: n.price,
+      status: 'awaiting_payment',
+      source: 'negotiation',
+      negotiationId: n._id,
       createdAt: new Date().toISOString()
     };
-    reports.push(newReport);
-    await writeJSON(REPORTS_FILE, reports);
-    res.status(201).json({ message: 'Signalement enregistré.' });
-  } catch (error) {
-    console.error('Erreur signalement:', error);
-    res.status(500).json({ error: 'Erreur interne' });
-  }
+    bookings.push(newBooking);
+    await writeJSON(BOOKINGS_FILE, bookings);
+
+    res.json({ negotiation: n, bookingId: newBooking._id });
+  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+app.put('/api/negotiations/:id/refuse', authenticateToken, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const negotiations = await readJSON(NEGOTIATIONS_FILE);
+    const idx = negotiations.findIndex(x => Number(x._id) === id);
+    if (idx === -1) return res.status(404).json({ error: 'Négociation non trouvée' });
+    const n = negotiations[idx];
+    if (n.initiatorId !== req.user.id && n.recipientId !== req.user.id) return res.status(403).json({ error: 'Non autorisé' });
+    if (n.status !== 'pending') return res.status(400).json({ error: 'Négociation terminée' });
+
+    n.status = 'refused';
+    n.refusedAt = new Date().toISOString();
+    n.refusedById = req.user.id;
+    n.refusedByName = req.user.name;
+    negotiations[idx] = n;
+    await writeJSON(NEGOTIATIONS_FILE, negotiations);
+    res.json(n);
+  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
 
 app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
@@ -871,64 +932,6 @@ app.delete('/api/admin/users/:id', authenticateAdmin, async (req, res) => {
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
 
-app.get('/api/admin/verification-requests', authenticateAdmin, async (req, res) => {
-  try {
-    const users = await readJSON(USERS_FILE);
-    const requests = users.filter(u => u.verificationStatus === 'pending').map(u => ({
-      _id: u._id,
-      name: u.name,
-      email: u.email,
-      verificationDocument: u.verificationDocument,
-      verificationStatus: u.verificationStatus
-    }));
-    res.json(requests);
-  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
-});
-
-app.get('/api/admin/reports', authenticateAdmin, async (req, res) => {
-  try {
-    const reports = await readJSON(REPORTS_FILE);
-    const pending = reports.filter(r => r.status === 'pending').sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    res.json(pending);
-  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
-});
-
-app.put('/api/admin/reports/:id/treated', authenticateAdmin, async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    const reports = await readJSON(REPORTS_FILE);
-    const index = reports.findIndex(r => Number(r._id) === id);
-    if (index === -1) return res.status(404).json({ error: 'Signalement non trouvé' });
-    reports[index].status = 'treated';
-    await writeJSON(REPORTS_FILE, reports);
-    res.json({ message: 'Signalement marqué comme traité.' });
-  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
-});
-
-app.put('/api/admin/verify-user/:id', authenticateAdmin, async (req, res) => {
-  try {
-    const userId = Number(req.params.id);
-    const users = await readJSON(USERS_FILE);
-    const index = users.findIndex(u => u._id === userId);
-    if (index === -1) return res.status(404).json({ error: 'Utilisateur non trouvé' });
-    users[index].verificationStatus = 'verified';
-    await writeJSON(USERS_FILE, users);
-    res.json({ message: 'Utilisateur vérifié.' });
-  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
-});
-
-app.put('/api/admin/reject-user/:id', authenticateAdmin, async (req, res) => {
-  try {
-    const userId = Number(req.params.id);
-    const users = await readJSON(USERS_FILE);
-    const index = users.findIndex(u => u._id === userId);
-    if (index === -1) return res.status(404).json({ error: 'Utilisateur non trouvé' });
-    users[index].verificationStatus = 'rejected';
-    await writeJSON(USERS_FILE, users);
-    res.json({ message: 'Vérification refusée.' });
-  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
-});
-
 app.post('/api/user/request-verification', authenticateToken, upload.single('document'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Document requis.' });
@@ -958,66 +961,175 @@ app.post('/api/user/request-verification', authenticateToken, upload.single('doc
   }
 });
 
-app.put('/api/user/profile', authenticateToken, async (req, res) => {
+app.get('/api/admin/verification-requests', authenticateAdmin, async (req, res) => {
   try {
-    const { name, photo } = req.body;
     const users = await readJSON(USERS_FILE);
-    const index = users.findIndex(u => u._id === req.user.id);
+    const requests = users.filter(u => u.verificationStatus === 'pending').map(u => ({
+      _id: u._id,
+      name: u.name,
+      email: u.email,
+      verificationDocument: u.verificationDocument,
+      verificationStatus: u.verificationStatus
+    }));
+    res.json(requests);
+  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+app.put('/api/admin/verify-user/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const userId = Number(req.params.id);
+    const users = await readJSON(USERS_FILE);
+    const index = users.findIndex(u => u._id === userId);
     if (index === -1) return res.status(404).json({ error: 'Utilisateur non trouvé' });
-    if (name) users[index].name = name;
-    if (photo) users[index].photo = photo;
+    users[index].verificationStatus = 'verified';
     await writeJSON(USERS_FILE, users);
-    res.json({
-      id: users[index]._id,
-      name: users[index].name,
-      email: users[index].email,
-      photo: users[index].photo || null,
-      verificationStatus: users[index].verificationStatus || 'none'
-    });
+    res.json({ message: 'Utilisateur vérifié.' });
+  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+app.put('/api/admin/reject-user/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const userId = Number(req.params.id);
+    const users = await readJSON(USERS_FILE);
+    const index = users.findIndex(u => u._id === userId);
+    if (index === -1) return res.status(404).json({ error: 'Utilisateur non trouvé' });
+    users[index].verificationStatus = 'rejected';
+    await writeJSON(USERS_FILE, users);
+    res.json({ message: 'Vérification refusée.' });
+  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+app.post('/api/reports', authenticateToken, [
+  body('targetType').isIn(['service', 'user']).withMessage('Type de cible invalide.'),
+  body('targetId').notEmpty().withMessage('ID de la cible requis.'),
+  body('reason').trim().notEmpty().withMessage('Motif requis.'),
+  body('details').optional().trim().isLength({ max: 500 }).withMessage('Détails trop longs.')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation échouée', details: errors.array() });
+  try {
+    const reports = await readJSON(REPORTS_FILE);
+    const newReport = {
+      _id: nextId(reports),
+      reporterId: req.user.id,
+      reporterName: req.user.name,
+      targetType: req.body.targetType,
+      targetId: req.body.targetId,
+      targetName: req.body.targetName || '',
+      reason: req.body.reason.trim(),
+      details: req.body.details ? req.body.details.trim() : '',
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    reports.push(newReport);
+    await writeJSON(REPORTS_FILE, reports);
+    res.status(201).json({ message: 'Signalement enregistré.' });
   } catch (error) {
+    console.error('Erreur signalement:', error);
     res.status(500).json({ error: 'Erreur interne' });
   }
 });
 
-app.put('/api/user/change-password', authenticateToken, async (req, res) => {
+app.get('/api/admin/reports', authenticateAdmin, async (req, res) => {
   try {
-    const { currentPassword, newPassword } = req.body;
-    if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Mot de passe actuel et nouveau requis.' });
-    const users = await readJSON(USERS_FILE);
-    const index = users.findIndex(u => u._id === req.user.id);
-    if (index === -1) return res.status(404).json({ error: 'Utilisateur non trouvé' });
-    const isMatch = await bcrypt.compare(currentPassword, users[index].password);
-    if (!isMatch) return res.status(400).json({ error: 'Mot de passe actuel incorrect.' });
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    users[index].password = hashedPassword;
-    await writeJSON(USERS_FILE, users);
-    res.json({ message: 'Mot de passe mis à jour.' });
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
+    const reports = await readJSON(REPORTS_FILE);
+    const pending = reports.filter(r => r.status === 'pending').sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    res.json(pending);
+  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
 
-app.get('/api/user/stats', authenticateToken, async (req, res) => {
+app.put('/api/admin/reports/:id/treated', authenticateAdmin, async (req, res) => {
   try {
-    const [services, bookings] = await Promise.all([
-      readJSON(DATA_FILE),
-      readJSON(BOOKINGS_FILE)
-    ]);
-    const userId = req.user.id;
-    const userName = req.user.name;
-    const myServices = services.filter(s => s.providerName === userName);
-    const bookingsReceived = bookings.filter(b => b.providerName === userName);
-    const bookingsMade = bookings.filter(b => b.clientId === userId);
-    res.json({
-      totalServices: myServices.length,
-      bookingsReceived: bookingsReceived.length,
-      bookingsMade: bookingsMade.length,
-      pendingReceived: bookingsReceived.filter(b => b.status === 'pending').length,
-      confirmedReceived: bookingsReceived.filter(b => b.status === 'confirmed').length,
-    });
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur interne' });
-  }
+    const id = Number(req.params.id);
+    const reports = await readJSON(REPORTS_FILE);
+    const index = reports.findIndex(r => Number(r._id) === id);
+    if (index === -1) return res.status(404).json({ error: 'Signalement non trouvé' });
+    reports[index].status = 'treated';
+    await writeJSON(REPORTS_FILE, reports);
+    res.json({ message: 'Signalement marqué comme traité.' });
+  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+if (stripe) {
+  app.post('/api/create-checkout-session', authenticateToken, async (req, res) => {
+    try {
+      const { serviceId, bookingId } = req.body;
+      if (!serviceId || !bookingId) return res.status(400).json({ error: 'serviceId et bookingId requis.' });
+      const services = await readJSON(DATA_FILE);
+      const service = services.find(s => Number(s._id) === Number(serviceId));
+      if (!service) return res.status(404).json({ error: 'Service non trouvé.' });
+      const bookings = await readJSON(BOOKINGS_FILE);
+      const booking = bookings.find(b => Number(b._id) === Number(bookingId));
+      if (!booking) return res.status(404).json({ error: 'Réservation non trouvée.' });
+
+      let amount = 0;
+      if (booking.price) {
+        const parsed = parseFloat(booking.price);
+        if (!isNaN(parsed)) amount = Math.round(parsed * 100);
+      } else if (service.price) {
+        const parsed = parseFloat(service.price);
+        if (!isNaN(parsed)) amount = Math.round(parsed * 100);
+      }
+      if (amount <= 0) return res.status(400).json({ error: 'Ce service n\'a pas de prix valide.' });
+
+      const totalAmount = Math.round(amount * 1.1);
+
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [{
+          price_data: {
+            currency: 'eur',
+            product_data: {
+              name: service.title,
+              description: `Prix : ${booking.price || service.price} € (commission incluse)`,
+            },
+            unit_amount: totalAmount,
+          },
+          quantity: 1,
+        }],
+        mode: 'payment',
+        success_url: `${process.env.FRONTEND_URL || 'https://servlocal-app.vercel.app'}/payment-success?session_id={CHECKOUT_SESSION_ID}&booking_id=${bookingId}`,
+        cancel_url: `${process.env.FRONTEND_URL || 'https://servlocal-app.vercel.app'}/my-bookings`,
+        metadata: { bookingId: String(bookingId), serviceId: String(serviceId), userId: String(req.user.id) },
+      });
+      res.json({ url: session.url });
+    } catch (error) {
+      console.error('Erreur Stripe:', error);
+      res.status(500).json({ error: 'Impossible de créer la session de paiement.' });
+    }
+  });
+
+  app.get('/api/booking/confirm', async (req, res) => {
+    try {
+      const { session_id } = req.query;
+      if (!session_id) return res.status(400).json({ error: 'session_id manquant.' });
+      const session = await stripe.checkout.sessions.retrieve(session_id);
+      if (session.payment_status !== 'paid') return res.status(400).json({ error: 'Paiement non confirmé.' });
+      const bookingId = session.metadata?.bookingId;
+      if (!bookingId) return res.status(400).json({ error: 'Métadonnées manquantes.' });
+      const bookings = await readJSON(BOOKINGS_FILE);
+      const index = bookings.findIndex(b => Number(b._id) === Number(bookingId));
+      if (index === -1) return res.status(404).json({ error: 'Réservation introuvable.' });
+      bookings[index].paymentStatus = 'paid';
+      bookings[index].status = 'confirmed';
+      await writeJSON(BOOKINGS_FILE, bookings);
+      res.redirect(`${process.env.FRONTEND_URL || 'https://servlocal-app.vercel.app'}/payment-success?booking_id=${bookingId}&status=paid`);
+    } catch (error) {
+      console.error('Erreur confirmation Stripe:', error);
+      res.status(500).json({ error: 'Erreur interne.' });
+    }
+  });
+} else {
+  app.post('/api/create-checkout-session', (req, res) => res.status(503).json({ error: 'Paiement non configuré.' }));
+  app.get('/api/booking/confirm', (req, res) => res.status(503).json({ error: 'Paiement non configuré.' }));
+}
+
+app.get('/api/cities', async (req, res) => {
+  try {
+    const services = await readJSON(DATA_FILE);
+    const cities = [...new Set(services.map(s => s.city).filter(Boolean))].sort();
+    res.json(cities);
+  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
 
 app.get('/api/notifications', authenticateToken, async (req, res) => {
@@ -1054,73 +1166,6 @@ app.get('/api/notifications', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Erreur interne' });
   }
 });
-
-app.get('/api/cities', async (req, res) => {
-  try {
-    const services = await readJSON(DATA_FILE);
-    const cities = [...new Set(services.map(s => s.city).filter(Boolean))].sort();
-    res.json(cities);
-  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
-});
-
-if (stripe) {
-  app.post('/api/create-checkout-session', authenticateToken, async (req, res) => {
-    try {
-      const { serviceId, bookingId } = req.body;
-      if (!serviceId || !bookingId) return res.status(400).json({ error: 'serviceId et bookingId requis.' });
-      const services = await readJSON(DATA_FILE);
-      const service = services.find(s => Number(s._id) === Number(serviceId));
-      if (!service) return res.status(404).json({ error: 'Service non trouvé.' });
-      const bookings = await readJSON(BOOKINGS_FILE);
-      const booking = bookings.find(b => Number(b._id) === Number(bookingId));
-      if (!booking) return res.status(404).json({ error: 'Réservation non trouvée.' });
-      let baseAmount = 0;
-      if (service.price) {
-        const parsed = parseFloat(service.price);
-        if (!isNaN(parsed)) baseAmount = Math.round(parsed * 100);
-      }
-      if (baseAmount <= 0) return res.status(400).json({ error: 'Ce service n\'a pas de prix valide.' });
-      const totalAmount = Math.round(baseAmount * 1.1);
-      const session = await stripe.checkout.sessions.create({
-        payment_method_types: ['card'],
-        line_items: [{
-          price_data: {
-            currency: 'eur',
-            product_data: { name: service.title, description: `Prix initial : ${service.price} € (commission incluse)` },
-            unit_amount: totalAmount,
-          },
-          quantity: 1,
-        }],
-        mode: 'payment',
-        success_url: `${process.env.FRONTEND_URL || 'https://servlocal-app.vercel.app'}/payment-success?session_id={CHECKOUT_SESSION_ID}&booking_id=${bookingId}`,
-        cancel_url: `${process.env.FRONTEND_URL || 'https://servlocal-app.vercel.app'}/my-bookings`,
-        metadata: { bookingId: String(bookingId), serviceId: String(serviceId), userId: String(req.user.id) },
-      });
-      res.json({ url: session.url });
-    } catch (error) { res.status(500).json({ error: 'Impossible de créer la session de paiement.' }); }
-  });
-
-  app.get('/api/booking/confirm', async (req, res) => {
-    try {
-      const { session_id } = req.query;
-      if (!session_id) return res.status(400).json({ error: 'session_id manquant.' });
-      const session = await stripe.checkout.sessions.retrieve(session_id);
-      if (session.payment_status !== 'paid') return res.status(400).json({ error: 'Paiement non confirmé.' });
-      const bookingId = session.metadata?.bookingId;
-      if (!bookingId) return res.status(400).json({ error: 'Métadonnées manquantes.' });
-      const bookings = await readJSON(BOOKINGS_FILE);
-      const index = bookings.findIndex(b => Number(b._id) === Number(bookingId));
-      if (index === -1) return res.status(404).json({ error: 'Réservation introuvable.' });
-      bookings[index].paymentStatus = 'paid';
-      bookings[index].status = 'confirmed';
-      await writeJSON(BOOKINGS_FILE, bookings);
-      res.redirect(`${process.env.FRONTEND_URL || 'https://servlocal-app.vercel.app'}/payment-success?booking_id=${bookingId}&status=paid`);
-    } catch (error) { res.status(500).json({ error: 'Erreur interne.' }); }
-  });
-} else {
-  app.post('/api/create-checkout-session', (req, res) => res.status(503).json({ error: 'Paiement non configuré.' }));
-  app.get('/api/booking/confirm', (req, res) => res.status(503).json({ error: 'Paiement non configuré.' }));
-}
 
 app.get('/', (req, res) => res.status(200).send('OK'));
 
