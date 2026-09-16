@@ -8,7 +8,7 @@ import PageTransition from '../components/PageTransition'
 import TypingIndicator from '../components/TypingIndicator'
 import DateSeparator from '../components/DateSeparator'
 import API_URL from '../config'
-import { Send, Search, ArrowLeft, CheckCheck, MessageSquare, Smile, MoreVertical } from 'lucide-react'
+import { Send, Search, ArrowLeft, CheckCheck, Check, MessageSquare, Smile, MoreVertical } from 'lucide-react'
 
 export default function MessagesPage() {
   const { user } = useAuth()
@@ -23,7 +23,9 @@ export default function MessagesPage() {
   const [isTyping, setIsTyping] = useState(false)
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
+  const pollingIntervalRef = useRef(null)
 
+  // Charger les conversations
   useEffect(() => {
     if (!user) {
       navigate('/login')
@@ -37,7 +39,35 @@ export default function MessagesPage() {
       .catch(() => addToast('Impossible de charger les conversations.', 'error'))
   }, [user, navigate, addToast])
 
-  
+  // Polling pour les nouveaux messages de la conversation ouverte
+  useEffect(() => {
+    if (!selectedConv) return
+
+    const fetchMessages = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/conversations/${selectedConv._id}/messages`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        })
+        const data = await res.json()
+        if (Array.isArray(data)) {
+          setMessages(data)
+          // Faire défiler vers le bas si de nouveaux messages arrivent
+          setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+        }
+      } catch (err) {
+        console.error('Erreur polling messages:', err)
+      }
+    }
+
+    // Lancer le polling toutes les 3 secondes
+    pollingIntervalRef.current = setInterval(fetchMessages, 3000)
+
+    // Nettoyer à la fermeture
+    return () => {
+      if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current)
+    }
+  }, [selectedConv])
+
   const openConversation = async (conv) => {
     setSelectedConv(conv)
     setShowList(false)
@@ -47,7 +77,8 @@ export default function MessagesPage() {
       })
       const data = await res.json()
       setMessages(Array.isArray(data) ? data : [])
-  
+
+      // Marquer les messages comme lus
       await fetch(`${API_URL}/api/conversations/${conv._id}/read`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -74,6 +105,11 @@ export default function MessagesPage() {
       if (res.ok) {
         const msg = await res.json()
         setMessages(prev => [...prev, msg])
+        // Marquer immédiatement la conversation comme lue pour ce nouveau message
+        await fetch(`${API_URL}/api/conversations/${selectedConv._id}/read`, {
+          method: 'PUT',
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        })
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
       } else {
         addToast('Échec de l\'envoi.', 'error')
@@ -95,6 +131,7 @@ export default function MessagesPage() {
     setSelectedConv(null)
     setShowList(true)
     setMessages([])
+    if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current)
   }
 
   const formatTime = (dateStr) => {
@@ -143,6 +180,7 @@ export default function MessagesPage() {
       <div className="min-h-screen bg-background text-foreground font-sans">
         <Header />
 
+        {/* Vue mobile : liste des conversations */}
         <div className={`md:hidden fixed inset-0 top-16 z-40 bg-background transition-transform duration-300 ${showList ? 'translate-x-0' : '-translate-x-full'}`}>
           <div className="flex flex-col h-full">
             <div className="px-4 py-3 border-b border-border/40">
@@ -193,6 +231,7 @@ export default function MessagesPage() {
           </div>
         </div>
 
+        {/* Vue mobile : conversation ouverte */}
         <div className={`md:hidden fixed inset-0 top-16 z-40 bg-background transition-transform duration-300 ${showList ? 'translate-x-full' : 'translate-x-0'}`}>
           {selectedConv && (
             <div className="flex flex-col h-full">
@@ -235,7 +274,13 @@ export default function MessagesPage() {
                           <span className="text-[10px]">
                             {new Date(item.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                           </span>
-                          {isOwn && <CheckCheck size={12} />}
+                          {isOwn && (
+                            item.read ? (
+                              <CheckCheck size={14} className="text-blue-400" />
+                            ) : (
+                              <Check size={14} className="text-primary-foreground/60" />
+                            )
+                          )}
                         </div>
                       </div>
                     </div>
@@ -289,6 +334,7 @@ export default function MessagesPage() {
           )}
         </div>
 
+        {/* Vue desktop : deux colonnes */}
         <div className="hidden md:flex max-w-6xl mx-auto px-4 pt-24 pb-6 h-screen">
           <div className="w-80 bg-card/50 border border-border/40 rounded-2xl overflow-hidden flex flex-col mr-4">
             <div className="px-4 py-3 border-b border-border/40">
@@ -374,7 +420,13 @@ export default function MessagesPage() {
                             <span className="text-[10px]">
                               {new Date(item.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                             </span>
-                            {isOwn && <CheckCheck size={12} />}
+                            {isOwn && (
+                              item.read ? (
+                                <CheckCheck size={14} className="text-blue-400" />
+                              ) : (
+                                <Check size={14} className="text-primary-foreground/60" />
+                              )
+                            )}
                           </div>
                         </div>
                       </div>
