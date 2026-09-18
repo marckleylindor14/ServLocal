@@ -34,6 +34,7 @@ const MESSAGES_FILE = path.join(__dirname, 'messages.json');
 const PROPOSALS_FILE = path.join(__dirname, 'proposals.json');
 const NEGOTIATIONS_FILE = path.join(__dirname, 'negotiations.json');
 const REPORTS_FILE = path.join(__dirname, 'reports.json');
+const BLOCKS_FILE = path.join(__dirname, 'blocks.json');
 const DEFAULT_IMAGE = 'https://i.pravatar.cc/100?img=4';
 const JWT_SECRET = process.env.JWT_SECRET || 'servlocal_secret_2026';
 const ADMIN_EMAILS = process.env.ADMIN_EMAILS
@@ -129,6 +130,14 @@ function authenticateAdmin(req, res, next) {
     }
     next();
   });
+}
+
+async function isBlocked(userA, userB) {
+  const blocks = await readJSON(BLOCKS_FILE);
+  return blocks.some(b =>
+    (b.blockerId === userA && b.blockedId === userB) ||
+    (b.blockerId === userB && b.blockedId === userA)
+  );
 }
 
 const storage = multer.memoryStorage();
@@ -314,6 +323,7 @@ app.post('/api/auth/register', authLimiter, [
       name,
       email,
       password: hashedPassword,
+      privacy: { hideEmail: false, hideName: false },
       createdAt: new Date().toISOString()
     };
     users.push(newUser);
@@ -343,7 +353,17 @@ app.post('/api/auth/login', authLimiter, [
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
     const token = jwt.sign({ id: user._id, name: user.name, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token, user: { id: user._id, name: user.name, email: user.email, isAdmin: ADMIN_EMAILS.includes(user.email) } });
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        photo: user.photo || null,
+        isAdmin: ADMIN_EMAILS.includes(user.email),
+        privacy: user.privacy || { hideEmail: false, hideName: false }
+      }
+    });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
 
@@ -353,7 +373,14 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
     const users = await readJSON(USERS_FILE);
     const user = users.find(u => u._id === req.user.id);
     if (!user) return res.status(404).json({ error: 'Utilisateur non trouvé' });
-    res.json({ id: user._id, name: user.name, email: user.email, photo: user.photo || null, isAdmin: false });
+    res.json({
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      photo: user.photo || null,
+      isAdmin: false,
+      privacy: user.privacy || { hideEmail: false, hideName: false }
+    });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
 
@@ -401,59 +428,64 @@ app.post('/api/auth/reset-password', async (req, res) => {
   }
 });
 
-app.put('/api/user/profile', authenticateToken, async (req, res) => {
+app.put('/api/user/privacy', authenticateToken, [
+  body('hideEmail').optional().isBoolean(),
+  body('hideName').optional().isBoolean()
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation échouée', details: errors.array() });
   try {
-    const { name, photo } = req.body;
     const users = await readJSON(USERS_FILE);
     const index = users.findIndex(u => u._id === req.user.id);
     if (index === -1) return res.status(404).json({ error: 'Utilisateur non trouvé' });
-    if (name) users[index].name = name;
-    if (photo) users[index].photo = photo;
+    users[index].privacy = {
+      hideEmail: req.body.hideEmail !== undefined ? req.body.hideEmail : (users[index].privacy?.hideEmail || false),
+      hideName: req.body.hideName !== undefined ? req.body.hideName : (users[index].privacy?.hideName || false)
+    };
     await writeJSON(USERS_FILE, users);
-    res.json({
-      id: users[index]._id,
-      name: users[index].name,
-      email: users[index].email,
-      photo: users[index].photo || null
-    });
+    res.json({ privacy: users[index].privacy });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
 
-app.put('/api/user/change-password', authenticateToken, async (req, res) => {
+app.delete('/api/user/account', authenticateToken, async (req, res) => {
   try {
-    const { currentPassword, newPassword } = req.body;
-    if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Mot de passe actuel et nouveau requis.' });
+    const { password } = req.body;
+    if (!password) return res.status(400).json({ error: 'Mot de passe requis pour confirmer.' });
+
     const users = await readJSON(USERS_FILE);
-    const index = users.findIndex(u => u._id === req.user.id);
-    if (index === -1) return res.status(404).json({ error: 'Utilisateur non trouvé' });
-    const isMatch = await bcrypt.compare(currentPassword, users[index].password);
-    if (!isMatch) return res.status(400).json({ error: 'Mot de passe actuel incorrect.' });
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    users[index].password = hashedPassword;
-    await writeJSON(USERS_FILE, users);
-    res.json({ message: 'Mot de passe mis à jour.' });
-  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
-});
+    const userIndex = users.findIndex(u => u._id === req.user.id);
+    if (userIndex === -1) return res.status(404).json({ error: 'Utilisateur non trouvé' });
 
-app.get('/api/user/stats', authenticateToken, async (req, res) => {
-  try {
-    const [services, bookings] = await Promise.all([
-      readJSON(DATA_FILE),
-      readJSON(BOOKINGS_FILE)
+    const isMatch = await bcrypt.compare(password, users[userIndex].password);
+    if (!isMatch) return res.status(401).json({ error: 'Mot de passe incorrect.' });
+
+    const userId = users[userIndex]._id;
+    const userName = users[userIndex].name;
+    users.splice(userIndex, 1);
+    await writeJSON(USERS_FILE, users);
+
+    const [services, reviews, bookings, conversations, messages, proposals, negotiations, blocks] = await Promise.all([
+      readJSON(DATA_FILE), readJSON(REVIEWS_FILE), readJSON(BOOKINGS_FILE),
+      readJSON(CONVERSATIONS_FILE), readJSON(MESSAGES_FILE), readJSON(PROPOSALS_FILE),
+      readJSON(NEGOTIATIONS_FILE), readJSON(BLOCKS_FILE)
     ]);
-    const userId = req.user.id;
-    const userName = req.user.name;
-    const myServices = services.filter(s => s.providerName === userName);
-    const bookingsReceived = bookings.filter(b => b.providerName === userName);
-    const bookingsMade = bookings.filter(b => b.clientId === userId);
-    res.json({
-      totalServices: myServices.length,
-      bookingsReceived: bookingsReceived.length,
-      bookingsMade: bookingsMade.length,
-      pendingReceived: bookingsReceived.filter(b => b.status === 'pending').length,
-      confirmedReceived: bookingsReceived.filter(b => b.status === 'confirmed').length,
-    });
-  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
+
+    await writeJSON(DATA_FILE, services.filter(s => s.providerId !== userId));
+    await writeJSON(REVIEWS_FILE, reviews.filter(r => r.userId !== userId));
+    await writeJSON(BOOKINGS_FILE, bookings.filter(b => b.clientId !== userId && b.providerId !== userId));
+    await writeJSON(CONVERSATIONS_FILE, conversations.filter(c => !c.participants.includes(userId)));
+
+    const remainingConvIds = (await readJSON(CONVERSATIONS_FILE)).map(c => c._id);
+    await writeJSON(MESSAGES_FILE, messages.filter(m => remainingConvIds.includes(m.conversationId)));
+    await writeJSON(PROPOSALS_FILE, proposals.filter(p => p.proposerId !== userId && p.demandOwnerId !== userId));
+    await writeJSON(NEGOTIATIONS_FILE, negotiations.filter(n => n.initiatorId !== userId && n.recipientId !== userId));
+    await writeJSON(BLOCKS_FILE, blocks.filter(b => b.blockerId !== userId && b.blockedId !== userId));
+
+    res.json({ message: 'Compte supprimé.' });
+  } catch (error) {
+    console.error('Erreur suppression compte:', error);
+    res.status(500).json({ error: 'Erreur interne' });
+  }
 });
 
 app.get('/api/services/:id/reviews', async (req, res) => {
@@ -527,6 +559,12 @@ app.post('/api/services/:id/bookings', authenticateToken, [
     const services = await readJSON(DATA_FILE);
     const service = services.find(s => Number(s._id) === serviceId);
     if (!service) return res.status(404).json({ error: 'Service non trouvé' });
+
+    if (service.providerId) {
+      const blocked = await isBlocked(req.user.id, service.providerId);
+      if (blocked) return res.status(403).json({ error: 'Vous ne pouvez pas contacter cet utilisateur.' });
+    }
+
     const bookings = await readJSON(BOOKINGS_FILE);
     const newBooking = {
       _id: nextId(bookings),
@@ -595,6 +633,64 @@ app.put('/api/bookings/:id', authenticateToken, async (req, res) => {
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
 
+app.get('/api/blocks', authenticateToken, async (req, res) => {
+  try {
+    const blocks = await readJSON(BLOCKS_FILE);
+    const users = await readJSON(USERS_FILE);
+    const mine = blocks.filter(b => b.blockerId === req.user.id).map(b => {
+      const blockedUser = users.find(u => u._id === b.blockedId);
+      return {
+        _id: b._id,
+        blockedId: b.blockedId,
+        blockedName: b.blockedName || blockedUser?.name || 'Utilisateur',
+        blockedPhoto: blockedUser?.photo || null,
+        createdAt: b.createdAt
+      };
+    });
+    res.json(mine);
+  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+app.post('/api/blocks', authenticateToken, [
+  body('blockedId').isInt().withMessage('ID invalide.'),
+  body('blockedName').trim().notEmpty().withMessage('Nom requis.')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation échouée', details: errors.array() });
+  try {
+    const blockedId = Number(req.body.blockedId);
+    if (blockedId === req.user.id) return res.status(400).json({ error: 'Vous ne pouvez pas vous bloquer vous-même.' });
+
+    const blocks = await readJSON(BLOCKS_FILE);
+    const existing = blocks.find(b => b.blockerId === req.user.id && b.blockedId === blockedId);
+    if (existing) return res.status(409).json({ error: 'Déjà bloqué.' });
+
+    const newBlock = {
+      _id: nextId(blocks),
+      blockerId: req.user.id,
+      blockerName: req.user.name,
+      blockedId,
+      blockedName: req.body.blockedName,
+      createdAt: new Date().toISOString()
+    };
+    blocks.push(newBlock);
+    await writeJSON(BLOCKS_FILE, blocks);
+    res.status(201).json(newBlock);
+  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+app.delete('/api/blocks/:id', authenticateToken, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const blocks = await readJSON(BLOCKS_FILE);
+    const index = blocks.findIndex(b => Number(b._id) === id && b.blockerId === req.user.id);
+    if (index === -1) return res.status(404).json({ error: 'Blocage non trouvé' });
+    blocks.splice(index, 1);
+    await writeJSON(BLOCKS_FILE, blocks);
+    res.json({ message: 'Utilisateur débloqué.' });
+  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
+});
+
 app.get('/api/conversations', authenticateToken, async (req, res) => {
   try {
     const conversations = await readJSON(CONVERSATIONS_FILE);
@@ -611,6 +707,10 @@ app.post('/api/conversations', authenticateToken, [
   if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation échouée', details: errors.array() });
   try {
     const { recipientId, recipientName, serviceId, serviceTitle } = req.body;
+
+    const blocked = await isBlocked(req.user.id, recipientId);
+    if (blocked) return res.status(403).json({ error: 'Vous ne pouvez pas contacter cet utilisateur.' });
+
     const conversations = await readJSON(CONVERSATIONS_FILE);
     let conversation = conversations.find(c =>
       c.serviceId === serviceId &&
@@ -655,6 +755,13 @@ app.post('/api/conversations/:id/messages', authenticateToken, [
     const conversations = await readJSON(CONVERSATIONS_FILE);
     const conversation = conversations.find(c => c._id === conversationId);
     if (!conversation || !conversation.participants.includes(req.user.id)) return res.status(403).json({ error: 'Accès refusé.' });
+
+    const otherId = conversation.participants.find(p => p !== req.user.id);
+    if (otherId) {
+      const blocked = await isBlocked(req.user.id, otherId);
+      if (blocked) return res.status(403).json({ error: 'Vous ne pouvez pas envoyer de message à cet utilisateur.' });
+    }
+
     const messages = await readJSON(MESSAGES_FILE);
     const newMessage = {
       _id: nextId(messages),
@@ -702,7 +809,10 @@ app.post('/api/services/:id/proposals', authenticateToken, [
     const service = services.find(s => Number(s._id) === serviceId);
     if (!service) return res.status(404).json({ error: 'Service non trouvé' });
     if (service.type !== 'demand') return res.status(400).json({ error: 'Ce service n\'est pas une demande.' });
-    if (service.providerName === req.user.name) return res.status(400).json({ error: 'Vous ne pouvez pas répondre à votre propre demande.' });
+    if (service.providerId === req.user.id) return res.status(400).json({ error: 'Vous ne pouvez pas répondre à votre propre demande.' });
+
+    const blocked = await isBlocked(req.user.id, service.providerId);
+    if (blocked) return res.status(403).json({ error: 'Vous ne pouvez pas contacter cet utilisateur.' });
 
     const proposals = await readJSON(PROPOSALS_FILE);
     const existing = proposals.find(p => p.serviceId === serviceId && p.proposerId === req.user.id);
@@ -1240,7 +1350,7 @@ if (stripe) {
         }],
         mode: 'payment',
         success_url: `${process.env.FRONTEND_URL || 'https://servlocal-app.vercel.app'}/payment-success?session_id={CHECKOUT_SESSION_ID}&booking_id=${bookingId}`,
-        cancel_url: `${process.env.FRONTEND_URL || 'https://servlocal-app.vercel.app'}/my-bookings`,
+        cancel_url: `${process.env.FRONTEND_URL || 'https://servlocal-app.vercel.app'}/activity`,
         metadata: { bookingId: String(bookingId), serviceId: String(serviceId), userId: String(req.user.id) },
       });
       res.json({ url: session.url });

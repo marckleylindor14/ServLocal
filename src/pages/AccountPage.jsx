@@ -5,10 +5,13 @@ import { useToast } from '../context/ToastContext'
 import Header from '../components/Header'
 import PageTransition from '../components/PageTransition'
 import API_URL from '../config'
-import { Upload, X, Loader2, Lock, BarChart3, Eye, EyeOff, ShieldCheck, Clock, AlertTriangle } from 'lucide-react'
+import {
+  Upload, X, Loader2, Lock, BarChart3, Eye, EyeOff,
+  ShieldCheck, Clock, AlertTriangle, Ban, User, Trash2, Eye as EyeIcon
+} from 'lucide-react'
 
 export default function AccountPage() {
-  const { user, login } = useAuth()
+  const { user, login, logout } = useAuth()
   const navigate = useNavigate()
   const { addToast } = useToast()
   const [name, setName] = useState(user?.name || '')
@@ -17,7 +20,6 @@ export default function AccountPage() {
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef(null)
 
-  // Mot de passe
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [passwordLoading, setPasswordLoading] = useState(false)
@@ -26,29 +28,44 @@ export default function AccountPage() {
   const [showCurrent, setShowCurrent] = useState(false)
   const [showNew, setShowNew] = useState(false)
 
-  // Statistiques
   const [stats, setStats] = useState(null)
 
-  // Vérification
   const [verificationDoc, setVerificationDoc] = useState(null)
   const [verificationDocPreview, setVerificationDocPreview] = useState(null)
   const [verificationSubmitting, setVerificationSubmitting] = useState(false)
   const [verificationMessage, setVerificationMessage] = useState('')
   const verificationFileRef = useRef(null)
 
+  const [privacy, setPrivacy] = useState({
+    hideEmail: user?.privacy?.hideEmail || false,
+    hideName: user?.privacy?.hideName || false
+  })
+  const [privacySaving, setPrivacySaving] = useState(false)
+
+  const [blockedUsers, setBlockedUsers] = useState([])
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deletePassword, setDeletePassword] = useState('')
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+
   useEffect(() => {
-    if (!user) navigate('/login')
-    else {
-      fetch(`${API_URL}/api/user/stats`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      })
-        .then(res => res.json())
-        .then(data => setStats(data))
-        .catch(() => setStats(null))
-    }
+    if (!user) { navigate('/login'); return }
+    fetch(`${API_URL}/api/user/stats`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    })
+      .then(res => res.json())
+      .then(data => setStats(data))
+      .catch(() => setStats(null))
+
+    fetch(`${API_URL}/api/blocks`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    })
+      .then(res => res.json())
+      .then(data => setBlockedUsers(Array.isArray(data) ? data : []))
+      .catch(() => setBlockedUsers([]))
   }, [user, navigate])
 
-  // Profil
   const handlePhotoChange = (e) => {
     const file = e.target.files[0]
     if (file) {
@@ -88,7 +105,7 @@ export default function AccountPage() {
       })
       if (!res.ok) throw new Error('Erreur mise à jour')
       const updatedUser = await res.json()
-      login(updatedUser, localStorage.getItem('token'))
+      login({ ...updatedUser, isAdmin: user.isAdmin, privacy: user.privacy }, localStorage.getItem('token'))
       addToast('Profil mis à jour !', 'success')
     } catch (err) {
       addToast('Erreur : ' + err.message, 'error')
@@ -97,7 +114,6 @@ export default function AccountPage() {
     }
   }
 
-  // Mot de passe
   const handlePasswordChange = async (e) => {
     e.preventDefault()
     setPasswordError('')
@@ -121,7 +137,7 @@ export default function AccountPage() {
         setPasswordSuccess('Mot de passe modifié avec succès !')
         setCurrentPassword('')
         setNewPassword('')
-        addToast('Mot de passe modifié avec succès !', 'success')
+        addToast('Mot de passe modifié !', 'success')
       } else {
         setPasswordError(data.error || 'Erreur')
         addToast(data.error || 'Erreur', 'error')
@@ -134,7 +150,6 @@ export default function AccountPage() {
     }
   }
 
-  // Vérification
   const handleVerificationDocChange = (e) => {
     const file = e.target.files[0]
     if (file) {
@@ -175,18 +190,89 @@ export default function AccountPage() {
     }
   }
 
+  const togglePrivacy = async (key) => {
+    const newValue = !privacy[key]
+    const newPrivacy = { ...privacy, [key]: newValue }
+    setPrivacy(newPrivacy)
+    setPrivacySaving(true)
+    try {
+      const res = await fetch(`${API_URL}/api/user/privacy`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(newPrivacy)
+      })
+      if (res.ok) {
+        const data = await res.json()
+        login({ ...user, privacy: data.privacy }, localStorage.getItem('token'))
+        addToast('Préférence enregistrée.', 'success')
+      }
+    } catch {
+      addToast('Erreur', 'error')
+      setPrivacy(privacy)
+    } finally {
+      setPrivacySaving(false)
+    }
+  }
+
+  const handleUnblock = async (blockId) => {
+    if (!confirm('Débloquer cet utilisateur ?')) return
+    try {
+      await fetch(`${API_URL}/api/blocks/${blockId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      })
+      setBlockedUsers(prev => prev.filter(b => b._id !== blockId))
+      addToast('Utilisateur débloqué.', 'success')
+    } catch {
+      addToast('Erreur', 'error')
+    }
+  }
+
+  const handleDeleteAccount = async () => {
+    setDeleteError('')
+    if (!deletePassword) {
+      setDeleteError('Mot de passe requis.')
+      return
+    }
+    setDeleteLoading(true)
+    try {
+      const res = await fetch(`${API_URL}/api/user/account`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ password: deletePassword })
+      })
+      if (res.ok) {
+        addToast('Compte supprimé.', 'success')
+        logout()
+        navigate('/')
+      } else {
+        const data = await res.json()
+        setDeleteError(data.error || 'Erreur')
+      }
+    } catch {
+      setDeleteError('Impossible de contacter le serveur.')
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
   if (!user) return null
 
   return (
     <PageTransition>
       <div className="min-h-screen bg-background text-foreground font-sans">
         <Header />
-        <div className="pt-20"></div>
-        <main className="max-w-2xl mx-auto px-4 py-12 space-y-10">
+        <div className="pt-20 pb-32 md:pb-8"></div>
+        <main className="max-w-2xl mx-auto px-4 py-6 md:py-12 space-y-8">
           <h2 className="text-3xl font-extrabold">Mon compte</h2>
 
-          {/* Profil */}
-          <form onSubmit={handleSave} className="space-y-6 bg-card backdrop-blur-md border border-border rounded-2xl p-6">
+          <form onSubmit={handleSave} className="space-y-6 bg-card/50 backdrop-blur-md border border-border/40 rounded-2xl p-6">
             <h3 className="text-xl font-bold">Informations personnelles</h3>
             <div className="flex flex-col items-center">
               <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-primary">
@@ -224,8 +310,75 @@ export default function AccountPage() {
             </button>
           </form>
 
-          {/* Vérification */}
-          <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-6">
+          <div className="bg-card/50 backdrop-blur-md border border-border/40 rounded-2xl p-6">
+            <h3 className="text-xl font-bold flex items-center gap-2 mb-4">
+              <EyeIcon size={20} /> Confidentialité
+            </h3>
+            <div className="space-y-4">
+              <label className="flex items-center justify-between cursor-pointer">
+                <div className="flex-1">
+                  <p className="font-medium text-sm">Masquer mon nom</p>
+                  <p className="text-xs text-muted-foreground">Votre nom n'apparaîtra pas publiquement.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => togglePrivacy('hideName')}
+                  disabled={privacySaving}
+                  className={`relative w-12 h-7 rounded-full transition ${privacy.hideName ? 'bg-primary' : 'bg-white/10'}`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white transition-transform ${privacy.hideName ? 'translate-x-5' : ''}`} />
+                </button>
+              </label>
+
+              <label className="flex items-center justify-between cursor-pointer">
+                <div className="flex-1">
+                  <p className="font-medium text-sm">Masquer mon email</p>
+                  <p className="text-xs text-muted-foreground">Votre email ne sera jamais partagé aux autres utilisateurs.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => togglePrivacy('hideEmail')}
+                  disabled={privacySaving}
+                  className={`relative w-12 h-7 rounded-full transition ${privacy.hideEmail ? 'bg-primary' : 'bg-white/10'}`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white transition-transform ${privacy.hideEmail ? 'translate-x-5' : ''}`} />
+                </button>
+              </label>
+            </div>
+          </div>
+
+          {blockedUsers.length > 0 && (
+            <div className="bg-card/50 backdrop-blur-md border border-border/40 rounded-2xl p-6">
+              <h3 className="text-xl font-bold flex items-center gap-2 mb-4">
+                <Ban size={20} /> Utilisateurs bloqués ({blockedUsers.length})
+              </h3>
+              <div className="space-y-3">
+                {blockedUsers.map(b => (
+                  <div key={b._id} className="flex items-center gap-3 border-b border-border/40 pb-3 last:border-0">
+                    {b.blockedPhoto ? (
+                      <img src={b.blockedPhoto} alt={b.blockedName} className="w-10 h-10 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                        <User size={16} className="text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{b.blockedName}</p>
+                      <p className="text-xs text-muted-foreground">Bloqué le {new Date(b.createdAt).toLocaleDateString('fr-FR')}</p>
+                    </div>
+                    <button
+                      onClick={() => handleUnblock(b._id)}
+                      className="text-xs border border-primary text-primary px-3 py-1.5 rounded-full hover:bg-primary hover:text-primary-foreground transition"
+                    >
+                      Débloquer
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="bg-card/50 backdrop-blur-md border border-border/40 rounded-2xl p-6">
             <h3 className="text-xl font-bold flex items-center gap-2 mb-4"><ShieldCheck size={20} /> Vérification du profil</h3>
             {user.verificationStatus === 'verified' && (
               <div className="flex items-center gap-2 text-green-400">
@@ -236,23 +389,23 @@ export default function AccountPage() {
             {user.verificationStatus === 'pending' && (
               <div className="flex items-center gap-2 text-yellow-400">
                 <Clock size={24} />
-                <span>Votre demande de vérification est en cours d'examen.</span>
+                <span>Votre demande est en cours d'examen.</span>
               </div>
             )}
             {user.verificationStatus === 'rejected' && (
               <div className="flex items-center gap-2 text-red-400">
                 <AlertTriangle size={24} />
-                <span>Votre demande a été refusée. Vous pouvez soumettre un nouveau document.</span>
+                <span>Votre demande a été refusée.</span>
               </div>
             )}
             {(user.verificationStatus === 'none' || user.verificationStatus === 'rejected' || !user.verificationStatus) && (
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  Pour obtenir le badge "Profil vérifié" et rassurer vos clients, envoyez une photo de votre pièce d'identité (carte nationale, passeport, titre de séjour). Votre document sera examiné rapidement par notre équipe.
+                  Pour obtenir le badge "Profil vérifié", envoyez une photo de votre pièce d'identité.
                 </p>
                 {verificationDocPreview ? (
                   <div className="relative w-full h-48 rounded-lg overflow-hidden">
-                    <img src={verificationDocPreview} alt="Aperçu du document" className="w-full h-full object-cover" />
+                    <img src={verificationDocPreview} alt="Aperçu" className="w-full h-full object-cover" />
                     <button type="button" onClick={clearVerificationDoc} className="absolute top-2 right-2 bg-black/60 text-white p-1 rounded-full"><X size={18} /></button>
                   </div>
                 ) : (
@@ -275,8 +428,7 @@ export default function AccountPage() {
             )}
           </div>
 
-          {/* Statistiques */}
-          <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-6">
+          <div className="bg-card/50 backdrop-blur-md border border-border/40 rounded-2xl p-6">
             <h3 className="text-xl font-bold flex items-center gap-2 mb-4"><BarChart3 size={20} /> Mes statistiques</h3>
             {stats ? (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -291,8 +443,7 @@ export default function AccountPage() {
             )}
           </div>
 
-          {/* Mot de passe */}
-          <form onSubmit={handlePasswordChange} className="space-y-6 bg-card backdrop-blur-md border border-border rounded-2xl p-6">
+          <form onSubmit={handlePasswordChange} className="space-y-6 bg-card/50 backdrop-blur-md border border-border/40 rounded-2xl p-6">
             <h3 className="text-xl font-bold flex items-center gap-2"><Lock size={20} /> Changer le mot de passe</h3>
             {passwordError && <p className="text-red-400 text-sm">{passwordError}</p>}
             {passwordSuccess && <p className="text-green-400 text-sm">{passwordSuccess}</p>}
@@ -301,8 +452,7 @@ export default function AccountPage() {
               <input type={showCurrent ? 'text' : 'password'} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)}
                 className="w-full bg-white/5 border border-border rounded-lg py-3 pl-4 pr-12 outline-none focus:border-primary transition" />
               <button type="button" onClick={() => setShowCurrent(!showCurrent)}
-                className="absolute right-3 top-9 text-muted-foreground hover:text-foreground transition"
-              >
+                className="absolute right-3 top-9 text-muted-foreground hover:text-foreground transition">
                 {showCurrent ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             </div>
@@ -311,8 +461,7 @@ export default function AccountPage() {
               <input type={showNew ? 'text' : 'password'} value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
                 className="w-full bg-white/5 border border-border rounded-lg py-3 pl-4 pr-12 outline-none focus:border-primary transition" />
               <button type="button" onClick={() => setShowNew(!showNew)}
-                className="absolute right-3 top-9 text-muted-foreground hover:text-foreground transition"
-              >
+                className="absolute right-3 top-9 text-muted-foreground hover:text-foreground transition">
                 {showNew ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             </div>
@@ -322,6 +471,50 @@ export default function AccountPage() {
               {passwordLoading ? 'Modification...' : 'Modifier le mot de passe'}
             </button>
           </form>
+
+          <div className="bg-red-500/5 border border-red-400/30 rounded-2xl p-6">
+            <h3 className="text-xl font-bold flex items-center gap-2 mb-2 text-red-400">
+              <Trash2 size={20} /> Supprimer mon compte
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
+              Cette action est <strong className="text-foreground">irréversible</strong>. Toutes vos publications, réservations, messages et avis seront définitivement supprimés.
+            </p>
+
+            {!showDeleteConfirm ? (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="border border-red-400 text-red-400 px-5 py-2.5 rounded-full font-semibold hover:bg-red-400 hover:text-white transition text-sm"
+              >
+                Supprimer mon compte
+              </button>
+            ) : (
+              <div className="space-y-3">
+                {deleteError && <p className="text-red-400 text-sm">{deleteError}</p>}
+                <input
+                  type="password"
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                  placeholder="Entrez votre mot de passe pour confirmer"
+                  className="w-full bg-white/5 border border-red-400/40 rounded-lg py-3 px-4 outline-none focus:border-red-400 transition"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setShowDeleteConfirm(false); setDeletePassword(''); setDeleteError('') }}
+                    className="flex-1 border border-border text-muted-foreground py-2.5 rounded-full font-semibold hover:border-foreground transition"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={handleDeleteAccount}
+                    disabled={deleteLoading}
+                    className="flex-1 bg-red-500 text-white py-2.5 rounded-full font-semibold hover:bg-red-600 transition disabled:opacity-50"
+                  >
+                    {deleteLoading ? 'Suppression...' : 'Confirmer la suppression'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </main>
       </div>
     </PageTransition>

@@ -7,8 +7,9 @@ import EmptyState from '../components/EmptyState'
 import PageTransition from '../components/PageTransition'
 import TypingIndicator from '../components/TypingIndicator'
 import DateSeparator from '../components/DateSeparator'
+import BlockModal from '../components/BlockModal'
 import API_URL from '../config'
-import { Send, Search, ArrowLeft, CheckCheck, Check, MessageSquare, Smile, MoreVertical } from 'lucide-react'
+import { Send, Search, ArrowLeft, CheckCheck, Check, MessageSquare, Smile, Ban } from 'lucide-react'
 
 export default function MessagesPage() {
   const { user } = useAuth()
@@ -21,6 +22,7 @@ export default function MessagesPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showList, setShowList] = useState(true)
   const [isTyping, setIsTyping] = useState(false)
+  const [showBlock, setShowBlock] = useState(false)
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
   const pollingIntervalRef = useRef(null)
@@ -105,7 +107,8 @@ export default function MessagesPage() {
         })
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
       } else {
-        addToast('Échec de l\'envoi.', 'error')
+        const err = await res.json()
+        addToast(err.error || 'Échec de l\'envoi.', 'error')
       }
     } catch {
       addToast('Échec de l\'envoi.', 'error')
@@ -141,6 +144,11 @@ export default function MessagesPage() {
   const getOtherName = (conv) => {
     if (!conv?.participantsNames) return 'Utilisateur'
     return conv.participantsNames.find(name => name !== user?.name) || 'Utilisateur'
+  }
+
+  const getOtherId = (conv) => {
+    if (!conv?.participants) return null
+    return conv.participants.find(id => id !== user?.id) || null
   }
 
   const getAvatarColor = (name) => {
@@ -237,8 +245,12 @@ export default function MessagesPage() {
                   <p className="font-semibold text-sm truncate">{getOtherName(selectedConv)}</p>
                   <p className="text-[11px] text-muted-foreground truncate">{selectedConv.serviceTitle}</p>
                 </div>
-                <button className="p-2 text-muted-foreground">
-                  <MoreVertical size={18} />
+                <button
+                  onClick={() => setShowBlock(true)}
+                  className="p-2 text-muted-foreground hover:text-red-400 transition"
+                  aria-label="Bloquer"
+                >
+                  <Ban size={18} />
                 </button>
               </div>
 
@@ -386,6 +398,13 @@ export default function MessagesPage() {
                     <p className="font-semibold text-sm">{getOtherName(selectedConv)}</p>
                     <p className="text-xs text-muted-foreground">{selectedConv.serviceTitle}</p>
                   </div>
+                  <button
+                    onClick={() => setShowBlock(true)}
+                    className="p-2 text-muted-foreground hover:text-red-400 transition"
+                    aria-label="Bloquer"
+                  >
+                    <Ban size={18} />
+                  </button>
                 </div>
                 <div className="flex-1 overflow-y-auto px-5 py-3">
                   {renderMessages().map((item, idx) => {
@@ -462,6 +481,19 @@ export default function MessagesPage() {
             )}
           </div>
         </div>
+
+        {showBlock && selectedConv && (
+          <BlockModal
+            userId={getOtherId(selectedConv)}
+            userName={getOtherName(selectedConv)}
+            onClose={() => setShowBlock(false)}
+            onBlocked={() => {
+              setSelectedConv(null)
+              setShowList(true)
+              window.location.reload()
+            }}
+          />
+        )}
       </div>
     </PageTransition>
   )

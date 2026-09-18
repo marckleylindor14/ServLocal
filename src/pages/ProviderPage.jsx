@@ -6,8 +6,9 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import PageTransition from '../components/PageTransition'
 import ReportModal from '../components/ReportModal'
+import BlockModal from '../components/BlockModal'
 import API_URL from '../config'
-import { X, ImageOff, CheckCircle, Flag, HandCoins } from 'lucide-react'
+import { X, ImageOff, CheckCircle, Flag, Ban, HandCoins } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 export default function ProviderPage() {
@@ -30,6 +31,7 @@ export default function ProviderPage() {
   const [lightboxImage, setLightboxImage] = useState(null)
   const [loadedImages, setLoadedImages] = useState({})
   const [showReport, setShowReport] = useState(false)
+  const [showBlock, setShowBlock] = useState(false)
   const [proposedPrice, setProposedPrice] = useState('')
   const [proposalMessage, setProposalMessage] = useState('')
   const [proposalSubmitting, setProposalSubmitting] = useState(false)
@@ -250,13 +252,22 @@ export default function ProviderPage() {
                       </div>
                     )}
                   </div>
-                  <button
-                    onClick={() => setShowReport(true)}
-                    className="p-2 text-muted-foreground hover:text-red-400 transition shrink-0"
-                    aria-label="Signaler"
-                  >
-                    <Flag size={18} />
-                  </button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => setShowReport(true)}
+                      className="p-2 text-muted-foreground hover:text-red-400 transition"
+                      aria-label="Signaler"
+                    >
+                      <Flag size={18} />
+                    </button>
+                    <button
+                      onClick={() => setShowBlock(true)}
+                      className="p-2 text-muted-foreground hover:text-red-400 transition"
+                      aria-label="Bloquer"
+                    >
+                      <Ban size={18} />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -440,6 +451,15 @@ export default function ProviderPage() {
             targetId={pro._id}
             targetName={pro.title}
             onClose={() => setShowReport(false)}
+          />
+        )}
+
+        {showBlock && (
+          <BlockModal
+            userId={pro.providerId}
+            userName={pro.providerName}
+            onClose={() => setShowBlock(false)}
+            onBlocked={() => navigate('/')}
           />
         )}
       </div>
