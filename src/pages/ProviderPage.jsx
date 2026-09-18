@@ -8,7 +8,7 @@ import PageTransition from '../components/PageTransition'
 import ReportModal from '../components/ReportModal'
 import BlockModal from '../components/BlockModal'
 import API_URL from '../config'
-import { X, ImageOff, CheckCircle, Flag, Ban, HandCoins } from 'lucide-react'
+import { X, ImageOff, CheckCircle, Flag, HandCoins, Ban, MessageSquare, Send } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 export default function ProviderPage() {
@@ -36,6 +36,9 @@ export default function ProviderPage() {
   const [proposalMessage, setProposalMessage] = useState('')
   const [proposalSubmitting, setProposalSubmitting] = useState(false)
   const [proposalSuccess, setProposalSuccess] = useState(false)
+  const [replyingTo, setReplyingTo] = useState(null)
+  const [replyText, setReplyText] = useState('')
+  const [replySubmitting, setReplySubmitting] = useState(false)
 
   useEffect(() => {
     fetch(`${API_URL}/api/services/${id}`)
@@ -92,6 +95,34 @@ export default function ProviderPage() {
     } catch {
       setErrorMessage('Impossible de contacter le serveur.')
       addToast('Impossible de contacter le serveur.', 'error')
+    }
+  }
+
+  const handleReplySubmit = async (reviewId) => {
+    if (!replyText.trim()) return
+    setReplySubmitting(true)
+    try {
+      const res = await fetch(`${API_URL}/api/reviews/${reviewId}/reply`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ reply: replyText })
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setReviews(prev => prev.map(r => r._id === reviewId ? data : r))
+        setReplyingTo(null)
+        setReplyText('')
+        addToast('Réponse publiée.', 'success')
+      } else {
+        addToast(data.error || 'Erreur', 'error')
+      }
+    } catch {
+      addToast('Impossible de contacter le serveur.', 'error')
+    } finally {
+      setReplySubmitting(false)
     }
   }
 
@@ -196,6 +227,7 @@ export default function ProviderPage() {
   if (!pro) return <div className="min-h-screen bg-background text-foreground flex items-center justify-center">Chargement...</div>
 
   const isDemand = pro.type === 'demand'
+  const isOwner = user && (pro.providerId === user.id || pro.providerName === user.name)
 
   return (
     <PageTransition>
@@ -232,7 +264,7 @@ export default function ProviderPage() {
             )}
           </AnimatePresence>
 
-          <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6">
+          <div className="bg-card/60 backdrop-blur-md border border-border/50 rounded-2xl p-4 md:p-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-4">
               <img src={pro.image || 'https://i.pravatar.cc/100?img=4'} alt={pro.title} className="w-16 h-16 md:w-20 md:h-20 rounded-full object-cover border-2 border-primary" />
               <div className="flex-1">
@@ -252,20 +284,22 @@ export default function ProviderPage() {
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex gap-1 shrink-0">
+                    {!isOwner && user && (
+                      <button
+                        onClick={() => setShowBlock(true)}
+                        className="p-2 text-muted-foreground hover:text-red-400 transition"
+                        aria-label="Bloquer"
+                      >
+                        <Ban size={18} />
+                      </button>
+                    )}
                     <button
                       onClick={() => setShowReport(true)}
                       className="p-2 text-muted-foreground hover:text-red-400 transition"
                       aria-label="Signaler"
                     >
                       <Flag size={18} />
-                    </button>
-                    <button
-                      onClick={() => setShowBlock(true)}
-                      className="p-2 text-muted-foreground hover:text-red-400 transition"
-                      aria-label="Bloquer"
-                    >
-                      <Ban size={18} />
                     </button>
                   </div>
                 </div>
@@ -284,20 +318,22 @@ export default function ProviderPage() {
               )}
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button onClick={startConversation} className="flex-1 bg-primary text-primary-foreground font-semibold py-3 px-6 rounded-full hover:bg-primary/90 transition text-sm md:text-base">
-                Envoyer un message
-              </button>
-              {!isDemand && (
-                <button onClick={handlePay} className="flex-1 bg-green-600 text-white font-semibold py-3 px-6 rounded-full hover:bg-green-700 transition text-sm md:text-base">
-                  Payer ce service
+            {!isOwner && (
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button onClick={startConversation} className="flex-1 bg-primary text-primary-foreground font-semibold py-3 px-6 rounded-full hover:bg-primary/90 transition text-sm md:text-base">
+                  Envoyer un message
                 </button>
-              )}
-            </div>
+                {!isDemand && (
+                  <button onClick={handlePay} className="flex-1 bg-green-600 text-white font-semibold py-3 px-6 rounded-full hover:bg-green-700 transition text-sm md:text-base">
+                    Payer ce service
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {Array.isArray(pro.gallery) && pro.gallery.length > 0 && (
-            <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6">
+            <div className="bg-card/60 backdrop-blur-md border border-border/50 rounded-2xl p-4 md:p-6">
               <h3 className="text-lg md:text-xl font-bold mb-4">Galerie d'exemples</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {pro.gallery.map((imgUrl, idx) => (
@@ -331,58 +367,60 @@ export default function ProviderPage() {
           )}
 
           {isDemand ? (
-            <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6">
-              <h3 className="text-lg md:text-2xl font-bold mb-4 flex items-center gap-2">
-                <HandCoins size={22} className="text-primary" />
-                Proposer votre prix
-              </h3>
-              {!user ? (
-                <p className="text-sm text-muted-foreground">
-                  <Link to="/login" className="text-primary hover:underline">Connectez-vous</Link> pour répondre à cette demande.
-                </p>
-              ) : proposalSuccess ? (
-                <div className="text-center py-6">
-                  <CheckCircle size={48} className="text-green-400 mx-auto mb-3" />
-                  <p className="text-foreground font-semibold">Proposition envoyée !</p>
-                  <p className="text-sm text-muted-foreground mt-1">La personne examinera votre offre.</p>
-                </div>
-              ) : (
-                <form onSubmit={handleProposalSubmit} className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Votre prix (€) *</label>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      required
-                      value={proposedPrice}
-                      onChange={(e) => setProposedPrice(e.target.value)}
-                      placeholder="Ex : 80"
-                      className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 text-foreground outline-none focus:border-primary transition text-sm"
-                    />
+            !isOwner && (
+              <div className="bg-card/60 backdrop-blur-md border border-border/50 rounded-2xl p-4 md:p-6">
+                <h3 className="text-lg md:text-2xl font-bold mb-4 flex items-center gap-2">
+                  <HandCoins size={22} className="text-primary" />
+                  Proposer votre prix
+                </h3>
+                {!user ? (
+                  <p className="text-sm text-muted-foreground">
+                    <Link to="/login" className="text-primary hover:underline">Connectez-vous</Link> pour répondre à cette demande.
+                  </p>
+                ) : proposalSuccess ? (
+                  <div className="text-center py-6">
+                    <CheckCircle size={48} className="text-green-400 mx-auto mb-3" />
+                    <p className="text-foreground font-semibold">Proposition envoyée !</p>
+                    <p className="text-sm text-muted-foreground mt-1">La personne examinera votre offre.</p>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Message (optionnel)</label>
-                    <textarea
-                      rows={3}
-                      value={proposalMessage}
-                      onChange={(e) => setProposalMessage(e.target.value)}
-                      placeholder="Expliquez votre offre, vos disponibilités..."
-                      className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 text-foreground placeholder-muted-foreground outline-none focus:border-primary transition resize-none text-sm"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={proposalSubmitting}
-                    className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-full hover:bg-primary/90 transition text-sm disabled:opacity-50"
-                  >
-                    {proposalSubmitting ? 'Envoi...' : 'Envoyer ma proposition'}
-                  </button>
-                </form>
-              )}
-            </div>
+                ) : (
+                  <form onSubmit={handleProposalSubmit} className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Votre prix (€) *</label>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        required
+                        value={proposedPrice}
+                        onChange={(e) => setProposedPrice(e.target.value)}
+                        placeholder="Ex : 80"
+                        className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 text-foreground outline-none focus:border-primary transition text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Message (optionnel)</label>
+                      <textarea
+                        rows={3}
+                        value={proposalMessage}
+                        onChange={(e) => setProposalMessage(e.target.value)}
+                        placeholder="Expliquez votre offre, vos disponibilités..."
+                        className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 text-foreground placeholder-muted-foreground outline-none focus:border-primary transition resize-none text-sm"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={proposalSubmitting}
+                      className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-full hover:bg-primary/90 transition text-sm disabled:opacity-50"
+                    >
+                      {proposalSubmitting ? 'Envoi...' : 'Envoyer ma proposition'}
+                    </button>
+                  </form>
+                )}
+              </div>
+            )
           ) : (
-            <>
-              <div id="booking-section" className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6">
+            !isOwner && (
+              <div id="booking-section" className="bg-card/60 backdrop-blur-md border border-border/50 rounded-2xl p-4 md:p-6">
                 <h3 className="text-lg md:text-2xl font-bold mb-4">Réserver ce service</h3>
                 {user ? (
                   <form onSubmit={handleBookingSubmit} className="space-y-3">
@@ -411,30 +449,101 @@ export default function ProviderPage() {
                   <p className="text-xs text-muted-foreground"><Link to="/login" className="text-primary hover:underline">Connectez-vous</Link> pour réserver.</p>
                 )}
               </div>
+            )
+          )}
 
-              <div className="bg-card backdrop-blur-md border border-border rounded-2xl p-4 md:p-6">
-                <h3 className="text-lg md:text-2xl font-bold mb-4">Avis</h3>
-                {reviews.length === 0 && <p className="text-muted-foreground text-sm">Aucun avis pour le moment.</p>}
+          {!isDemand && (
+            <div className="bg-card/60 backdrop-blur-md border border-border/50 rounded-2xl p-4 md:p-6">
+              <h3 className="text-lg md:text-2xl font-bold mb-4">Avis</h3>
+              {reviews.length === 0 && <p className="text-muted-foreground text-sm">Aucun avis pour le moment.</p>}
+              <div className="space-y-5">
                 {reviews.map((review) => (
-                  <div key={review._id} className="border-b border-border py-3 last:border-0">
-                    <div className="flex items-center gap-2 mb-1"><StarRating rating={review.rating} readonly /><span className="text-xs font-medium">{review.userName}</span></div>
+                  <div key={review._id} className="border-b border-border/40 pb-4 last:border-0 last:pb-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <StarRating rating={review.rating} readonly />
+                      <span className="text-xs font-medium">{review.userName}</span>
+                      <span className="text-[11px] text-muted-foreground ml-auto">
+                        {new Date(review.createdAt).toLocaleDateString('fr-FR')}
+                      </span>
+                    </div>
                     {review.comment && <p className="text-muted-foreground text-xs mt-1">{review.comment}</p>}
+
+                    {review.reply && (
+                      <div className="mt-3 ml-4 pl-3 border-l-2 border-primary/40">
+                        <div className="flex items-center gap-2 mb-1">
+                          <MessageSquare size={12} className="text-primary" />
+                          <span className="text-[11px] font-semibold text-primary">
+                            Réponse de {review.reply.repliedByName}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {new Date(review.reply.repliedAt).toLocaleDateString('fr-FR')}
+                          </span>
+                        </div>
+                        <p className="text-xs text-foreground/80">{review.reply.text}</p>
+                      </div>
+                    )}
+
+                    {isOwner && !review.reply && (
+                      <div className="mt-3 ml-4">
+                        {replyingTo === review._id ? (
+                          <div className="space-y-2">
+                            <textarea
+                              rows={2}
+                              value={replyText}
+                              onChange={(e) => setReplyText(e.target.value)}
+                              placeholder="Votre réponse publique..."
+                              maxLength={500}
+                              className="w-full bg-white/5 border border-border rounded-lg py-2 px-3 text-xs text-foreground placeholder-muted-foreground outline-none focus:border-primary transition resize-none"
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleReplySubmit(review._id)}
+                                disabled={replySubmitting || !replyText.trim()}
+                                className="flex items-center gap-1 bg-primary text-primary-foreground px-3 py-1.5 rounded-full text-xs font-semibold hover:bg-primary/90 transition disabled:opacity-50"
+                              >
+                                <Send size={11} />
+                                {replySubmitting ? 'Envoi...' : 'Publier'}
+                              </button>
+                              <button
+                                onClick={() => { setReplyingTo(null); setReplyText('') }}
+                                className="text-xs text-muted-foreground hover:text-foreground transition"
+                              >
+                                Annuler
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => { setReplyingTo(review._id); setReplyText('') }}
+                            className="flex items-center gap-1 text-xs text-primary hover:underline"
+                          >
+                            <MessageSquare size={12} />
+                            Répondre à cet avis
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
-                {user ? (
-                  <form onSubmit={handleReviewSubmit} className="mt-4 pt-4 border-t border-border space-y-3">
-                    <h4 className="font-semibold text-sm">Laisser un avis</h4>
-                    <div><p className="text-xs mb-1">Votre note</p><StarRating rating={newRating} onRate={setNewRating} /></div>
-                    <textarea placeholder="Partagez votre expérience..." className="w-full bg-white/5 border border-border rounded-lg py-2 px-3 text-foreground placeholder-muted-foreground outline-none focus:border-primary transition resize-none text-xs" rows={3} value={comment} onChange={(e) => setComment(e.target.value)} />
-                    {errorMessage && <p className="text-red-400 text-xs">{errorMessage}</p>}
-                    {successMessage && <p className="text-green-400 text-xs">{successMessage}</p>}
-                    <button type="submit" className="bg-primary text-primary-foreground font-semibold py-2 px-6 rounded-full hover:bg-primary/90 transition text-sm">Publier</button>
-                  </form>
-                ) : (
-                  <p className="text-xs text-muted-foreground mt-4 pt-4 border-t border-border"><Link to="/login" className="text-primary hover:underline">Connectez-vous</Link> pour laisser un avis.</p>
-                )}
               </div>
-            </>
+
+              {user && !isOwner && (
+                <form onSubmit={handleReviewSubmit} className="mt-5 pt-5 border-t border-border/40 space-y-3">
+                  <h4 className="font-semibold text-sm">Laisser un avis</h4>
+                  <div><p className="text-xs mb-1">Votre note</p><StarRating rating={newRating} onRate={setNewRating} /></div>
+                  <textarea placeholder="Partagez votre expérience..." className="w-full bg-white/5 border border-border rounded-lg py-2 px-3 text-foreground placeholder-muted-foreground outline-none focus:border-primary transition resize-none text-xs" rows={3} value={comment} onChange={(e) => setComment(e.target.value)} />
+                  {errorMessage && <p className="text-red-400 text-xs">{errorMessage}</p>}
+                  {successMessage && <p className="text-green-400 text-xs">{successMessage}</p>}
+                  <button type="submit" className="bg-primary text-primary-foreground font-semibold py-2 px-6 rounded-full hover:bg-primary/90 transition text-sm">Publier</button>
+                </form>
+              )}
+
+              {!user && (
+                <p className="text-xs text-muted-foreground mt-5 pt-5 border-t border-border/40">
+                  <Link to="/login" className="text-primary hover:underline">Connectez-vous</Link> pour laisser un avis.
+                </p>
+              )}
+            </div>
           )}
         </main>
 

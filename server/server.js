@@ -532,6 +532,43 @@ app.post('/api/services/:id/reviews', authenticateToken, [
     res.status(201).json({ review: newReview, averageRating: Number(averageRating) });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
+app.put('/api/reviews/:id/reply', authenticateToken, [
+  body('reply').trim().notEmpty().withMessage('La réponse ne peut pas être vide.'),
+  body('reply').trim().isLength({ max: 500 }).withMessage('La réponse ne doit pas dépasser 500 caractères.')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation échouée', details: errors.array() });
+  try {
+    const reviewId = Number(req.params.id);
+    const reviews = await readJSON(REVIEWS_FILE);
+    const index = reviews.findIndex(r => Number(r._id) === reviewId);
+    if (index === -1) return res.status(404).json({ error: 'Avis non trouvé' });
+
+    const services = await readJSON(DATA_FILE);
+    const service = services.find(s => Number(s._id) === Number(reviews[index].serviceId));
+    if (!service) return res.status(404).json({ error: 'Service non trouvé' });
+
+    if (service.providerId !== req.user.id && service.providerName !== req.user.name) {
+      return res.status(403).json({ error: 'Vous ne pouvez répondre qu\'aux avis sur vos propres services.' });
+    }
+
+    if (reviews[index].reply) {
+      return res.status(400).json({ error: 'Vous avez déjà répondu à cet avis.' });
+    }
+
+    reviews[index].reply = {
+      text: req.body.reply.trim(),
+      repliedByName: req.user.name,
+      repliedAt: new Date().toISOString()
+    };
+
+    await writeJSON(REVIEWS_FILE, reviews);
+    res.json(reviews[index]);
+  } catch (error) {
+    console.error('Erreur réponse avis:', error);
+    res.status(500).json({ error: 'Erreur interne' });
+  }
+});
 
 app.get('/api/bookings', authenticateToken, async (req, res) => {
   try {
