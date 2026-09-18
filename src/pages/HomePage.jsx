@@ -89,7 +89,12 @@ export default function HomePage() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const otherServices = allServices.filter(s => !user || s.providerId !== user.id)
+  const otherServices = allServices.filter(s => {
+    if (!user) return true
+    if (s.providerId && Number(s.providerId) === Number(user.id)) return false
+    if (s.providerName === user.name) return false
+    return true
+  })
 
   const filteredServices = otherServices.filter(service => {
     const matchesCity = !selectedCity || service.city === selectedCity
