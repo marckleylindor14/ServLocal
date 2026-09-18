@@ -9,7 +9,7 @@ import TypingIndicator from '../components/TypingIndicator'
 import DateSeparator from '../components/DateSeparator'
 import BlockModal from '../components/BlockModal'
 import API_URL from '../config'
-import { Send, Search, ArrowLeft, CheckCheck, Check, MessageSquare, Smile, Ban } from 'lucide-react'
+import { Send, Search, ArrowLeft, CheckCheck, Check, MessageSquare, Smile, Ban, ImagePlus, X, Loader2 } from 'lucide-react'
 
 export default function MessagesPage() {
   const { user } = useAuth()
@@ -23,9 +23,14 @@ export default function MessagesPage() {
   const [showList, setShowList] = useState(true)
   const [isTyping, setIsTyping] = useState(false)
   const [showBlock, setShowBlock] = useState(false)
+  const [imageFile, setImageFile] = useState(null)
+  const [imagePreview, setImagePreview] = useState(null)
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const [lightboxImage, setLightboxImage] = useState(null)
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
   const pollingIntervalRef = useRef(null)
+  const fileInputRef = useRef(null)
 
   useEffect(() => {
     if (!user) {
@@ -84,34 +89,84 @@ export default function MessagesPage() {
     }
   }
 
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    if (file.type !== 'image/jpeg' && file.type !== 'image/png') {
+      addToast('Formats acceptés : JPEG ou PNG uniquement.', 'error')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      addToast('Image trop volumineuse (5 Mo max).', 'error')
+      return
+    }
+    setImageFile(file)
+    setImagePreview(URL.createObjectURL(file))
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const clearImage = () => {
+    setImageFile(null)
+    setImagePreview(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const uploadImage = async (file) => {
+    const formData = new FormData()
+    formData.append('image', file)
+    const res = await fetch(`${API_URL}/api/upload`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      body: formData
+    })
+    if (!res.ok) {
+      const err = await res.json()
+      throw new Error(err.error || 'Échec de l\'upload')
+    }
+    const data = await res.json()
+    return data.url
+  }
+
   const handleSend = async (e) => {
     e.preventDefault()
-    if (!newMessage.trim() || !selectedConv) return
+    if (!selectedConv) return
+    if (!newMessage.trim() && !imageFile) return
+
     const text = newMessage.trim()
     setNewMessage('')
+    let imageUrl = null
+
     try {
+      if (imageFile) {
+        setUploadingImage(true)
+        imageUrl = await uploadImage(imageFile)
+      }
+
       const res = await fetch(`${API_URL}/api/conversations/${selectedConv._id}/messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${localStorage.getItem('token')}`
         },
-        body: JSON.stringify({ text })
+        body: JSON.stringify({ text, image: imageUrl })
       })
+
       if (res.ok) {
         const msg = await res.json()
         setMessages(prev => [...prev, msg])
+        clearImage()
         await fetch(`${API_URL}/api/conversations/${selectedConv._id}/read`, {
           method: 'PUT',
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         })
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
       } else {
-        const err = await res.json()
-        addToast(err.error || 'Échec de l\'envoi.', 'error')
+        addToast('Échec de l\'envoi.', 'error')
       }
-    } catch {
-      addToast('Échec de l\'envoi.', 'error')
+    } catch (err) {
+      addToast(err.message || 'Échec de l\'envoi.', 'error')
+    } finally {
+      setUploadingImage(false)
     }
   }
 
@@ -127,6 +182,7 @@ export default function MessagesPage() {
     setSelectedConv(null)
     setShowList(true)
     setMessages([])
+    clearImage()
     if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current)
   }
 
@@ -148,7 +204,7 @@ export default function MessagesPage() {
 
   const getOtherId = (conv) => {
     if (!conv?.participants) return null
-    return conv.participants.find(id => id !== user?.id) || null
+    return conv.participants.find(p => p !== user?.id)
   }
 
   const getAvatarColor = (name) => {
@@ -172,6 +228,54 @@ export default function MessagesPage() {
       grouped.push({ type: 'message', ...msg })
     })
     return grouped
+  }
+
+  const renderBubble = (item, isMobile) => {
+    const isOwn = item.senderId === user.id
+    return (
+      <div key={item._id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-1.5`}>
+        {!isOwn && (
+          <div className={`w-7 h-7 rounded-full ${getAvatarColor(item.senderName)} flex items-center justify-center text-white font-bold text-xs shrink-0 mr-2 mt-auto`}>
+            {item.senderName?.charAt(0).toUpperCase()}
+          </div>
+        )}
+        <div className={`max-w-[${isMobile ? '75%' : '65%'}] px-2 py-2 ${
+          isOwn
+            ? 'bg-primary text-primary-foreground rounded-[20px] rounded-br-[6px]'
+            : 'glass rounded-[20px] rounded-bl-[6px]'
+        }`}>
+          {item.image && (
+            <div
+              className="rounded-2xl overflow-hidden mb-1 cursor-pointer"
+              onClick={() => setLightboxImage(item.image)}
+            >
+              <img
+                src={item.image}
+                alt="Photo"
+                className="max-w-[240px] w-full h-auto object-cover"
+              />
+            </div>
+          )}
+          {item.text && (
+            <p className={`text-[15px] leading-relaxed break-words ${item.image ? 'px-2 pt-1' : ''}`}>
+              {item.text}
+            </p>
+          )}
+          <div className={`flex items-center justify-end gap-1 mt-1 px-2 ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
+            <span className="text-[10px]">
+              {new Date(item.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+            </span>
+            {isOwn && (
+              item.read ? (
+                <CheckCheck size={14} className="text-primary-foreground" />
+              ) : (
+                <Check size={14} className="text-primary-foreground/50" />
+              )
+            )}
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (!user) return null
@@ -198,11 +302,7 @@ export default function MessagesPage() {
             </div>
             <div className="flex-1 overflow-y-auto">
               {filteredConversations.length === 0 ? (
-                <EmptyState
-                  icon={MessageSquare}
-                  title="Aucune conversation"
-                  description="Vos messages apparaîtront ici."
-                />
+                <EmptyState icon={MessageSquare} title="Aucune conversation" description="Vos messages apparaîtront ici." />
               ) : (
                 filteredConversations.map(conv => (
                   <button
@@ -245,11 +345,7 @@ export default function MessagesPage() {
                   <p className="font-semibold text-sm truncate">{getOtherName(selectedConv)}</p>
                   <p className="text-[11px] text-muted-foreground truncate">{selectedConv.serviceTitle}</p>
                 </div>
-                <button
-                  onClick={() => setShowBlock(true)}
-                  className="p-2 text-muted-foreground hover:text-red-400 transition"
-                  aria-label="Bloquer"
-                >
+                <button onClick={() => setShowBlock(true)} className="p-2 text-muted-foreground hover:text-red-400 transition">
                   <Ban size={18} />
                 </button>
               </div>
@@ -259,35 +355,7 @@ export default function MessagesPage() {
                   if (item.type === 'separator') {
                     return <DateSeparator key={`sep-${idx}`} date={item.date} />
                   }
-                  const isOwn = item.senderId === user.id
-                  return (
-                    <div key={item._id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-1.5`}>
-                      {!isOwn && (
-                        <div className={`w-7 h-7 rounded-full ${getAvatarColor(item.senderName)} flex items-center justify-center text-white font-bold text-xs shrink-0 mr-2 mt-auto`}>
-                          {item.senderName?.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <div className={`max-w-[75%] px-4 py-2.5 ${
-                        isOwn
-                          ? 'bg-primary text-primary-foreground rounded-[20px] rounded-br-[6px]'
-                          : 'glass rounded-[20px] rounded-bl-[6px]'
-                      }`}>
-                        <p className="text-[15px] leading-relaxed break-words">{item.text}</p>
-                        <div className={`flex items-center justify-end gap-1 mt-1 ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
-                          <span className="text-[10px]">
-                            {new Date(item.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                          {isOwn && (
-                            item.read ? (
-                              <CheckCheck size={14} className="text-primary-foreground" />
-                            ) : (
-                              <Check size={14} className="text-primary-foreground/50" />
-                            )
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )
+                  return renderBubble(item, true)
                 })}
                 {isTyping && (
                   <div className="flex justify-start mb-2">
@@ -299,40 +367,67 @@ export default function MessagesPage() {
                 <div ref={messagesEndRef} />
               </div>
 
-              <form onSubmit={handleSend} className="px-3 py-3 border-t border-border/40 glass-strong">
-                <div className="flex items-end gap-2">
-                  <button type="button" className="p-2 text-muted-foreground hover:text-foreground transition shrink-0">
-                    <Smile size={22} />
-                  </button>
-                  <div className="flex-1 glass rounded-3xl flex items-end">
-                    <textarea
-                      rows={1}
-                      placeholder="Votre message..."
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault()
-                          handleSend(e)
-                        }
-                      }}
-                      className="flex-1 bg-transparent px-4 py-2.5 text-[15px] outline-none resize-none max-h-24"
-                      style={{ minHeight: '40px' }}
-                    />
+              <div className="border-t border-border/40 glass-strong" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+                {imagePreview && (
+                  <div className="px-3 pt-3">
+                    <div className="relative inline-block">
+                      <img src={imagePreview} alt="Aperçu" className="h-24 rounded-xl object-cover" />
+                      <button
+                        type="button"
+                        onClick={clearImage}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    type="submit"
-                    disabled={!newMessage.trim()}
-                    className={`p-3 rounded-full transition shrink-0 ${
-                      newMessage.trim()
-                        ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
-                        : 'bg-white/5 text-muted-foreground'
-                    }`}
-                  >
-                    <Send size={18} />
-                  </button>
-                </div>
-              </form>
+                )}
+                <form onSubmit={handleSend} className="px-3 py-3">
+                  <div className="flex items-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="p-2 text-muted-foreground hover:text-foreground transition shrink-0"
+                    >
+                      <ImagePlus size={22} />
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png"
+                      onChange={handleImageSelect}
+                      className="hidden"
+                    />
+                    <div className="flex-1 glass rounded-3xl flex items-end">
+                      <textarea
+                        rows={1}
+                        placeholder="Votre message..."
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault()
+                            handleSend(e)
+                          }
+                        }}
+                        className="flex-1 bg-transparent px-4 py-2.5 text-[15px] outline-none resize-none max-h-24"
+                        style={{ minHeight: '40px' }}
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={(!newMessage.trim() && !imageFile) || uploadingImage}
+                      className={`p-3 rounded-full transition shrink-0 ${
+                        (newMessage.trim() || imageFile) && !uploadingImage
+                          ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
+                          : 'bg-white/5 text-muted-foreground'
+                      }`}
+                    >
+                      {uploadingImage ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           )}
         </div>
@@ -398,11 +493,7 @@ export default function MessagesPage() {
                     <p className="font-semibold text-sm">{getOtherName(selectedConv)}</p>
                     <p className="text-xs text-muted-foreground">{selectedConv.serviceTitle}</p>
                   </div>
-                  <button
-                    onClick={() => setShowBlock(true)}
-                    className="p-2 text-muted-foreground hover:text-red-400 transition"
-                    aria-label="Bloquer"
-                  >
+                  <button onClick={() => setShowBlock(true)} className="p-2 text-muted-foreground hover:text-red-400 transition">
                     <Ban size={18} />
                   </button>
                 </div>
@@ -411,76 +502,77 @@ export default function MessagesPage() {
                     if (item.type === 'separator') {
                       return <DateSeparator key={`sep-${idx}`} date={item.date} />
                     }
-                    const isOwn = item.senderId === user.id
-                    return (
-                      <div key={item._id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-1.5`}>
-                        {!isOwn && (
-                          <div className={`w-7 h-7 rounded-full ${getAvatarColor(item.senderName)} flex items-center justify-center text-white font-bold text-xs shrink-0 mr-2 mt-auto`}>
-                            {item.senderName?.charAt(0).toUpperCase()}
-                          </div>
-                        )}
-                        <div className={`max-w-[65%] px-4 py-2.5 ${
-                          isOwn
-                            ? 'bg-primary text-primary-foreground rounded-[20px] rounded-br-[6px]'
-                            : 'glass rounded-[20px] rounded-bl-[6px]'
-                        }`}>
-                          <p className="text-[15px] leading-relaxed break-words">{item.text}</p>
-                          <div className={`flex items-center justify-end gap-1 mt-1 ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
-                            <span className="text-[10px]">
-                              {new Date(item.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                            {isOwn && (
-                              item.read ? (
-                                <CheckCheck size={14} className="text-primary-foreground" />
-                              ) : (
-                                <Check size={14} className="text-primary-foreground/50" />
-                              )
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )
+                    return renderBubble(item, false)
                   })}
                   <div ref={messagesEndRef} />
                 </div>
-                <form onSubmit={handleSend} className="px-5 py-3 border-t border-border/40">
-                  <div className="flex items-end gap-2">
-                    <button type="button" className="p-2 text-muted-foreground hover:text-foreground transition shrink-0">
-                      <Smile size={22} />
-                    </button>
-                    <div className="flex-1 glass rounded-3xl">
-                      <textarea
-                        rows={1}
-                        placeholder="Votre message..."
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault()
-                            handleSend(e)
-                          }
-                        }}
-                        className="w-full bg-transparent px-4 py-2.5 text-[15px] outline-none resize-none max-h-24"
-                        style={{ minHeight: '40px' }}
-                      />
+                <div className="border-t border-border/40">
+                  {imagePreview && (
+                    <div className="px-5 pt-3">
+                      <div className="relative inline-block">
+                        <img src={imagePreview} alt="Aperçu" className="h-24 rounded-xl object-cover" />
+                        <button
+                          type="button"
+                          onClick={clearImage}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
                     </div>
-                    <button
-                      type="submit"
-                      disabled={!newMessage.trim()}
-                      className={`p-3 rounded-full transition shrink-0 ${
-                        newMessage.trim()
-                          ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
-                          : 'bg-white/5 text-muted-foreground'
-                      }`}
-                    >
-                      <Send size={18} />
-                    </button>
-                  </div>
-                </form>
+                  )}
+                  <form onSubmit={handleSend} className="px-5 py-3">
+                    <div className="flex items-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="p-2 text-muted-foreground hover:text-foreground transition shrink-0"
+                      >
+                        <ImagePlus size={22} />
+                      </button>
+                      <div className="flex-1 glass rounded-3xl">
+                        <textarea
+                          rows={1}
+                          placeholder="Votre message..."
+                          value={newMessage}
+                          onChange={(e) => setNewMessage(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault()
+                              handleSend(e)
+                            }
+                          }}
+                          className="w-full bg-transparent px-4 py-2.5 text-[15px] outline-none resize-none max-h-24"
+                          style={{ minHeight: '40px' }}
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={(!newMessage.trim() && !imageFile) || uploadingImage}
+                        className={`p-3 rounded-full transition shrink-0 ${
+                          (newMessage.trim() || imageFile) && !uploadingImage
+                            ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
+                            : 'bg-white/5 text-muted-foreground'
+                        }`}
+                      >
+                        {uploadingImage ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                      </button>
+                    </div>
+                  </form>
+                </div>
               </>
             )}
           </div>
         </div>
+
+        {lightboxImage && (
+          <div className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center p-4" onClick={() => setLightboxImage(null)}>
+            <button className="absolute top-4 right-4 text-white bg-black/40 rounded-full p-2" onClick={() => setLightboxImage(null)}>
+              <X size={24} />
+            </button>
+            <img src={lightboxImage} alt="Vue agrandie" className="max-w-full max-h-full rounded-xl" onClick={(e) => e.stopPropagation()} />
+          </div>
+        )}
 
         {showBlock && selectedConv && (
           <BlockModal

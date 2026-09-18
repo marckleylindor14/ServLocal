@@ -782,16 +782,20 @@ app.get('/api/conversations/:id/messages', authenticateToken, async (req, res) =
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
 
-app.post('/api/conversations/:id/messages', authenticateToken, [
-  body('text').trim().notEmpty().withMessage('Le message ne peut pas être vide.')
-], async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation échouée', details: errors.array() });
+app.post('/api/conversations/:id/messages', authenticateToken, async (req, res) => {
   try {
     const conversationId = Number(req.params.id);
+    const { text, image } = req.body;
+
+    if ((!text || !String(text).trim()) && !image) {
+      return res.status(400).json({ error: 'Message vide.' });
+    }
+
     const conversations = await readJSON(CONVERSATIONS_FILE);
     const conversation = conversations.find(c => c._id === conversationId);
-    if (!conversation || !conversation.participants.includes(req.user.id)) return res.status(403).json({ error: 'Accès refusé.' });
+    if (!conversation || !conversation.participants.includes(req.user.id)) {
+      return res.status(403).json({ error: 'Accès refusé.' });
+    }
 
     const otherId = conversation.participants.find(p => p !== req.user.id);
     if (otherId) {
@@ -805,14 +809,18 @@ app.post('/api/conversations/:id/messages', authenticateToken, [
       conversationId,
       senderId: req.user.id,
       senderName: req.user.name,
-      text: req.body.text.trim(),
+      text: text ? String(text).trim() : '',
+      image: image || null,
       read: false,
       createdAt: new Date().toISOString()
     };
     messages.push(newMessage);
     await writeJSON(MESSAGES_FILE, messages);
     res.status(201).json(newMessage);
-  } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
+  } catch (error) {
+    console.error('Erreur message:', error);
+    res.status(500).json({ error: 'Erreur interne' });
+  }
 });
 
 app.put('/api/conversations/:id/read', authenticateToken, async (req, res) => {
