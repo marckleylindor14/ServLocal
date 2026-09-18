@@ -89,21 +89,23 @@ export default function HomePage() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const filteredServices = Array.isArray(allServices) ? allServices.filter(service => {
+  const otherServices = allServices.filter(s => !user || s.providerId !== user.id)
+
+  const filteredServices = otherServices.filter(service => {
     const matchesCity = !selectedCity || service.city === selectedCity
     const matchesSearch = !searchTerm.trim() ||
       service.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       service.category?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesType = activeTab === 'offers' ? service.type !== 'demand' : service.type === 'demand'
     return matchesCity && matchesSearch && matchesType
-  }) : []
+  })
 
   const suggestionServices = searchTerm.trim() === ''
     ? []
-    : (Array.isArray(allServices) ? allServices.filter(service =>
+    : otherServices.filter(service =>
         service.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         service.category?.toLowerCase().includes(searchTerm.toLowerCase())
-      ).slice(0, 6) : [])
+      ).slice(0, 6)
 
   const highlightMatch = (text) => {
     if (!searchTerm.trim()) return text
@@ -123,6 +125,9 @@ export default function HomePage() {
     { icon: PartyPopper, label: "Événements", color: "from-green-400 to-emerald-600" },
     { icon: Dog, label: "Animaux", color: "from-orange-400 to-red-600" },
   ]
+
+  const offersCount = otherServices.filter(s => s.type !== 'demand' && (!selectedCity || s.city === selectedCity)).length
+  const demandsCount = otherServices.filter(s => s.type === 'demand' && (!selectedCity || s.city === selectedCity)).length
 
   return (
     <PageTransition>
@@ -375,7 +380,7 @@ export default function HomePage() {
               Services proposés
               {!loading && (
                 <span className={`text-[11px] px-1.5 py-0.5 rounded-full ${activeTab === 'offers' ? 'bg-white/20' : 'bg-white/10'}`}>
-                  {allServices.filter(s => s.type !== 'demand').length}
+                  {offersCount}
                 </span>
               )}
             </button>
@@ -391,7 +396,7 @@ export default function HomePage() {
               Demandes
               {!loading && (
                 <span className={`text-[11px] px-1.5 py-0.5 rounded-full ${activeTab === 'demands' ? 'bg-white/20' : 'bg-white/10'}`}>
-                  {allServices.filter(s => s.type === 'demand').length}
+                  {demandsCount}
                 </span>
               )}
             </button>
