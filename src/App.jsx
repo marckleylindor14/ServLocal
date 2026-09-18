@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import HomePage from './pages/HomePage'
 import ProviderPage from './pages/ProviderPage'
+import UserProfilePage from './pages/UserProfilePage'
 import AddServicePage from './pages/AddServicePage'
 import RequestServicePage from './pages/RequestServicePage'
 import LoginPage from './pages/LoginPage'
@@ -29,6 +30,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={user ? <HomePage /> : <LandingPage />} />
         <Route path="/provider/:id" element={<ProviderPage />} />
+        <Route path="/user/:id" element={<UserProfilePage />} />
         <Route path="/add-service" element={<AddServicePage />} />
         <Route path="/request-service" element={<RequestServicePage />} />
         <Route path="/login" element={<LoginPage />} />

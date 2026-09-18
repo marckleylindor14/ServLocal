@@ -265,13 +265,27 @@ export default function ProviderPage() {
           </AnimatePresence>
 
           <div className="bg-card/60 backdrop-blur-md border border-border/50 rounded-2xl p-4 md:p-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-4">
-              <img src={pro.image || 'https://i.pravatar.cc/100?img=4'} alt={pro.title} className="w-16 h-16 md:w-20 md:h-20 rounded-full object-cover border-2 border-primary" />
-              <div className="flex-1">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h2 className="text-xl md:text-2xl font-bold">{pro.title}</h2>
-                    <p className="text-primary font-semibold text-sm md:text-base">{pro.category}</p>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-4">
+  {pro.providerId ? (
+    <Link to={`/user/${pro.providerId}`}>
+      <img src={pro.image || 'https://i.pravatar.cc/100?img=4'} alt={pro.title} className="w-16 h-16 md:w-20 md:h-20 rounded-full object-cover border-2 border-primary hover:scale-105 transition" />
+    </Link>
+  ) : (
+    <img src={pro.image || 'https://i.pravatar.cc/100?img=4'} alt={pro.title} className="w-16 h-16 md:w-20 md:h-20 rounded-full object-cover border-2 border-primary" />
+  )}
+  <div className="flex-1">
+    <div className="flex items-start justify-between gap-3">
+      <div>
+        <h2 className="text-xl md:text-2xl font-bold">{pro.title}</h2>
+        <p className="text-primary font-semibold text-sm md:text-base">{pro.category}</p>
+        {pro.providerId && (
+          <Link
+            to={`/user/${pro.providerId}`}
+            className="text-xs text-muted-foreground hover:text-primary transition mt-1 inline-block"
+          >
+            Proposé par <span className="font-medium">{pro.providerName}</span> →
+          </Link>
+        )}
                     {isDemand && (
                       <span className="inline-block bg-blue-400/20 text-blue-400 text-xs px-2 py-0.5 rounded-full mt-1">
                         Demande de service

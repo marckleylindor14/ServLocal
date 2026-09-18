@@ -965,6 +965,41 @@ app.get('/api/services/:id/proposals', authenticateToken, async (req, res) => {
     res.json(proposals.filter(p => p.serviceId === serviceId));
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
+app.get('/api/users/:id/public', authenticateToken, async (req, res) => {
+  try {
+    const userId = Number(req.params.id);
+    if (!Number.isInteger(userId) || userId < 1) return res.status(400).json({ error: 'ID invalide' });
+
+    const blocked = await isBlocked(req.user.id, userId);
+    if (blocked) return res.status(403).json({ error: 'Utilisateur non accessible.' });
+
+    const users = await readJSON(USERS_FILE);
+    const user = users.find(u => Number(u._id) === userId);
+    if (!user) return res.status(404).json({ error: 'Utilisateur non trouvé' });
+
+    const services = await readJSON(DATA_FILE);
+    const userServices = services.filter(s =>
+      Number(s.providerId) === userId || s.providerName === user.name
+    );
+
+    const privacy = user.privacy || { hideEmail: false, hideName: false };
+
+    res.json({
+      id: user._id,
+      name: privacy.hideName ? 'Utilisateur anonyme' : user.name,
+      photo: user.photo || null,
+      verified: user.verificationStatus === 'verified',
+      memberSince: user.createdAt,
+      isSelf: user._id === req.user.id,
+      totalServices: userServices.length,
+      offers: userServices.filter(s => s.type !== 'demand'),
+      demands: userServices.filter(s => s.type === 'demand')
+    });
+  } catch (error) {
+    console.error('Erreur profil public:', error);
+    res.status(500).json({ error: 'Erreur interne' });
+  }
+});
 
 app.get('/api/negotiations', authenticateToken, async (req, res) => {
   try {
