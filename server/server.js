@@ -502,7 +502,8 @@ app.get('/api/services/:id/reviews', async (req, res) => {
 
 app.post('/api/services/:id/reviews', authenticateToken, [
   body('rating').isInt({ min: 1, max: 5 }).withMessage('La note doit être un entier entre 1 et 5.'),
-  body('comment').optional().trim().isLength({ max: 500 }).withMessage('Le commentaire ne doit pas dépasser 500 caractères.')
+  body('comment').optional().trim().isLength({ max: 500 }).withMessage('Le commentaire ne doit pas dépasser 500 caractères.'),
+  body('photos').optional().isArray({ max: 3 }).withMessage('Maximum 3 photos.')
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -516,6 +517,9 @@ app.post('/api/services/:id/reviews', authenticateToken, [
     const reviews = await readJSON(REVIEWS_FILE);
     const alreadyReviewed = reviews.find(r => r.serviceId === serviceId && r.userId === req.user.id);
     if (alreadyReviewed) return res.status(409).json({ error: 'Vous avez déjà laissé un avis.' });
+
+    const photos = Array.isArray(req.body.photos) ? req.body.photos.slice(0, 3) : [];
+
     const newReview = {
       _id: nextId(reviews),
       serviceId,
@@ -523,6 +527,7 @@ app.post('/api/services/:id/reviews', authenticateToken, [
       userName: req.user.name,
       rating: req.body.rating,
       comment: req.body.comment ? req.body.comment.trim() : '',
+      photos,
       createdAt: new Date().toISOString()
     };
     reviews.push(newReview);
@@ -532,6 +537,7 @@ app.post('/api/services/:id/reviews', authenticateToken, [
     res.status(201).json({ review: newReview, averageRating: Number(averageRating) });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
+
 app.put('/api/reviews/:id/reply', authenticateToken, [
   body('reply').trim().notEmpty().withMessage('La réponse ne peut pas être vide.'),
   body('reply').trim().isLength({ max: 500 }).withMessage('La réponse ne doit pas dépasser 500 caractères.')

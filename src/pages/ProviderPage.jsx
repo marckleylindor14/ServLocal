@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
 import StarRating from '../components/StarRating'
@@ -8,7 +8,7 @@ import PageTransition from '../components/PageTransition'
 import ReportModal from '../components/ReportModal'
 import BlockModal from '../components/BlockModal'
 import API_URL from '../config'
-import { X, ImageOff, CheckCircle, Flag, HandCoins, Ban, MessageSquare, Send } from 'lucide-react'
+import { X, ImageOff, CheckCircle, Flag, HandCoins, Ban, MessageSquare, Send, ImagePlus, Loader2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 export default function ProviderPage() {
@@ -21,6 +21,10 @@ export default function ProviderPage() {
   const [averageRating, setAverageRating] = useState(0)
   const [newRating, setNewRating] = useState(0)
   const [comment, setComment] = useState('')
+  const [reviewPhotos, setReviewPhotos] = useState([])
+  const [reviewPhotoPreviews, setReviewPhotoPreviews] = useState([])
+  const [reviewPhotoUploading, setReviewPhotoUploading] = useState(false)
+  const reviewPhotoRef = useRef(null)
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
   const [bookingDate, setBookingDate] = useState('')
@@ -63,6 +67,50 @@ export default function ProviderPage() {
       })
   }, [id])
 
+  const handleReviewPhotoSelect = (e) => {
+    const newFiles = Array.from(e.target.files)
+    const validFiles = []
+    const rejected = []
+    for (const file of newFiles) {
+      if (file.type === 'image/jpeg' || file.type === 'image/png') {
+        if (file.size <= 5 * 1024 * 1024) validFiles.push(file)
+        else rejected.push(`${file.name} (trop lourd)`)
+      } else {
+        rejected.push(`${file.name} (format)`)
+      }
+    }
+    if (rejected.length > 0) {
+      addToast(`Ignorés : ${rejected.join(', ')}`, 'error')
+    }
+    const combined = [...reviewPhotos, ...validFiles].slice(0, 3)
+    setReviewPhotos(combined)
+    setReviewPhotoPreviews(combined.map(f => URL.createObjectURL(f)))
+    if (reviewPhotoRef.current) reviewPhotoRef.current.value = ''
+  }
+
+  const removeReviewPhoto = (index) => {
+    const newFiles = reviewPhotos.filter((_, i) => i !== index)
+    const newPreviews = reviewPhotoPreviews.filter((_, i) => i !== index)
+    setReviewPhotos(newFiles)
+    setReviewPhotoPreviews(newPreviews)
+  }
+
+  const uploadSinglePhoto = async (file) => {
+    const formData = new FormData()
+    formData.append('image', file)
+    const res = await fetch(`${API_URL}/api/upload`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      body: formData
+    })
+    if (!res.ok) {
+      const err = await res.json()
+      throw new Error(err.error || 'Échec upload')
+    }
+    const data = await res.json()
+    return data.url
+  }
+
   const handleReviewSubmit = async (e) => {
     e.preventDefault()
     if (!user) {
@@ -70,14 +118,26 @@ export default function ProviderPage() {
       addToast('Vous devez être connecté.', 'error')
       return
     }
+    if (!newRating) {
+      setErrorMessage('Sélectionnez une note.')
+      addToast('Sélectionnez une note.', 'error')
+      return
+    }
+
     try {
+      let photoUrls = []
+      if (reviewPhotos.length > 0) {
+        setReviewPhotoUploading(true)
+        photoUrls = await Promise.all(reviewPhotos.map(uploadSinglePhoto))
+      }
+
       const res = await fetch(`${API_URL}/api/services/${id}/reviews`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${localStorage.getItem('token')}`
         },
-        body: JSON.stringify({ rating: newRating, comment })
+        body: JSON.stringify({ rating: newRating, comment, photos: photoUrls })
       })
       const data = await res.json()
       if (res.ok) {
@@ -85,6 +145,8 @@ export default function ProviderPage() {
         setErrorMessage('')
         setNewRating(0)
         setComment('')
+        setReviewPhotos([])
+        setReviewPhotoPreviews([])
         setReviews(prev => [...prev, data.review])
         setAverageRating(data.averageRating)
         addToast('Avis publié !', 'success')
@@ -92,9 +154,11 @@ export default function ProviderPage() {
         setErrorMessage(data.error || 'Erreur')
         addToast(data.error || 'Erreur', 'error')
       }
-    } catch {
-      setErrorMessage('Impossible de contacter le serveur.')
-      addToast('Impossible de contacter le serveur.', 'error')
+    } catch (err) {
+      setErrorMessage(err.message || 'Impossible de contacter le serveur.')
+      addToast(err.message || 'Impossible de contacter le serveur.', 'error')
+    } finally {
+      setReviewPhotoUploading(false)
     }
   }
 
@@ -162,10 +226,7 @@ export default function ProviderPage() {
 
   const handleProposalSubmit = async (e) => {
     e.preventDefault()
-    if (!user) {
-      navigate('/login')
-      return
-    }
+    if (!user) { navigate('/login'); return }
     if (!proposedPrice || Number(String(proposedPrice).replace(',', '.')) <= 0) {
       addToast('Veuillez indiquer un prix valide.', 'error')
       return
@@ -265,27 +326,27 @@ export default function ProviderPage() {
           </AnimatePresence>
 
           <div className="bg-card/60 backdrop-blur-md border border-border/50 rounded-2xl p-4 md:p-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-4">
-  {pro.providerId ? (
-    <Link to={`/user/${pro.providerId}`}>
-      <img src={pro.image || 'https://i.pravatar.cc/100?img=4'} alt={pro.title} className="w-16 h-16 md:w-20 md:h-20 rounded-full object-cover border-2 border-primary hover:scale-105 transition" />
-    </Link>
-  ) : (
-    <img src={pro.image || 'https://i.pravatar.cc/100?img=4'} alt={pro.title} className="w-16 h-16 md:w-20 md:h-20 rounded-full object-cover border-2 border-primary" />
-  )}
-  <div className="flex-1">
-    <div className="flex items-start justify-between gap-3">
-      <div>
-        <h2 className="text-xl md:text-2xl font-bold">{pro.title}</h2>
-        <p className="text-primary font-semibold text-sm md:text-base">{pro.category}</p>
-        {pro.providerId && (
-          <Link
-            to={`/user/${pro.providerId}`}
-            className="text-xs text-muted-foreground hover:text-primary transition mt-1 inline-block"
-          >
-            Proposé par <span className="font-medium">{pro.providerName}</span> →
-          </Link>
-        )}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-4">
+              {pro.providerId ? (
+                <Link to={`/user/${pro.providerId}`}>
+                  <img src={pro.image || 'https://i.pravatar.cc/100?img=4'} alt={pro.title} className="w-16 h-16 md:w-20 md:h-20 rounded-full object-cover border-2 border-primary hover:scale-105 transition" />
+                </Link>
+              ) : (
+                <img src={pro.image || 'https://i.pravatar.cc/100?img=4'} alt={pro.title} className="w-16 h-16 md:w-20 md:h-20 rounded-full object-cover border-2 border-primary" />
+              )}
+              <div className="flex-1">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-xl md:text-2xl font-bold">{pro.title}</h2>
+                    <p className="text-primary font-semibold text-sm md:text-base">{pro.category}</p>
+                    {pro.providerId && (
+                      <Link
+                        to={`/user/${pro.providerId}`}
+                        className="text-xs text-muted-foreground hover:text-primary transition mt-1 inline-block"
+                      >
+                        Proposé par <span className="font-medium">{pro.providerName}</span> →
+                      </Link>
+                    )}
                     {isDemand && (
                       <span className="inline-block bg-blue-400/20 text-blue-400 text-xs px-2 py-0.5 rounded-full mt-1">
                         Demande de service
@@ -482,6 +543,24 @@ export default function ProviderPage() {
                     </div>
                     {review.comment && <p className="text-muted-foreground text-xs mt-1">{review.comment}</p>}
 
+                    {Array.isArray(review.photos) && review.photos.length > 0 && (
+                      <div className="flex gap-2 mt-3 flex-wrap">
+                        {review.photos.map((photoUrl, idx) => (
+                          <div
+                            key={idx}
+                            className="w-20 h-20 rounded-lg overflow-hidden cursor-pointer group"
+                            onClick={() => setLightboxImage(photoUrl)}
+                          >
+                            <img
+                              src={photoUrl}
+                              alt={`Photo ${idx + 1}`}
+                              className="w-full h-full object-cover group-hover:scale-110 transition"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     {review.reply && (
                       <div className="mt-3 ml-4 pl-3 border-l-2 border-primary/40">
                         <div className="flex items-center gap-2 mb-1">
@@ -546,9 +625,63 @@ export default function ProviderPage() {
                   <h4 className="font-semibold text-sm">Laisser un avis</h4>
                   <div><p className="text-xs mb-1">Votre note</p><StarRating rating={newRating} onRate={setNewRating} /></div>
                   <textarea placeholder="Partagez votre expérience..." className="w-full bg-white/5 border border-border rounded-lg py-2 px-3 text-foreground placeholder-muted-foreground outline-none focus:border-primary transition resize-none text-xs" rows={3} value={comment} onChange={(e) => setComment(e.target.value)} />
+
+                  <div>
+                    <p className="text-xs mb-2">Photos (max 3, optionnel)</p>
+                    {reviewPhotoPreviews.length > 0 ? (
+                      <div className="flex gap-2 flex-wrap mb-2">
+                        {reviewPhotoPreviews.map((src, idx) => (
+                          <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden">
+                            <img src={src} alt={`Aperçu ${idx + 1}`} className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => removeReviewPhoto(idx)}
+                              className="absolute top-0.5 right-0.5 bg-black/70 text-white p-0.5 rounded-full"
+                            >
+                              <X size={11} />
+                            </button>
+                          </div>
+                        ))}
+                        {reviewPhotos.length < 3 && (
+                          <button
+                            type="button"
+                            onClick={() => reviewPhotoRef.current?.click()}
+                            className="w-16 h-16 rounded-lg border-2 border-dashed border-border flex items-center justify-center text-muted-foreground hover:border-primary transition"
+                          >
+                            <ImagePlus size={18} />
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => reviewPhotoRef.current?.click()}
+                        className="flex items-center gap-2 text-xs border border-dashed border-border rounded-lg px-3 py-2 text-muted-foreground hover:border-primary hover:text-primary transition"
+                      >
+                        <ImagePlus size={14} />
+                        Ajouter des photos
+                      </button>
+                    )}
+                    <input
+                      ref={reviewPhotoRef}
+                      type="file"
+                      accept="image/jpeg,image/png"
+                      multiple
+                      onChange={handleReviewPhotoSelect}
+                      className="hidden"
+                    />
+                  </div>
+
                   {errorMessage && <p className="text-red-400 text-xs">{errorMessage}</p>}
                   {successMessage && <p className="text-green-400 text-xs">{successMessage}</p>}
-                  <button type="submit" className="bg-primary text-primary-foreground font-semibold py-2 px-6 rounded-full hover:bg-primary/90 transition text-sm">Publier</button>
+                  <button
+                    type="submit"
+                    disabled={reviewPhotoUploading}
+                    className="bg-primary text-primary-foreground font-semibold py-2 px-6 rounded-full hover:bg-primary/90 transition text-sm disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {reviewPhotoUploading && <Loader2 size={14} className="animate-spin" />}
+                    {reviewPhotoUploading ? 'Envoi...' : 'Publier'}
+                  </button>
                 </form>
               )}
 
