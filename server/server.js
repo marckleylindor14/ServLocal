@@ -1135,6 +1135,92 @@ app.get('/api/activity', authenticateToken, async (req, res) => {
       readJSON(PROPOSALS_FILE),
       readJSON(NEGOTIATIONS_FILE)
     ]);
+    app.get('/api/provider/stats', authenticateToken, async (req, res) => {
+      try {
+        const [bookings, services, reviews] = await Promise.all([
+          readJSON(BOOKINGS_FILE),
+          readJSON(DATA_FILE),
+          readJSON(REVIEWS_FILE)
+        ]);
+    
+        const userId = req.user.id;
+        const userName = req.user.name;
+    
+        const myBookings = bookings.filter(b =>
+          Number(b.providerId) === userId || b.providerName === userName
+        );
+    
+        const paidBookings = myBookings.filter(b =>
+          b.paymentStatus === 'paid' || b.status === 'confirmed' || b.status === 'completed'
+        );
+    
+        const totalEarnings = paidBookings.reduce((sum, b) => {
+          const price = parseFloat(b.price || 0) || 0
+          return sum + price
+        }, 0);
+    
+        const now = new Date();
+        const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    
+        const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const lastMonthKey = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
+    
+        const monthlyEarnings = {};
+        paidBookings.forEach(b => {
+          const date = new Date(b.createdAt)
+          const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+          const price = parseFloat(b.price || 0) || 0
+          monthlyEarnings[key] = (monthlyEarnings[key] || 0) + price
+        })
+    
+        const currentMonthEarnings = monthlyEarnings[currentMonthKey] || 0;
+        const lastMonthEarnings = monthlyEarnings[lastMonthKey] || 0;
+    
+        const last6Months = [];
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+          last6Months.push({
+            month: key,
+            label: d.toLocaleDateString('fr-FR', { month: 'short' }),
+            earnings: monthlyEarnings[key] || 0,
+          })
+        }
+    
+        const totalBookingsReceived = myBookings.length;
+        const acceptedBookings = myBookings.filter(b =>
+          b.status === 'confirmed' || b.status === 'completed'
+        ).length;
+        const acceptanceRate = totalBookingsReceived > 0
+          ? Math.round((acceptedBookings / totalBookingsReceived) * 100)
+          : 0;
+    
+        const myServices = services.filter(s =>
+          Number(s.providerId) === userId || s.providerName === userName
+        )
+        const myServiceIds = myServices.map(s => Number(s._id))
+        const myReviews = reviews.filter(r => myServiceIds.includes(Number(r.serviceId)))
+        const averageRating = myReviews.length
+          ? Number((myReviews.reduce((sum, r) => sum + r.rating, 0) / myReviews.length).toFixed(1))
+          : 0;
+    
+        res.json({
+          totalEarnings: Math.round(totalEarnings * 100) / 100,
+          currentMonthEarnings: Math.round(currentMonthEarnings * 100) / 100,
+          lastMonthEarnings: Math.round(lastMonthEarnings * 100) / 100,
+          totalBookings: totalBookingsReceived,
+          completedBookings: paidBookings.length,
+          acceptedBookings,
+          acceptanceRate,
+          averageRating,
+          totalReviews: myReviews.length,
+          last6Months,
+        });
+      } catch (error) {
+        console.error('Erreur provider stats:', error);
+        res.status(500).json({ error: 'Erreur interne' });
+      }
+    });
 
     const userId = req.user.id;
 

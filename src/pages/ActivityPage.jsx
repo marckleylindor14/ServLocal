@@ -11,7 +11,7 @@ import { loadStripe } from '@stripe/stripe-js'
 import {
   Sparkles, Clock, CheckCircle, XCircle, Euro, User,
   MessageSquare, Handshake, Calendar, MapPin, Pencil,
-  Trash2, HelpCircle, PlusCircle, Eye, AlertCircle
+  Trash2, HelpCircle, PlusCircle, Eye, TrendingUp, Star, Award
 } from 'lucide-react'
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
@@ -21,7 +21,9 @@ export default function ActivityPage() {
   const navigate = useNavigate()
   const { addToast } = useToast()
   const [data, setData] = useState(null)
+  const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [statsLoading, setStatsLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('totreat')
   const [publicationFilter, setPublicationFilter] = useState('offers')
   const [editing, setEditing] = useState(null)
@@ -41,10 +43,31 @@ export default function ActivityPage() {
     }
   }
 
+  const loadStats = async () => {
+    setStatsLoading(true)
+    try {
+      const res = await fetch(`${API_URL}/api/provider/stats`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      })
+      const d = await res.json()
+      setStats(d)
+    } catch {
+      addToast('Impossible de charger vos revenus.', 'error')
+    } finally {
+      setStatsLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (!user) { navigate('/login'); return }
     load()
   }, [user, navigate])
+
+  useEffect(() => {
+    if (activeTab === 'revenue' && !stats) {
+      loadStats()
+    }
+  }, [activeTab])
 
   useEffect(() => {
     if (!user) return
@@ -184,6 +207,7 @@ export default function ActivityPage() {
     { id: 'totreat', label: 'À traiter', emoji: '⚡', count: data.counts.toTreat },
     { id: 'inprogress', label: 'En cours', emoji: '🔄', count: data.counts.inProgress },
     { id: 'publications', label: 'Mes publications', emoji: '📝', count: data.counts.publications },
+    { id: 'revenue', label: 'Revenus', emoji: '💰', count: 0 },
     { id: 'history', label: 'Historique', emoji: '📚', count: data.counts.history }
   ]
 
@@ -256,6 +280,10 @@ export default function ActivityPage() {
               onDelete={handleDeletePublication}
               onNavigate={navigate}
             />
+          )}
+
+          {activeTab === 'revenue' && (
+            <RevenueTab stats={stats} loading={statsLoading} onRefresh={loadStats} />
           )}
 
           {activeTab === 'history' && (
@@ -349,42 +377,39 @@ function ToTreatTab({ data, counts, onProposalStatus, onBookingStatus, onPay, on
             <span className="text-[11px] bg-primary/20 px-2 py-0.5 rounded-full">{counts.negotiationsToTreat}</span>
           </h2>
           <div className="space-y-3">
-            {data.negotiations.map(n => {
-              const otherName = n.initiatorId === n.recipientId ? '' : (n.currentProposal?.proposedByName)
-              return (
-                <button
-                  key={n._id}
-                  onClick={() => onNavigate(`/negotiation/${n._id}`)}
-                  className="w-full card-hover p-4 text-left"
-                >
-                  <div className="flex items-start gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
-                      <Handshake size={18} className="text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm truncate">{n.serviceTitle}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Proposé par {n.currentProposal?.proposedByName}
-                      </p>
-                    </div>
-                    <span className="text-primary font-bold text-sm shrink-0">{n.price} €</span>
+            {data.negotiations.map(n => (
+              <button
+                key={n._id}
+                onClick={() => onNavigate(`/negotiation/${n._id}`)}
+                className="w-full card-hover p-4 text-left"
+              >
+                <div className="flex items-start gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+                    <Handshake size={18} className="text-primary" />
                   </div>
-                  {n.currentProposal && (
-                    <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Calendar size={11} /> {new Date(n.currentProposal.date).toLocaleDateString('fr-FR')}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock size={11} /> {n.currentProposal.timeSlot}
-                      </span>
-                      <span className="flex items-center gap-1 truncate">
-                        <MapPin size={11} /> {n.currentProposal.location}
-                      </span>
-                    </div>
-                  )}
-                </button>
-              )
-            })}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm truncate">{n.serviceTitle}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Proposé par {n.currentProposal?.proposedByName}
+                    </p>
+                  </div>
+                  <span className="text-primary font-bold text-sm shrink-0">{n.price} €</span>
+                </div>
+                {n.currentProposal && (
+                  <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Calendar size={11} /> {new Date(n.currentProposal.date).toLocaleDateString('fr-FR')}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock size={11} /> {n.currentProposal.timeSlot}
+                    </span>
+                    <span className="flex items-center gap-1 truncate">
+                      <MapPin size={11} /> {n.currentProposal.location}
+                    </span>
+                  </div>
+                )}
+              </button>
+            ))}
           </div>
         </section>
       )}
@@ -525,9 +550,7 @@ function InProgressTab({ data, onNavigate }) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-sm truncate">{n.serviceTitle}</p>
-                  <p className="text-xs text-muted-foreground">
-                    En attente de {n.initiatorId === n.currentProposal?.proposedById ? n.recipientName : n.initiatorName}
-                  </p>
+                  <p className="text-xs text-muted-foreground">En attente de réponse</p>
                 </div>
                 <span className="text-primary font-bold text-sm shrink-0">{n.price} €</span>
               </button>
@@ -573,9 +596,6 @@ function InProgressTab({ data, onNavigate }) {
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div>
                     <p className="font-semibold text-sm">{b.serviceTitle}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {b.clientId === b.providerId ? '' : ''}
-                    </p>
                   </div>
                   <span className="text-xs px-2 py-1 rounded-full bg-green-400/20 text-green-400">
                     Confirmé
@@ -743,6 +763,127 @@ function PublicationsTab({ data, filter, setFilter, editing, form, setForm, onSt
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+function RevenueTab({ stats, loading, onRefresh }) {
+  if (loading || !stats) {
+    return (
+      <div className="space-y-3">
+        <SkeletonCard />
+        <SkeletonCard />
+      </div>
+    )
+  }
+
+  const maxEarnings = Math.max(...stats.last6Months.map(m => m.earnings), 1)
+  const monthDelta = stats.lastMonthEarnings > 0
+    ? Math.round(((stats.currentMonthEarnings - stats.lastMonthEarnings) / stats.lastMonthEarnings) * 100)
+    : null
+
+  return (
+    <div className="space-y-5">
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="card-hover p-5 relative overflow-hidden">
+          <div className="absolute -top-10 -right-10 w-32 h-32 bg-primary/10 rounded-full blur-2xl" />
+          <div className="relative">
+            <p className="text-xs text-muted-foreground mb-1">Revenus totaux</p>
+            <p className="text-3xl font-extrabold text-primary">
+              {stats.totalEarnings.toFixed(2)} €
+            </p>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              {stats.completedBookings} prestation{stats.completedBookings > 1 ? 's' : ''} terminée{stats.completedBookings > 1 ? 's' : ''}
+            </p>
+          </div>
+        </div>
+
+        <div className="card-hover p-5">
+          <p className="text-xs text-muted-foreground mb-1">Ce mois-ci</p>
+          <p className="text-3xl font-extrabold">
+            {stats.currentMonthEarnings.toFixed(2)} €
+          </p>
+          {monthDelta !== null && (
+            <p className={`text-[11px] mt-1 flex items-center gap-1 ${monthDelta >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              <TrendingUp size={11} className={monthDelta < 0 ? 'rotate-180' : ''} />
+              {monthDelta >= 0 ? '+' : ''}{monthDelta}% vs mois dernier
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="card-hover p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold">6 derniers mois</h3>
+          <button onClick={onRefresh} className="text-xs text-primary hover:underline">
+            Rafraîchir
+          </button>
+        </div>
+        <div className="flex items-end justify-between gap-2 h-40">
+          {stats.last6Months.map(m => {
+            const height = m.earnings > 0 ? Math.max((m.earnings / maxEarnings) * 100, 5) : 2
+            return (
+              <div key={m.month} className="flex-1 flex flex-col items-center gap-2">
+                <div className="flex-1 w-full flex items-end">
+                  <div
+                    className={`w-full rounded-t-lg transition-all ${
+                      m.earnings > 0 ? 'bg-gradient-to-t from-primary/60 to-primary' : 'bg-white/5'
+                    }`}
+                    style={{ height: `${height}%` }}
+                    title={`${m.earnings.toFixed(2)} €`}
+                  />
+                </div>
+                <span className="text-[10px] text-muted-foreground capitalize">{m.label}</span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="card-hover p-5">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-9 h-9 rounded-xl bg-blue-400/15 flex items-center justify-center">
+              <CheckCircle size={18} className="text-blue-400" />
+            </div>
+            <p className="text-xs text-muted-foreground">Taux d'acceptation</p>
+          </div>
+          <p className="text-2xl font-bold">{stats.acceptanceRate}%</p>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            {stats.acceptedBookings} sur {stats.totalBookings} réservation{stats.totalBookings > 1 ? 's' : ''}
+          </p>
+        </div>
+
+        <div className="card-hover p-5">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-9 h-9 rounded-xl bg-yellow-400/15 flex items-center justify-center">
+              <Star size={18} className="text-yellow-400" />
+            </div>
+            <p className="text-xs text-muted-foreground">Note moyenne</p>
+          </div>
+          <p className="text-2xl font-bold">
+            {stats.averageRating > 0 ? stats.averageRating.toFixed(1) : '—'}
+          </p>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            {stats.totalReviews} avis
+          </p>
+        </div>
+
+        <div className="card-hover p-5">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-9 h-9 rounded-xl bg-purple-400/15 flex items-center justify-center">
+              <Award size={18} className="text-purple-400" />
+            </div>
+            <p className="text-xs text-muted-foreground">Prestations</p>
+          </div>
+          <p className="text-2xl font-bold">{stats.completedBookings}</p>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            {stats.totalBookings} réservation{stats.totalBookings > 1 ? 's' : ''} reçue{stats.totalBookings > 1 ? 's' : ''}
+          </p>
+        </div>
+      </div>
+
     </div>
   )
 }
