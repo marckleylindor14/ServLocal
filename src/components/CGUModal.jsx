@@ -27,29 +27,22 @@ export default function CGUModal({ onClose }) {
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ type: 'spring', stiffness: 320, damping: 34 }}
-        drag="y"
-        dragConstraints={{ top: 0, bottom: 0 }}
-        dragElastic={{ top: 0, bottom: 0.3 }}
-        onDragEnd={(e, info) => {
-          if (info.offset.y > 140 || info.velocity.y > 600) onClose()
-        }}
-        className="bg-card border border-border rounded-t-3xl sm:rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] sm:max-h-[80vh] overflow-y-auto p-6 relative"
-        style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
+        className="bg-card border border-border rounded-t-3xl sm:rounded-2xl shadow-2xl max-w-2xl w-full flex flex-col max-h-[85vh] sm:max-h-[80vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="sm:hidden w-10 h-1 rounded-full bg-muted-foreground/40 mx-auto mb-4 sticky top-0" />
+        <div className="shrink-0 px-6 pt-4 pb-3 border-b border-border/40 relative">
+          <div className="sm:hidden w-10 h-1 rounded-full bg-muted-foreground/40 mx-auto mb-4" />
+          <h2 className="text-xl md:text-2xl font-bold pr-10">Conditions Générales d'Utilisation</h2>
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 sm:top-6 text-muted-foreground hover:text-foreground transition press"
+            aria-label="Fermer"
+          >
+            <X size={22} />
+          </button>
+        </div>
 
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition press"
-          aria-label="Fermer"
-        >
-          <X size={24} />
-        </button>
-
-        <h2 className="text-2xl font-bold mb-4 pr-10">Conditions Générales d'Utilisation</h2>
-
-        <div className="space-y-4 text-sm text-muted-foreground leading-relaxed">
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4 text-sm text-muted-foreground leading-relaxed">
           <p><strong>1. Objet</strong><br />Les présentes CGU régissent l'utilisation de la plateforme Myra, service de mise en relation entre prestataires et clients.</p>
           <p><strong>2. Services proposés</strong><br />Myra permet aux utilisateurs de proposer des services (prestataires) ou de rechercher des services (clients). Myra n'emploie pas les prestataires et ne garantit pas la réalisation des services.</p>
           <p><strong>3. Inscription et compte</strong><br />L'utilisateur doit fournir des informations exactes et maintenir son compte à jour. Il est responsable de la confidentialité de son mot de passe.</p>
@@ -60,12 +53,17 @@ export default function CGUModal({ onClose }) {
           <p><strong>8. Modification des CGU</strong><br />Myra peut modifier ces conditions. Les utilisateurs seront informés par email ou notification sur la plateforme. La poursuite de l'utilisation vaut acceptation des nouvelles conditions.</p>
         </div>
 
-        <button
-          onClick={onClose}
-          className="mt-6 w-full bg-primary text-primary-foreground py-2 rounded-full font-semibold press"
+        <div
+          className="shrink-0 px-6 pt-3 border-t border-border/40 bg-card"
+          style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
         >
-          Fermer
-        </button>
+          <button
+            onClick={onClose}
+            className="w-full bg-primary text-primary-foreground py-3 rounded-full font-semibold press"
+          >
+            Fermer
+          </button>
+        </div>
       </motion.div>
     </div>
   )
