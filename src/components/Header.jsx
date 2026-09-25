@@ -118,8 +118,17 @@ export default function Header() {
                     onClick={() => setMenuOpen(false)}
                     className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-white/5 transition press no-select"
                   >
-                    <Settings size={16} className="text-muted-foreground" />
+                    <User size={16} className="text-muted-foreground" />
                     Mon compte
+                  </Link>
+
+                  <Link
+                    to="/settings"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-white/5 transition press no-select"
+                  >
+                    <Settings size={16} className="text-muted-foreground" />
+                    Paramètres
                   </Link>
 
                   {isAdmin && (
