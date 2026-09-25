@@ -7,6 +7,7 @@ import { useToast } from '../context/ToastContext'
 import PageTransition from '../components/PageTransition'
 import ReportModal from '../components/ReportModal'
 import BlockModal from '../components/BlockModal'
+import FastResponseBadge from '../components/FastResponseBadge'
 import API_URL from '../config'
 import { X, ImageOff, CheckCircle, Flag, HandCoins, Ban, MessageSquare, Send, ImagePlus, Loader2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -289,6 +290,7 @@ export default function ProviderPage() {
 
   const isDemand = pro.type === 'demand'
   const isOwner = user && (pro.providerId === user.id || pro.providerName === user.name)
+  const showFastBadge = pro.responseStats?.fastResponder === true
 
   return (
     <PageTransition>
@@ -346,6 +348,11 @@ export default function ProviderPage() {
                       >
                         Proposé par <span className="font-medium">{pro.providerName}</span> →
                       </Link>
+                    )}
+                    {showFastBadge && !isDemand && (
+                      <div className="mt-2">
+                        <FastResponseBadge />
+                      </div>
                     )}
                     {isDemand && (
                       <span className="inline-block bg-blue-400/20 text-blue-400 text-xs px-2 py-0.5 rounded-full mt-1">

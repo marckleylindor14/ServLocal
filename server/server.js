@@ -140,6 +140,61 @@ async function isBlocked(userA, userB) {
   );
 }
 
+async function computeResponseStats(userId) {
+  try {
+    const [conversations, messages] = await Promise.all([
+      readJSON(CONVERSATIONS_FILE),
+      readJSON(MESSAGES_FILE)
+    ]);
+
+    const myConversations = conversations.filter(c => c.participants.includes(userId));
+    if (myConversations.length === 0) {
+      return { avgMinutes: null, totalResponses: 0, fastResponder: false };
+    }
+
+    const responseTimes = [];
+
+    for (const conv of myConversations) {
+      const convMessages = messages
+        .filter(m => m.conversationId === conv._id)
+        .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+      for (let i = 0; i < convMessages.length; i++) {
+        const msg = convMessages[i];
+        if (msg.senderId === userId) continue;
+
+        for (let j = i + 1; j < convMessages.length; j++) {
+          if (convMessages[j].senderId === userId) {
+            const delta = new Date(convMessages[j].createdAt) - new Date(msg.createdAt);
+            responseTimes.push(delta);
+            break;
+          }
+        }
+      }
+    }
+
+    if (responseTimes.length < 5) {
+      return {
+        avgMinutes: null,
+        totalResponses: responseTimes.length,
+        fastResponder: false
+      };
+    }
+
+    const avgMs = responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length;
+    const avgMinutes = Math.round(avgMs / 60000);
+
+    return {
+      avgMinutes,
+      totalResponses: responseTimes.length,
+      fastResponder: avgMinutes <= 60
+    };
+  } catch (err) {
+    console.error('Erreur computeResponseStats:', err);
+    return { avgMinutes: null, totalResponses: 0, fastResponder: false };
+  }
+}
+
 const storage = multer.memoryStorage();
 const upload = multer({
   storage,
@@ -210,6 +265,7 @@ const validateService = [
 app.get('/api/services', async (req, res) => {
   try { res.json(await readJSON(DATA_FILE)); } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
+
 app.get('/api/services/:id', async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -217,7 +273,13 @@ app.get('/api/services/:id', async (req, res) => {
     const services = await readJSON(DATA_FILE);
     const service = services.find(s => Number(s._id) === id);
     if (!service) return res.status(404).json({ error: 'Service non trouvé' });
-    res.json(service);
+
+    let responseStats = null;
+    if (service.providerId) {
+      responseStats = await computeResponseStats(service.providerId);
+    }
+
+    res.json({ ...service, responseStats });
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
 
@@ -460,7 +522,6 @@ app.delete('/api/user/account', authenticateToken, async (req, res) => {
     if (!isMatch) return res.status(401).json({ error: 'Mot de passe incorrect.' });
 
     const userId = users[userIndex]._id;
-    const userName = users[userIndex].name;
     users.splice(userIndex, 1);
     await writeJSON(USERS_FILE, users);
 
@@ -971,6 +1032,7 @@ app.get('/api/services/:id/proposals', authenticateToken, async (req, res) => {
     res.json(proposals.filter(p => p.serviceId === serviceId));
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
+
 app.get('/api/users/:id/public', authenticateToken, async (req, res) => {
   try {
     const userId = Number(req.params.id);
@@ -989,6 +1051,7 @@ app.get('/api/users/:id/public', authenticateToken, async (req, res) => {
     );
 
     const privacy = user.privacy || { hideEmail: false, hideName: false };
+    const responseStats = await computeResponseStats(userId);
 
     res.json({
       id: user._id,
@@ -999,7 +1062,8 @@ app.get('/api/users/:id/public', authenticateToken, async (req, res) => {
       isSelf: user._id === req.user.id,
       totalServices: userServices.length,
       offers: userServices.filter(s => s.type !== 'demand'),
-      demands: userServices.filter(s => s.type === 'demand')
+      demands: userServices.filter(s => s.type === 'demand'),
+      responseStats
     });
   } catch (error) {
     console.error('Erreur profil public:', error);
@@ -1127,6 +1191,93 @@ app.put('/api/negotiations/:id/refuse', authenticateToken, async (req, res) => {
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
 
+app.get('/api/provider/stats', authenticateToken, async (req, res) => {
+  try {
+    const [bookings, services, reviews] = await Promise.all([
+      readJSON(BOOKINGS_FILE),
+      readJSON(DATA_FILE),
+      readJSON(REVIEWS_FILE)
+    ]);
+
+    const userId = req.user.id;
+    const userName = req.user.name;
+
+    const myBookings = bookings.filter(b =>
+      Number(b.providerId) === userId || b.providerName === userName
+    );
+
+    const paidBookings = myBookings.filter(b =>
+      b.paymentStatus === 'paid' || b.status === 'confirmed' || b.status === 'completed'
+    );
+
+    const totalEarnings = paidBookings.reduce((sum, b) => {
+      const price = parseFloat(b.price || 0) || 0;
+      return sum + price;
+    }, 0);
+
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthKey = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
+
+    const monthlyEarnings = {};
+    paidBookings.forEach(b => {
+      const date = new Date(b.createdAt);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const price = parseFloat(b.price || 0) || 0;
+      monthlyEarnings[key] = (monthlyEarnings[key] || 0) + price;
+    });
+
+    const currentMonthEarnings = monthlyEarnings[currentMonthKey] || 0;
+    const lastMonthEarnings = monthlyEarnings[lastMonthKey] || 0;
+
+    const last6Months = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      last6Months.push({
+        month: key,
+        label: d.toLocaleDateString('fr-FR', { month: 'short' }),
+        earnings: monthlyEarnings[key] || 0,
+      });
+    }
+
+    const totalBookingsReceived = myBookings.length;
+    const acceptedBookings = myBookings.filter(b =>
+      b.status === 'confirmed' || b.status === 'completed'
+    ).length;
+    const acceptanceRate = totalBookingsReceived > 0
+      ? Math.round((acceptedBookings / totalBookingsReceived) * 100)
+      : 0;
+
+    const myServices = services.filter(s =>
+      Number(s.providerId) === userId || s.providerName === userName
+    );
+    const myServiceIds = myServices.map(s => Number(s._id));
+    const myReviews = reviews.filter(r => myServiceIds.includes(Number(r.serviceId)));
+    const averageRating = myReviews.length
+      ? Number((myReviews.reduce((sum, r) => sum + r.rating, 0) / myReviews.length).toFixed(1))
+      : 0;
+
+    res.json({
+      totalEarnings: Math.round(totalEarnings * 100) / 100,
+      currentMonthEarnings: Math.round(currentMonthEarnings * 100) / 100,
+      lastMonthEarnings: Math.round(lastMonthEarnings * 100) / 100,
+      totalBookings: totalBookingsReceived,
+      completedBookings: paidBookings.length,
+      acceptedBookings,
+      acceptanceRate,
+      averageRating,
+      totalReviews: myReviews.length,
+      last6Months,
+    });
+  } catch (error) {
+    console.error('Erreur provider stats:', error);
+    res.status(500).json({ error: 'Erreur interne' });
+  }
+});
+
 app.get('/api/activity', authenticateToken, async (req, res) => {
   try {
     const [services, bookings, proposals, negotiations] = await Promise.all([
@@ -1135,92 +1286,6 @@ app.get('/api/activity', authenticateToken, async (req, res) => {
       readJSON(PROPOSALS_FILE),
       readJSON(NEGOTIATIONS_FILE)
     ]);
-    app.get('/api/provider/stats', authenticateToken, async (req, res) => {
-      try {
-        const [bookings, services, reviews] = await Promise.all([
-          readJSON(BOOKINGS_FILE),
-          readJSON(DATA_FILE),
-          readJSON(REVIEWS_FILE)
-        ]);
-    
-        const userId = req.user.id;
-        const userName = req.user.name;
-    
-        const myBookings = bookings.filter(b =>
-          Number(b.providerId) === userId || b.providerName === userName
-        );
-    
-        const paidBookings = myBookings.filter(b =>
-          b.paymentStatus === 'paid' || b.status === 'confirmed' || b.status === 'completed'
-        );
-    
-        const totalEarnings = paidBookings.reduce((sum, b) => {
-          const price = parseFloat(b.price || 0) || 0
-          return sum + price
-        }, 0);
-    
-        const now = new Date();
-        const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    
-        const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        const lastMonthKey = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
-    
-        const monthlyEarnings = {};
-        paidBookings.forEach(b => {
-          const date = new Date(b.createdAt)
-          const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-          const price = parseFloat(b.price || 0) || 0
-          monthlyEarnings[key] = (monthlyEarnings[key] || 0) + price
-        })
-    
-        const currentMonthEarnings = monthlyEarnings[currentMonthKey] || 0;
-        const lastMonthEarnings = monthlyEarnings[lastMonthKey] || 0;
-    
-        const last6Months = [];
-        for (let i = 5; i >= 0; i--) {
-          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-          last6Months.push({
-            month: key,
-            label: d.toLocaleDateString('fr-FR', { month: 'short' }),
-            earnings: monthlyEarnings[key] || 0,
-          })
-        }
-    
-        const totalBookingsReceived = myBookings.length;
-        const acceptedBookings = myBookings.filter(b =>
-          b.status === 'confirmed' || b.status === 'completed'
-        ).length;
-        const acceptanceRate = totalBookingsReceived > 0
-          ? Math.round((acceptedBookings / totalBookingsReceived) * 100)
-          : 0;
-    
-        const myServices = services.filter(s =>
-          Number(s.providerId) === userId || s.providerName === userName
-        )
-        const myServiceIds = myServices.map(s => Number(s._id))
-        const myReviews = reviews.filter(r => myServiceIds.includes(Number(r.serviceId)))
-        const averageRating = myReviews.length
-          ? Number((myReviews.reduce((sum, r) => sum + r.rating, 0) / myReviews.length).toFixed(1))
-          : 0;
-    
-        res.json({
-          totalEarnings: Math.round(totalEarnings * 100) / 100,
-          currentMonthEarnings: Math.round(currentMonthEarnings * 100) / 100,
-          lastMonthEarnings: Math.round(lastMonthEarnings * 100) / 100,
-          totalBookings: totalBookingsReceived,
-          completedBookings: paidBookings.length,
-          acceptedBookings,
-          acceptanceRate,
-          averageRating,
-          totalReviews: myReviews.length,
-          last6Months,
-        });
-      } catch (error) {
-        console.error('Erreur provider stats:', error);
-        res.status(500).json({ error: 'Erreur interne' });
-      }
-    });
 
     const userId = req.user.id;
 

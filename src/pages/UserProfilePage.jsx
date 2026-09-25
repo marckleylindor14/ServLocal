@@ -7,6 +7,7 @@ import EmptyState from '../components/EmptyState'
 import PageTransition from '../components/PageTransition'
 import BlockModal from '../components/BlockModal'
 import ReportModal from '../components/ReportModal'
+import FastResponseBadge from '../components/FastResponseBadge'
 import API_URL from '../config'
 import {
   ArrowLeft, User, ShieldCheck, Calendar, Star, MapPin,
@@ -105,6 +106,7 @@ export default function UserProfilePage() {
 
   const displayed = activeTab === 'offers' ? profile.offers : profile.demands
   const memberSince = new Date(profile.memberSince).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+  const showFastBadge = profile.responseStats?.fastResponder === true
 
   return (
     <PageTransition>
@@ -135,12 +137,17 @@ export default function UserProfilePage() {
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <h1 className="text-xl md:text-2xl font-bold truncate">{profile.name}</h1>
                   {profile.verified && (
                     <ShieldCheck size={18} className="text-green-400 shrink-0" />
                   )}
                 </div>
+                {showFastBadge && (
+                  <div className="mb-2">
+                    <FastResponseBadge />
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground flex items-center gap-1.5 mb-2">
                   <Calendar size={12} />
                   Membre depuis {memberSince}
