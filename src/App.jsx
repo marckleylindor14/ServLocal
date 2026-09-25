@@ -18,6 +18,7 @@ import SettingsPage from './pages/SettingsPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
+import CGUPage from './pages/CGUPage'
 import LandingPage from './pages/LandingPage'
 import Onboarding from './pages/Onboarding'
 import OfflineBanner from './components/OfflineBanner'
@@ -49,6 +50,7 @@ export default function App() {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
+          <Route path="/cgu" element={<CGUPage />} />
           <Route path="/onboarding" element={<Onboarding />} />
 
           <Route path="/my-services" element={<Navigate to="/activity" replace />} />

@@ -5,7 +5,6 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import Header from '../components/Header'
 import PageTransition from '../components/PageTransition'
-import CGUModal from '../components/CGUModal'
 import API_URL from '../config'
 import * as haptics from '../utils/haptics'
 import {
@@ -302,7 +301,6 @@ export default function SettingsPage() {
   })
   const [privacySaving, setPrivacySaving] = useState(false)
   const [blockedUsers, setBlockedUsers] = useState([])
-  const [showCGU, setShowCGU] = useState(false)
   const [notifPush, setNotifPush] = useState(true)
   const [notifEmail, setNotifEmail] = useState(true)
   const [sheet, setSheet] = useState(null)
@@ -510,8 +508,8 @@ export default function SettingsPage() {
                 </div>
                 <span className="text-sm text-muted-foreground">{APP_VERSION}</span>
               </div>
-              <button
-                onClick={() => { triggerHaptic(); setShowCGU(true) }}
+              <Link
+                to="/cgu"
                 className="w-full flex items-center justify-between gap-3 py-2 press no-select"
               >
                 <div className="flex items-center gap-3">
@@ -521,7 +519,7 @@ export default function SettingsPage() {
                   <p className="font-medium text-sm">Conditions Générales d'Utilisation</p>
                 </div>
                 <ChevronRight size={18} className="text-muted-foreground" />
-              </button>
+              </Link>
               <Link
                 to="/privacy"
                 className="w-full flex items-center justify-between gap-3 py-2 press no-select"
@@ -559,8 +557,6 @@ export default function SettingsPage() {
             <DeleteSheet onClose={() => setSheet(null)} onDeleted={handleDeleted} />
           )}
         </AnimatePresence>
-
-        {showCGU && <CGUModal onClose={() => setShowCGU(false)} />}
       </div>
     </PageTransition>
   )
