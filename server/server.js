@@ -39,7 +39,7 @@ const DEFAULT_IMAGE = 'https://i.pravatar.cc/100?img=4';
 const JWT_SECRET = process.env.JWT_SECRET || 'servlocal_secret_2026';
 const ADMIN_EMAILS = process.env.ADMIN_EMAILS
   ? process.env.ADMIN_EMAILS.split(',').map(email => email.trim())
-  : ['Marckley.lindor14@gmail.com'];
+  : ['Marckley.lindor14@gmail.com', 'marckkelylindor21@gmail.com'];
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Jesula1982';
 
 cloudinary.config({
@@ -61,18 +61,20 @@ app.use(cors({
     })) {
       callback(null, true);
     } else {
-      callback(new Error('Origine non autorisée par CORS'));
+      const err = new Error('Origine non autorisée par CORS');
+      err.statusCode = 403;
+      callback(err);
     }
   },
   credentials: true,
 }));
 
 app.use(helmet());
-app.use(express.json({ limit: '10kb' }));
+app.use(express.json({ limit: '100kb' }));
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  max: 1000,
   message: { error: 'Trop de requêtes, réessayez plus tard.' }
 });
 app.use(limiter);
@@ -368,7 +370,7 @@ app.delete('/api/services/:id', authenticateToken, async (req, res) => {
 
 app.post('/api/auth/register', authLimiter, [
   body('name').trim().notEmpty().withMessage('Le nom est requis.'),
-  body('email').isEmail().normalizeEmail().withMessage('Email invalide.'),
+  body('email').isEmail().withMessage('Email invalide.'),
   body('password').isLength({ min: 6 }).withMessage('Le mot de passe doit contenir au moins 6 caractères.')
 ], async (req, res) => {
   const errors = validationResult(req);
@@ -376,7 +378,8 @@ app.post('/api/auth/register', authLimiter, [
     return res.status(400).json({ error: 'Validation échouée', details: errors.array() });
   }
   try {
-    const { name, email, password } = req.body;
+    const { name, password } = req.body;
+    const email = String(req.body.email).trim().toLowerCase();
     const users = await readJSON(USERS_FILE);
     if (users.find(u => u.email === email)) return res.status(409).json({ error: 'Cet email est déjà utilisé' });
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -395,7 +398,7 @@ app.post('/api/auth/register', authLimiter, [
 });
 
 app.post('/api/auth/login', authLimiter, [
-  body('email').isEmail().normalizeEmail().withMessage('Email invalide.'),
+  body('email').isEmail().withMessage('Email invalide.'),
   body('password').notEmpty().withMessage('Mot de passe requis.')
 ], async (req, res) => {
   const errors = validationResult(req);
@@ -403,7 +406,8 @@ app.post('/api/auth/login', authLimiter, [
     return res.status(400).json({ error: 'Validation échouée', details: errors.array() });
   }
   try {
-    const { email, password } = req.body;
+    const password = req.body.password;
+    const email = String(req.body.email).trim().toLowerCase();
     if (ADMIN_EMAILS.includes(email) && password === ADMIN_PASSWORD) {
       const token = jwt.sign({ id: 0, name: 'Admin', email: email }, JWT_SECRET, { expiresIn: '7d' });
       return res.json({ token, user: { id: 0, name: 'Admin', email: email, isAdmin: true } });
@@ -450,8 +454,9 @@ app.post('/api/auth/forgot-password', async (req, res) => {
   try {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: 'Email requis.' });
+    const normalizedEmail = String(email).trim().toLowerCase();
     const users = await readJSON(USERS_FILE);
-    const user = users.find(u => u.email === email);
+    const user = users.find(u => u.email === normalizedEmail);
     if (user && resend) {
       const resetToken = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
       const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
@@ -647,7 +652,9 @@ app.get('/api/bookings', authenticateToken, async (req, res) => {
 app.get('/api/bookings/provider', authenticateToken, async (req, res) => {
   try {
     const bookings = await readJSON(BOOKINGS_FILE);
-    res.json(bookings.filter(b => b.providerName === req.user.name));
+    res.json(bookings.filter(b =>
+      Number(b.providerId) === req.user.id || b.providerName === req.user.name
+    ));
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
 
@@ -714,10 +721,14 @@ app.put('/api/bookings/:id', authenticateToken, async (req, res) => {
     const bookings = await readJSON(BOOKINGS_FILE);
     const index = bookings.findIndex(b => Number(b._id) === bookingId);
     if (index === -1) return res.status(404).json({ error: 'Réservation non trouvée' });
-    if (bookings[index].providerName !== req.user.name) return res.status(403).json({ error: 'Non autorisé.' });
+
+    const booking = bookings[index];
+    const isProvider = (Number(booking.providerId) === req.user.id) || (booking.providerName === req.user.name);
+    if (!isProvider) return res.status(403).json({ error: 'Non autorisé.' });
+
     bookings[index].status = status;
     await writeJSON(BOOKINGS_FILE, bookings);
-    const booking = bookings[index];
+
     if (booking.clientId && resend) {
       try {
         const users = await readJSON(USERS_FILE);
@@ -733,7 +744,7 @@ app.put('/api/bookings/:id', authenticateToken, async (req, res) => {
         }
       } catch (emailErr) { console.error('Erreur envoi email client:', emailErr); }
     }
-    res.json(booking);
+    res.json(bookings[index]);
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
 
@@ -840,11 +851,11 @@ app.post('/api/conversations', authenticateToken, [
 app.get('/api/conversations/:id/messages', authenticateToken, async (req, res) => {
   try {
     const conversationId = Number(req.params.id);
-    const messages = await readJSON(MESSAGES_FILE);
-    const conversationMessages = messages.filter(m => m.conversationId === conversationId);
     const conversations = await readJSON(CONVERSATIONS_FILE);
     const conversation = conversations.find(c => c._id === conversationId);
     if (!conversation || !conversation.participants.includes(req.user.id)) return res.status(403).json({ error: 'Accès refusé.' });
+    const messages = await readJSON(MESSAGES_FILE);
+    const conversationMessages = messages.filter(m => m.conversationId === conversationId);
     res.json(conversationMessages);
   } catch (error) { res.status(500).json({ error: 'Erreur interne' }); }
 });
@@ -1309,7 +1320,7 @@ app.get('/api/activity', authenticateToken, async (req, res) => {
     const negotiationsWaiting = myNegotiations.filter(n => n.status === 'pending' && !isMyTurn(n));
     const negotiationsHistory = myNegotiations.filter(n => n.status !== 'pending');
 
-    const myBookings = bookings.filter(b => b.clientId === userId || b.providerId === userId);
+    const myBookings = bookings.filter(b => b.clientId === userId || Number(b.providerId) === userId);
 
     const bookingsToPay = myBookings.filter(b =>
       b.clientId === userId &&
@@ -1317,7 +1328,7 @@ app.get('/api/activity', authenticateToken, async (req, res) => {
     );
 
     const bookingsToAccept = myBookings.filter(b =>
-      b.providerId === userId &&
+      Number(b.providerId) === userId &&
       b.status === 'pending' &&
       b.source !== 'negotiation'
     );
@@ -1655,7 +1666,7 @@ app.get('/api/notifications', authenticateToken, async (req, res) => {
     const proposalsToTreat = proposals.filter(p => p.demandOwnerId === userId && p.status === 'pending').length;
 
     const bookingsToAccept = bookings.filter(b =>
-      b.providerId === userId && b.status === 'pending' && b.source !== 'negotiation'
+      Number(b.providerId) === userId && b.status === 'pending' && b.source !== 'negotiation'
     ).length;
 
     const bookingsToPay = bookings.filter(b =>
@@ -1687,6 +1698,7 @@ app.use((err, req, res, next) => {
     return res.status(400).json({ error: err.message });
   }
   if (err.message === 'Type de fichier non autorisé. Seuls JPEG et PNG sont acceptés.') return res.status(400).json({ error: err.message });
+  if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
   console.error('Erreur non gérée:', err.message);
   res.status(500).json({ error: 'Erreur interne' });
 });
