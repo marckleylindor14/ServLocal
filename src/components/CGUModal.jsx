@@ -16,7 +16,7 @@ export default function CGUModal({ onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex flex-col justify-end sm:justify-center items-center bg-black/70 backdrop-blur-sm sm:p-4"
+      className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm sm:p-4"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -28,15 +28,13 @@ export default function CGUModal({ onClose }) {
         exit={{ y: '100%' }}
         transition={{ type: 'spring', stiffness: 320, damping: 34 }}
         onClick={(e) => e.stopPropagation()}
-        className="bg-card border border-border rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-2xl overflow-hidden grid"
+        className="bg-card border border-border rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-2xl overflow-hidden flex flex-col"
         style={{
-          gridTemplateRows: 'auto 1fr auto',
-          height: 'calc(100dvh - 1rem)',
-          maxHeight: 'calc(100dvh - 1rem)',
+          maxHeight: '85dvh',
           paddingBottom: 'env(safe-area-inset-bottom)'
         }}
       >
-        <div className="relative px-5 sm:px-6 pt-3 sm:pt-4 pb-3 border-b border-border/40">
+        <div className="relative shrink-0 px-5 sm:px-6 pt-3 sm:pt-4 pb-3 border-b border-border/40">
           <div className="sm:hidden w-10 h-1 rounded-full bg-muted-foreground/40 mx-auto mb-3" />
           <h2 className="text-lg sm:text-2xl font-bold pr-10 leading-tight">
             Conditions Générales d'Utilisation
@@ -50,7 +48,7 @@ export default function CGUModal({ onClose }) {
           </button>
         </div>
 
-        <div className="overflow-y-auto px-5 sm:px-6 py-5 space-y-4 text-sm text-muted-foreground leading-relaxed">
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 sm:px-6 py-5 space-y-4 text-sm text-muted-foreground leading-relaxed">
           <p><strong>1. Objet</strong><br />Les présentes CGU régissent l'utilisation de la plateforme Myra, service de mise en relation entre prestataires et clients.</p>
           <p><strong>2. Services proposés</strong><br />Myra permet aux utilisateurs de proposer des services (prestataires) ou de rechercher des services (clients). Myra n'emploie pas les prestataires et ne garantit pas la réalisation des services.</p>
           <p><strong>3. Inscription et compte</strong><br />L'utilisateur doit fournir des informations exactes et maintenir son compte à jour. Il est responsable de la confidentialité de son mot de passe.</p>
@@ -61,7 +59,7 @@ export default function CGUModal({ onClose }) {
           <p><strong>8. Modification des CGU</strong><br />Myra peut modifier ces conditions. Les utilisateurs seront informés par email ou notification sur la plateforme. La poursuite de l'utilisation vaut acceptation des nouvelles conditions.</p>
         </div>
 
-        <div className="px-5 sm:px-6 py-3 border-t border-border/40 bg-card">
+        <div className="shrink-0 px-5 sm:px-6 py-3 border-t border-border/40 bg-card">
           <button
             onClick={onClose}
             className="w-full bg-primary text-primary-foreground py-3 rounded-full font-semibold press"
