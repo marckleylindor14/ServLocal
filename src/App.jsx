@@ -41,7 +41,7 @@ export default function App() {
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/payment-success" element={<PaymentSuccessPage />} />
         <Route path="/account" element={<AccountPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/forgot-password" element={<ForgottenPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/privacy" element={<PrivacyPolicyPage />} />
         <Route path="/onboarding" element={<Onboarding />} />
@@ -50,6 +50,9 @@ export default function App() {
         <Route path="/my-bookings" element={<Navigate to="/activity" replace />} />
         <Route path="/my-demands" element={<Navigate to="/activity" replace />} />
         <Route path="/dashboard" element={<Navigate to="/activity" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       {user && <BottomNav />}
     </>

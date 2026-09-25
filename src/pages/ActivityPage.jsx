@@ -7,14 +7,11 @@ import EmptyState from '../components/EmptyState'
 import SkeletonCard from '../components/SkeletonCard'
 import PageTransition from '../components/PageTransition'
 import API_URL from '../config'
-import { loadStripe } from '@stripe/stripe-js'
 import {
   Sparkles, Clock, CheckCircle, XCircle, Euro, User,
-  MessageSquare, Handshake, Calendar, MapPin, Pencil,
+  Handshake, Calendar, MapPin, Pencil,
   Trash2, HelpCircle, PlusCircle, Eye, TrendingUp, Star, Award
 } from 'lucide-react'
-
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
 
 export default function ActivityPage() {
   const { user } = useAuth()
@@ -148,7 +145,10 @@ export default function ActivityPage() {
   const handleDeletePublication = async (id) => {
     if (!confirm('Supprimer définitivement ?')) return
     try {
-      await fetch(`${API_URL}/api/services/${id}`, { method: 'DELETE' })
+      await fetch(`${API_URL}/api/services/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      })
       addToast('Publication supprimée', 'success')
       load()
     } catch {
@@ -170,7 +170,10 @@ export default function ActivityPage() {
     try {
       const res = await fetch(`${API_URL}/api/services/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        },
         body: JSON.stringify(form)
       })
       if (res.ok) {
@@ -768,7 +771,7 @@ function PublicationsTab({ data, filter, setFilter, editing, form, setForm, onSt
 }
 
 function RevenueTab({ stats, loading, onRefresh }) {
-  if (loading || !stats) {
+  if (loading || !stats || !stats.last6Months) {
     return (
       <div className="space-y-3">
         <SkeletonCard />
@@ -777,9 +780,13 @@ function RevenueTab({ stats, loading, onRefresh }) {
     )
   }
 
-  const maxEarnings = Math.max(...stats.last6Months.map(m => m.earnings), 1)
-  const monthDelta = stats.lastMonthEarnings > 0
-    ? Math.round(((stats.currentMonthEarnings - stats.lastMonthEarnings) / stats.lastMonthEarnings) * 100)
+  const totalEarnings = stats.totalEarnings ?? 0
+  const currentMonthEarnings = stats.currentMonthEarnings ?? 0
+  const lastMonthEarnings = stats.lastMonthEarnings ?? 0
+  const months = stats.last6Months ?? []
+  const maxEarnings = Math.max(...months.map(m => m.earnings), 1)
+  const monthDelta = lastMonthEarnings > 0
+    ? Math.round(((currentMonthEarnings - lastMonthEarnings) / lastMonthEarnings) * 100)
     : null
 
   return (
@@ -791,7 +798,7 @@ function RevenueTab({ stats, loading, onRefresh }) {
           <div className="relative">
             <p className="text-xs text-muted-foreground mb-1">Revenus totaux</p>
             <p className="text-3xl font-extrabold text-primary">
-              {stats.totalEarnings.toFixed(2)} €
+              {totalEarnings.toFixed(2)} €
             </p>
             <p className="text-[11px] text-muted-foreground mt-1">
               {stats.completedBookings} prestation{stats.completedBookings > 1 ? 's' : ''} terminée{stats.completedBookings > 1 ? 's' : ''}
@@ -802,7 +809,7 @@ function RevenueTab({ stats, loading, onRefresh }) {
         <div className="card-hover p-5">
           <p className="text-xs text-muted-foreground mb-1">Ce mois-ci</p>
           <p className="text-3xl font-extrabold">
-            {stats.currentMonthEarnings.toFixed(2)} €
+            {currentMonthEarnings.toFixed(2)} €
           </p>
           {monthDelta !== null && (
             <p className={`text-[11px] mt-1 flex items-center gap-1 ${monthDelta >= 0 ? 'text-green-400' : 'text-red-400'}`}>
@@ -821,7 +828,7 @@ function RevenueTab({ stats, loading, onRefresh }) {
           </button>
         </div>
         <div className="flex items-end justify-between gap-2 h-40">
-          {stats.last6Months.map(m => {
+          {months.map(m => {
             const height = m.earnings > 0 ? Math.max((m.earnings / maxEarnings) * 100, 5) : 2
             return (
               <div key={m.month} className="flex-1 flex flex-col items-center gap-2">

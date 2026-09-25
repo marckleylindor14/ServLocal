@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
@@ -9,7 +9,7 @@ import TypingIndicator from '../components/TypingIndicator'
 import DateSeparator from '../components/DateSeparator'
 import BlockModal from '../components/BlockModal'
 import API_URL from '../config'
-import { Send, Search, ArrowLeft, CheckCheck, Check, MessageSquare, Smile, Ban, ImagePlus, X, Loader2 } from 'lucide-react'
+import { Send, Search, ArrowLeft, CheckCheck, Check, MessageSquare, Ban, ImagePlus, X, Loader2 } from 'lucide-react'
 
 export default function MessagesPage() {
   const { user } = useAuth()
@@ -21,7 +21,7 @@ export default function MessagesPage() {
   const [newMessage, setNewMessage] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [showList, setShowList] = useState(true)
-  const [isTyping, setIsTyping] = useState(false)
+  const [isTyping] = useState(false)
   const [showBlock, setShowBlock] = useState(false)
   const [imageFile, setImageFile] = useState(null)
   const [imagePreview, setImagePreview] = useState(null)
@@ -31,6 +31,26 @@ export default function MessagesPage() {
   const messagesContainerRef = useRef(null)
   const pollingIntervalRef = useRef(null)
   const fileInputRef = useRef(null)
+  const lastMessageIdRef = useRef(null)
+
+  const getToken = () => localStorage.getItem('token')
+
+  const scrollToBottom = useCallback((smooth = true) => {
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' })
+    }, 100)
+  }, [])
+
+  const getOtherName = useCallback((conv) => {
+    if (!conv?.participantsNames) return 'Utilisateur'
+    return conv.participantsNames.find(name => name !== user?.name) || 'Utilisateur'
+  }, [user])
+
+  const getOtherId = useCallback((conv) => {
+    if (!conv?.participants) return null
+    const uid = String(user?.id || '')
+    return conv.participants.find(p => String(p) !== uid) || null
+  }, [user])
 
   useEffect(() => {
     if (!user) {
@@ -38,7 +58,7 @@ export default function MessagesPage() {
       return
     }
     fetch(`${API_URL}/api/conversations`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      headers: { Authorization: `Bearer ${getToken()}` }
     })
       .then(res => res.json())
       .then(data => setConversations(Array.isArray(data) ? data : []))
@@ -48,41 +68,62 @@ export default function MessagesPage() {
   useEffect(() => {
     if (!selectedConv) return
 
+    let cancelled = false
+
     const fetchMessages = async () => {
       try {
         const res = await fetch(`${API_URL}/api/conversations/${selectedConv._id}/messages`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+          headers: { Authorization: `Bearer ${getToken()}` }
         })
         const data = await res.json()
-        if (Array.isArray(data)) {
-          setMessages(data)
-          setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+        if (cancelled || !Array.isArray(data)) return
+        setMessages(data)
+        const lastId = data[data.length - 1]?._id || null
+        if (lastId && lastId !== lastMessageIdRef.current) {
+          lastMessageIdRef.current = lastId
+          scrollToBottom()
         }
       } catch (err) {
         console.error('Erreur polling messages:', err)
       }
     }
 
+    fetchMessages()
     pollingIntervalRef.current = setInterval(fetchMessages, 3000)
 
     return () => {
-      if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current)
+      cancelled = true
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
+        pollingIntervalRef.current = null
+      }
     }
-  }, [selectedConv])
+  }, [selectedConv, scrollToBottom])
+
+  useEffect(() => {
+    return () => {
+      if (imagePreview) URL.revokeObjectURL(imagePreview)
+    }
+  }, [imagePreview])
 
   const openConversation = async (conv) => {
+    clearImage()
+    lastMessageIdRef.current = null
     setSelectedConv(conv)
     setShowList(false)
     try {
       const res = await fetch(`${API_URL}/api/conversations/${conv._id}/messages`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        headers: { Authorization: `Bearer ${getToken()}` }
       })
       const data = await res.json()
-      setMessages(Array.isArray(data) ? data : [])
+      const list = Array.isArray(data) ? data : []
+      setMessages(list)
+      lastMessageIdRef.current = list[list.length - 1]?._id || null
+      scrollToBottom(false)
 
       await fetch(`${API_URL}/api/conversations/${conv._id}/read`, {
         method: 'PUT',
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        headers: { Authorization: `Bearer ${getToken()}` }
       })
     } catch {
       addToast('Impossible de charger les messages.', 'error')
@@ -100,12 +141,14 @@ export default function MessagesPage() {
       addToast('Image trop volumineuse (5 Mo max).', 'error')
       return
     }
+    if (imagePreview) URL.revokeObjectURL(imagePreview)
     setImageFile(file)
     setImagePreview(URL.createObjectURL(file))
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   const clearImage = () => {
+    if (imagePreview) URL.revokeObjectURL(imagePreview)
     setImageFile(null)
     setImagePreview(null)
     if (fileInputRef.current) fileInputRef.current.value = ''
@@ -116,7 +159,7 @@ export default function MessagesPage() {
     formData.append('image', file)
     const res = await fetch(`${API_URL}/api/upload`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      headers: { Authorization: `Bearer ${getToken()}` },
       body: formData
     })
     if (!res.ok) {
@@ -133,7 +176,6 @@ export default function MessagesPage() {
     if (!newMessage.trim() && !imageFile) return
 
     const text = newMessage.trim()
-    setNewMessage('')
     let imageUrl = null
 
     try {
@@ -146,7 +188,7 @@ export default function MessagesPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`
+          Authorization: `Bearer ${getToken()}`
         },
         body: JSON.stringify({ text, image: imageUrl })
       })
@@ -154,12 +196,14 @@ export default function MessagesPage() {
       if (res.ok) {
         const msg = await res.json()
         setMessages(prev => [...prev, msg])
+        lastMessageIdRef.current = msg._id || lastMessageIdRef.current
+        setNewMessage('')
         clearImage()
         await fetch(`${API_URL}/api/conversations/${selectedConv._id}/read`, {
           method: 'PUT',
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+          headers: { Authorization: `Bearer ${getToken()}` }
         })
-        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+        scrollToBottom()
       } else {
         addToast('Échec de l\'envoi.', 'error')
       }
@@ -172,7 +216,7 @@ export default function MessagesPage() {
 
   const filteredConversations = conversations.filter(conv => {
     if (!searchQuery.trim()) return true
-    const otherName = conv.participantsNames?.find(name => name !== user.name) || ''
+    const otherName = getOtherName(conv)
     const serviceTitle = conv.serviceTitle || ''
     return otherName.toLowerCase().includes(searchQuery.toLowerCase()) ||
            serviceTitle.toLowerCase().includes(searchQuery.toLowerCase())
@@ -183,7 +227,11 @@ export default function MessagesPage() {
     setShowList(true)
     setMessages([])
     clearImage()
-    if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current)
+    lastMessageIdRef.current = null
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current)
+      pollingIntervalRef.current = null
+    }
   }
 
   const formatTime = (dateStr) => {
@@ -195,16 +243,6 @@ export default function MessagesPage() {
     if (diffDays === 1) return 'Hier'
     if (diffDays < 7) return d.toLocaleDateString('fr-FR', { weekday: 'short' })
     return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
-  }
-
-  const getOtherName = (conv) => {
-    if (!conv?.participantsNames) return 'Utilisateur'
-    return conv.participantsNames.find(name => name !== user?.name) || 'Utilisateur'
-  }
-
-  const getOtherId = (conv) => {
-    if (!conv?.participants) return null
-    return conv.participants.find(p => p !== user?.id)
   }
 
   const getAvatarColor = (name) => {
@@ -239,11 +277,14 @@ export default function MessagesPage() {
             {item.senderName?.charAt(0).toUpperCase()}
           </div>
         )}
-        <div className={`max-w-[${isMobile ? '75%' : '65%'}] px-2 py-2 ${
-          isOwn
-            ? 'bg-primary text-primary-foreground rounded-[20px] rounded-br-[6px]'
-            : 'glass rounded-[20px] rounded-bl-[6px]'
-        }`}>
+        <div
+          className={`px-2 py-2 ${
+            isOwn
+              ? 'bg-primary text-primary-foreground rounded-[20px] rounded-br-[6px]'
+              : 'glass rounded-[20px] rounded-bl-[6px]'
+          }`}
+          style={{ maxWidth: isMobile ? '75%' : '65%' }}
+        >
           {item.image && (
             <div
               className="rounded-2xl overflow-hidden mb-1 cursor-pointer"
@@ -276,6 +317,15 @@ export default function MessagesPage() {
         </div>
       </div>
     )
+  }
+
+  const refreshConversations = () => {
+    fetch(`${API_URL}/api/conversations`, {
+      headers: { Authorization: `Bearer ${getToken()}` }
+    })
+      .then(res => res.json())
+      .then(data => setConversations(Array.isArray(data) ? data : []))
+      .catch(() => {})
   }
 
   if (!user) return null
@@ -582,7 +632,8 @@ export default function MessagesPage() {
             onBlocked={() => {
               setSelectedConv(null)
               setShowList(true)
-              window.location.reload()
+              setMessages([])
+              refreshConversations()
             }}
           />
         )}
