@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { motion } from 'framer-motion'
 import { X, Flag } from 'lucide-react'
 import { useToast } from '../context/ToastContext'
 import API_URL from '../config'
+import * as haptics from '../utils/haptics'
 
 const REASONS = [
   'Contenu inapproprié',
@@ -11,11 +13,29 @@ const REASONS = [
   'Autre'
 ]
 
+function triggerHaptic() {
+  try {
+    const fn = haptics.light || haptics.tap || haptics.impact || haptics.haptic || haptics.default
+    if (typeof fn === 'function') fn()
+  } catch {}
+}
+
 export default function ReportModal({ targetType, targetId, targetName, onClose }) {
   const { addToast } = useToast()
   const [reason, setReason] = useState('')
   const [details, setDetails] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = prev
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [onClose])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -47,9 +67,35 @@ export default function ReportModal({ targetType, targetId, targetName, onClose 
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-4" onClick={onClose}>
-      <div className="bg-card border border-border rounded-2xl shadow-2xl max-w-md w-full p-6 relative" onClick={(e) => e.stopPropagation()}>
-        <button onClick={onClose} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition">
+    <div
+      className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm px-0 sm:px-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Signaler"
+    >
+      <motion.div
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        transition={{ type: 'spring', stiffness: 320, damping: 34 }}
+        drag="y"
+        dragConstraints={{ top: 0, bottom: 0 }}
+        dragElastic={{ top: 0, bottom: 0.4 }}
+        onDragEnd={(e, info) => {
+          if (info.offset.y > 120 || info.velocity.y > 600) onClose()
+        }}
+        className="bg-card border border-border rounded-t-3xl sm:rounded-2xl shadow-2xl max-w-md w-full p-6 relative max-h-[90vh] overflow-y-auto"
+        style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="sm:hidden w-10 h-1 rounded-full bg-muted-foreground/40 mx-auto mb-4" />
+
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition press"
+          aria-label="Fermer"
+        >
           <X size={20} />
         </button>
 
@@ -57,7 +103,7 @@ export default function ReportModal({ targetType, targetId, targetName, onClose 
           <div className="w-11 h-11 rounded-2xl bg-red-500/15 flex items-center justify-center">
             <Flag size={20} className="text-red-400" />
           </div>
-          <div>
+          <div className="min-w-0">
             <h3 className="text-lg font-bold">Signaler</h3>
             <p className="text-xs text-muted-foreground truncate max-w-[240px]">{targetName}</p>
           </div>
@@ -71,8 +117,8 @@ export default function ReportModal({ targetType, targetId, targetName, onClose 
                 <button
                   key={r}
                   type="button"
-                  onClick={() => setReason(r)}
-                  className={`w-full text-left px-4 py-2.5 rounded-xl text-sm transition border ${
+                  onClick={() => { triggerHaptic(); setReason(r) }}
+                  className={`w-full text-left px-4 py-2.5 rounded-xl text-sm transition border press ${
                     reason === r
                       ? 'border-primary bg-primary/10 text-primary'
                       : 'border-border/50 text-muted-foreground hover:border-border hover:bg-white/5'
@@ -100,12 +146,12 @@ export default function ReportModal({ targetType, targetId, targetName, onClose 
           <button
             type="submit"
             disabled={submitting || !reason}
-            className="w-full bg-red-500 text-white font-semibold py-3 rounded-full hover:bg-red-600 transition disabled:opacity-40"
+            className="w-full bg-red-500 text-white font-semibold py-3 rounded-full hover:bg-red-600 transition disabled:opacity-40 press"
           >
             {submitting ? 'Envoi...' : 'Envoyer le signalement'}
           </button>
         </form>
-      </div>
+      </motion.div>
     </div>
   )
 }

@@ -1,25 +1,129 @@
 import { useEffect, useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 
 export default function SplashScreen() {
   const [visible, setVisible] = useState(true)
+  const [mounted, setMounted] = useState(true)
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setVisible(false)
-    }, 800) // le logo reste visible 0,8 seconde
+    let cancelled = false
 
-    return () => clearTimeout(timer)
+    const hideNativeSplash = async () => {
+      try {
+        const mod = await import('@capacitor/splash-screen')
+        if (mod?.SplashScreen?.hide) {
+          await mod.SplashScreen.hide()
+        }
+      } catch {}
+    }
+    hideNativeSplash()
+
+    const fadeTimer = setTimeout(() => {
+      if (!cancelled) setVisible(false)
+    }, 1200)
+
+    const unmountTimer = setTimeout(() => {
+      if (!cancelled) setMounted(false)
+    }, 1700)
+
+    return () => {
+      cancelled = true
+      clearTimeout(fadeTimer)
+      clearTimeout(unmountTimer)
+    }
   }, [])
 
-  if (!visible) return null
+  if (!mounted) return null
 
   return (
-    <div className={`fixed inset-0 z-[9999] flex items-center justify-center bg-[#1E2A3A] transition-opacity duration-500 ${visible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-      <img
-        src="/LOGO MYRA.png"
-        alt="Myra"
-        className="w-32 h-32 animate-pulse"
-      />
-    </div>
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          key="splash"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.5, ease: 'easeInOut' }}
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#1E2A3A]"
+          style={{
+            paddingTop: 'env(safe-area-inset-top)',
+            paddingBottom: 'env(safe-area-inset-bottom)'
+          }}
+        >
+          <motion.img
+            src="/LOGO MYRA.png"
+            alt="Myra"
+            initial={{ opacity: 0, scale: 0.85 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
+            className="w-32 h-32 object-contain"
+          />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}import { useEffect, useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+
+export default function SplashScreen() {
+  const [visible, setVisible] = useState(true)
+  const [mounted, setMounted] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+
+    const hideNativeSplash = async () => {
+      try {
+        const mod = await import('@capacitor/splash-screen')
+        if (mod?.SplashScreen?.hide) {
+          await mod.SplashScreen.hide()
+        }
+      } catch {}
+    }
+    hideNativeSplash()
+
+    const fadeTimer = setTimeout(() => {
+      if (!cancelled) setVisible(false)
+    }, 1200)
+
+    const unmountTimer = setTimeout(() => {
+      if (!cancelled) setMounted(false)
+    }, 1700)
+
+    return () => {
+      cancelled = true
+      clearTimeout(fadeTimer)
+      clearTimeout(unmountTimer)
+    }
+  }, [])
+
+  if (!mounted) return null
+
+  return (
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          key="splash"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.5, ease: 'easeInOut' }}
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#1E2A3A]"
+          style={{
+            paddingTop: 'env(safe-area-inset-top)',
+            paddingBottom: 'env(safe-area-inset-bottom)'
+          }}
+        >
+          <motion.img
+            src="/LOGO MYRA.png"
+            alt="Myra"
+            initial={{ opacity: 0, scale: 0.85 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
+            className="w-32 h-32 object-contain"
+          />
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }

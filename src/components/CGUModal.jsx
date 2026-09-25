@@ -1,16 +1,54 @@
+import { useEffect } from 'react'
+import { motion } from 'framer-motion'
 import { X } from 'lucide-react'
 
 export default function CGUModal({ onClose }) {
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = prev
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [onClose])
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-      <div className="bg-card border border-border rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6 relative">
+    <div
+      className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm px-0 sm:px-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Conditions Générales d'Utilisation"
+    >
+      <motion.div
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        transition={{ type: 'spring', stiffness: 320, damping: 34 }}
+        drag="y"
+        dragConstraints={{ top: 0, bottom: 0 }}
+        dragElastic={{ top: 0, bottom: 0.3 }}
+        onDragEnd={(e, info) => {
+          if (info.offset.y > 140 || info.velocity.y > 600) onClose()
+        }}
+        className="bg-card border border-border rounded-t-3xl sm:rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] sm:max-h-[80vh] overflow-y-auto p-6 relative"
+        style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="sm:hidden w-10 h-1 rounded-full bg-muted-foreground/40 mx-auto mb-4 sticky top-0" />
+
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition"
+          className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition press"
+          aria-label="Fermer"
         >
           <X size={24} />
         </button>
-        <h2 className="text-2xl font-bold mb-4">Conditions Générales d'Utilisation</h2>
+
+        <h2 className="text-2xl font-bold mb-4 pr-10">Conditions Générales d'Utilisation</h2>
+
         <div className="space-y-4 text-sm text-muted-foreground leading-relaxed">
           <p><strong>1. Objet</strong><br />Les présentes CGU régissent l'utilisation de la plateforme Myra, service de mise en relation entre prestataires et clients.</p>
           <p><strong>2. Services proposés</strong><br />Myra permet aux utilisateurs de proposer des services (prestataires) ou de rechercher des services (clients). Myra n'emploie pas les prestataires et ne garantit pas la réalisation des services.</p>
@@ -21,13 +59,14 @@ export default function CGUModal({ onClose }) {
           <p><strong>7. Résiliation</strong><br />L'utilisateur peut supprimer son compte à tout moment. Myra se réserve le droit de suspendre ou supprimer un compte en cas de non-respect des présentes conditions.</p>
           <p><strong>8. Modification des CGU</strong><br />Myra peut modifier ces conditions. Les utilisateurs seront informés par email ou notification sur la plateforme. La poursuite de l'utilisation vaut acceptation des nouvelles conditions.</p>
         </div>
+
         <button
           onClick={onClose}
-          className="mt-6 w-full bg-primary text-primary-foreground py-2 rounded-full font-semibold"
+          className="mt-6 w-full bg-primary text-primary-foreground py-2 rounded-full font-semibold press"
         >
           Fermer
         </button>
-      </div>
+      </motion.div>
     </div>
   )
 }

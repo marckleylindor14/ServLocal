@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
@@ -7,10 +7,29 @@ import EmptyState from '../components/EmptyState'
 import SkeletonCard from '../components/SkeletonCard'
 import PageTransition from '../components/PageTransition'
 import API_URL from '../config'
+import * as haptics from '../utils/haptics'
 import {
   Home, Smile, BookOpen, Wrench, PartyPopper, Dog, ShieldCheck,
   Search, UserPlus, Star, MapPin, CheckCircle, ChevronDown, X, Navigation, HelpCircle, Sparkles, TrendingUp, Zap
 } from 'lucide-react'
+
+function triggerHaptic() {
+  try {
+    const fn = haptics.light || haptics.tap || haptics.impact || haptics.haptic || haptics.default
+    if (typeof fn === 'function') fn()
+  } catch {}
+}
+
+const FALLBACK_IMAGE = 'https://i.pravatar.cc/100?img=4'
+
+async function reverseGeocode(latitude, longitude) {
+  const res = await fetch(
+    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`,
+    { headers: { 'User-Agent': 'MyraApp/1.0' } }
+  )
+  const data = await res.json()
+  return data.address?.city || data.address?.town || data.address?.village || ''
+}
 
 export default function HomePage() {
   const { user } = useAuth()
@@ -26,6 +45,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('offers')
   const searchRef = useRef(null)
+  const resultsRef = useRef(null)
 
   useEffect(() => {
     fetch(`${API_URL}/api/services`)
@@ -49,35 +69,46 @@ export default function HomePage() {
       })
   }, [addToast])
 
-  useEffect(() => {
-    if (!navigator.geolocation || cities.length === 0) return
+  const detectCity = useCallback(async (silent = false) => {
+    if (!navigator.geolocation) return
     setDetectingCity(true)
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          const { latitude, longitude } = position.coords
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`,
-            { headers: { 'User-Agent': 'MyraApp/1.0' } }
-          )
-          const data = await res.json()
-          const city = data.address?.city || data.address?.town || data.address?.village || ''
-          if (city && cities.includes(city)) {
-            setSelectedCity(city)
-            setGeoMessage('')
-          } else if (city) {
-            setGeoMessage(`📍 Votre ville (${city}) n'a pas encore de services.`)
+    if (!silent) setGeoMessage('')
+
+    return new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          try {
+            const { latitude, longitude } = position.coords
+            const city = await reverseGeocode(latitude, longitude)
+            if (city && cities.includes(city)) {
+              setSelectedCity(city)
+              setGeoMessage('')
+            } else if (city) {
+              setGeoMessage(`📍 Votre ville (${city}) n'a pas encore de services.`)
+            } else if (!silent) {
+              setGeoMessage('Impossible de déterminer votre ville.')
+            }
+          } catch {
+            if (!silent) setGeoMessage('Erreur de géolocalisation.')
+          } finally {
+            setDetectingCity(false)
+            resolve()
           }
-        } catch (err) {
-          console.error('Géolocalisation échouée', err)
-        } finally {
+        },
+        () => {
           setDetectingCity(false)
-        }
-      },
-      () => setDetectingCity(false),
-      { timeout: 5000 }
-    )
+          if (!silent) setGeoMessage('Géolocalisation refusée.')
+          resolve()
+        },
+        { timeout: 5000 }
+      )
+    })
   }, [cities])
+
+  useEffect(() => {
+    if (cities.length === 0) return
+    detectCity(true)
+  }, [cities, detectCity])
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -86,7 +117,11 @@ export default function HomePage() {
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    document.addEventListener('touchstart', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('touchstart', handleClickOutside)
+    }
   }, [])
 
   const otherServices = allServices.filter(s => {
@@ -96,23 +131,30 @@ export default function HomePage() {
     return true
   })
 
+  const matchesType = (service, tab) =>
+    tab === 'offers' ? service.type !== 'demand' : service.type === 'demand'
+
   const filteredServices = otherServices.filter(service => {
     const matchesCity = !selectedCity || service.city === selectedCity
     const matchesSearch = !searchTerm.trim() ||
       service.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       service.category?.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesType = activeTab === 'offers' ? service.type !== 'demand' : service.type === 'demand'
-    return matchesCity && matchesSearch && matchesType
+    return matchesCity && matchesSearch && matchesType(service, activeTab)
   })
 
   const suggestionServices = searchTerm.trim() === ''
     ? []
-    : otherServices.filter(service =>
-        service.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        service.category?.toLowerCase().includes(searchTerm.toLowerCase())
-      ).slice(0, 6)
+    : otherServices
+        .filter(service =>
+          service.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          service.category?.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+        .filter(service => !selectedCity || service.city === selectedCity)
+        .filter(service => matchesType(service, activeTab))
+        .slice(0, 6)
 
   const highlightMatch = (text) => {
+    if (!text) return ''
     if (!searchTerm.trim()) return text
     const parts = text.split(new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'))
     return parts.map((part, i) =>
@@ -120,6 +162,29 @@ export default function HomePage() {
         ? <span key={i} className="text-primary font-semibold">{part}</span>
         : part
     )
+  }
+
+  const handleCategoryClick = (label) => {
+    triggerHaptic()
+    setSearchTerm(label)
+    setShowSuggestions(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleTabChange = (tab) => {
+    triggerHaptic()
+    setActiveTab(tab)
+  }
+
+  const handleSearchClick = () => {
+    triggerHaptic()
+    setShowSuggestions(false)
+    resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  const handleDetectClick = async () => {
+    triggerHaptic()
+    await detectCity(false)
   }
 
   const categories = [
@@ -170,26 +235,33 @@ export default function HomePage() {
                   onFocus={() => { if (searchTerm.trim()) setShowSuggestions(true) }}
                 />
                 {searchTerm && (
-                  <button onClick={() => { setSearchTerm(''); setShowSuggestions(false) }} className="p-2 text-muted-foreground hover:text-foreground transition">
+                  <button
+                    onClick={() => { setSearchTerm(''); setShowSuggestions(false) }}
+                    className="p-2 text-muted-foreground hover:text-foreground transition press"
+                    aria-label="Effacer la recherche"
+                  >
                     <X size={18} />
                   </button>
                 )}
-                <button className="bg-primary text-primary-foreground font-semibold px-6 py-3 rounded-2xl hover:bg-primary/90 transition text-sm shadow-lg shadow-primary/30">
+                <button
+                  onClick={handleSearchClick}
+                  className="bg-primary text-primary-foreground font-semibold px-6 py-3 rounded-2xl hover:bg-primary/90 transition text-sm shadow-lg shadow-primary/30 press"
+                >
                   Rechercher
                 </button>
               </div>
 
               {showSuggestions && searchTerm.trim() && (
-                <div className="absolute top-full left-0 right-0 mt-3 glass-strong rounded-2xl shadow-2xl overflow-hidden z-50">
+                <div className="absolute top-full left-0 right-0 mt-3 glass-strong rounded-2xl shadow-2xl overflow-hidden z-50 animate-pop origin-top">
                   {suggestionServices.length > 0 ? (
                     suggestionServices.map(service => (
                       <Link
                         key={service._id}
                         to={`/provider/${service._id}`}
                         onClick={() => { setShowSuggestions(false); setSearchTerm('') }}
-                        className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition border-b border-border/40 last:border-0"
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition border-b border-border/40 last:border-0 press no-select"
                       >
-                        <img src={service.image || 'https://i.pravatar.cc/100?img=4'} alt={service.title} className="w-10 h-10 rounded-full object-cover" />
+                        <img src={service.image || FALLBACK_IMAGE} alt={service.title} className="w-10 h-10 rounded-full object-cover" />
                         <div className="text-left min-w-0 flex-1">
                           <p className="text-sm font-medium truncate">{highlightMatch(service.title)}</p>
                           <p className="text-xs text-muted-foreground">{service.category}</p>
@@ -219,42 +291,9 @@ export default function HomePage() {
                 <ChevronDown size={14} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
               </div>
               <button
-                onClick={() => {
-                  setDetectingCity(true)
-                  setGeoMessage('')
-                  navigator.geolocation.getCurrentPosition(
-                    async (position) => {
-                      try {
-                        const { latitude, longitude } = position.coords
-                        const res = await fetch(
-                          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`,
-                          { headers: { 'User-Agent': 'MyraApp/1.0' } }
-                        )
-                        const data = await res.json()
-                        const city = data.address?.city || data.address?.town || data.address?.village || ''
-                        if (city && cities.includes(city)) {
-                          setSelectedCity(city)
-                          setGeoMessage('')
-                        } else if (city) {
-                          setGeoMessage(`📍 Votre ville (${city}) n'a pas encore de services.`)
-                        } else {
-                          setGeoMessage('Impossible de déterminer votre ville.')
-                        }
-                      } catch (err) {
-                        setGeoMessage('Erreur de géolocalisation.')
-                      } finally {
-                        setDetectingCity(false)
-                      }
-                    },
-                    () => {
-                      setDetectingCity(false)
-                      setGeoMessage('Géolocalisation refusée.')
-                    },
-                    { timeout: 5000 }
-                  )
-                }}
+                onClick={handleDetectClick}
                 disabled={detectingCity}
-                className="flex items-center gap-1.5 text-sm font-medium glass rounded-full px-4 py-2.5 text-primary hover:bg-primary/10 transition disabled:opacity-50"
+                className="flex items-center gap-1.5 text-sm font-medium glass rounded-full px-4 py-2.5 text-primary hover:bg-primary/10 transition disabled:opacity-50 press"
               >
                 <Navigation size={14} className={detectingCity ? 'animate-pulse' : ''} />
                 {detectingCity ? 'Localisation…' : 'Autour de moi'}
@@ -271,8 +310,8 @@ export default function HomePage() {
               return (
                 <button
                   key={cat.label}
-                  onClick={() => { setSearchTerm(cat.label); setShowSuggestions(true); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
-                  className="group relative overflow-hidden rounded-2xl p-4 text-center transition-all hover:-translate-y-1"
+                  onClick={() => handleCategoryClick(cat.label)}
+                  className="group relative overflow-hidden rounded-2xl p-4 text-center transition-all hover:-translate-y-1 press no-select"
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-white/[0.04] to-transparent border border-border/40 rounded-2xl group-hover:border-primary/30 transition" />
                   <div className="relative">
@@ -358,7 +397,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="max-w-6xl mx-auto px-4 py-8 md:py-16">
+        <section ref={resultsRef} className="max-w-6xl mx-auto px-4 py-8 md:py-16">
           <div className="mb-6 md:mb-8">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium mb-3">
               <TrendingUp size={12} />
@@ -374,8 +413,8 @@ export default function HomePage() {
 
           <div className="flex gap-2 mb-6 overflow-x-auto scrollbar-hide pb-1">
             <button
-              onClick={() => setActiveTab('offers')}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition whitespace-nowrap ${
+              onClick={() => handleTabChange('offers')}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition whitespace-nowrap no-select press ${
                 activeTab === 'offers'
                   ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
                   : 'glass text-muted-foreground hover:text-foreground'
@@ -390,8 +429,8 @@ export default function HomePage() {
               )}
             </button>
             <button
-              onClick={() => setActiveTab('demands')}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition whitespace-nowrap ${
+              onClick={() => handleTabChange('demands')}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition whitespace-nowrap no-select press ${
                 activeTab === 'demands'
                   ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
                   : 'glass text-muted-foreground hover:text-foreground'
@@ -409,9 +448,7 @@ export default function HomePage() {
 
           {loading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <SkeletonCard />
-              <SkeletonCard />
-              <SkeletonCard />
+              <SkeletonCard count={3} />
             </div>
           ) : filteredServices.length === 0 ? (
             <EmptyState
@@ -430,7 +467,7 @@ export default function HomePage() {
                 <Link
                   to={`/provider/${service._id}`}
                   key={service._id}
-                  className="card-hover p-5 flex flex-col relative"
+                  className="card-hover p-5 flex flex-col relative press no-select"
                 >
                   {service.type === 'demand' && (
                     <span className="absolute top-4 right-4 text-[10px] font-semibold text-blue-400 bg-blue-400/15 px-2 py-0.5 rounded-full">
@@ -440,7 +477,7 @@ export default function HomePage() {
 
                   <div className="flex items-start gap-3 mb-4">
                     <img
-                      src={service.image || 'https://i.pravatar.cc/100?img=4'}
+                      src={service.image || FALLBACK_IMAGE}
                       alt={service.title}
                       className="w-14 h-14 rounded-2xl object-cover border border-border/60"
                     />
@@ -562,14 +599,14 @@ export default function HomePage() {
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <Link
                   to="/add-service"
-                  className="inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground font-semibold px-8 py-4 rounded-full hover:bg-primary/90 transition shadow-lg shadow-primary/30"
+                  className="inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground font-semibold px-8 py-4 rounded-full hover:bg-primary/90 transition shadow-lg shadow-primary/30 press"
                 >
                   <UserPlus size={18} />
                   Proposer un service
                 </Link>
                 <Link
                   to="/request-service"
-                  className="inline-flex items-center justify-center gap-2 glass text-foreground font-semibold px-8 py-4 rounded-full hover:bg-white/5 transition"
+                  className="inline-flex items-center justify-center gap-2 glass text-foreground font-semibold px-8 py-4 rounded-full hover:bg-white/5 transition press"
                 >
                   <HelpCircle size={18} />
                   Demander un service

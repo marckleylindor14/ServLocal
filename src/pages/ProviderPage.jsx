@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
 import StarRating from '../components/StarRating'
@@ -9,8 +9,25 @@ import ReportModal from '../components/ReportModal'
 import BlockModal from '../components/BlockModal'
 import FastResponseBadge from '../components/FastResponseBadge'
 import API_URL from '../config'
+import * as haptics from '../utils/haptics'
 import { X, ImageOff, CheckCircle, Flag, HandCoins, Ban, MessageSquare, Send, ImagePlus, Loader2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+
+function triggerHaptic() {
+  try {
+    const fn = haptics.light || haptics.tap || haptics.impact || haptics.haptic || haptics.default
+    if (typeof fn === 'function') fn()
+  } catch {}
+}
+
+function triggerSuccessHaptic() {
+  try {
+    const fn = haptics.success || haptics.light || haptics.tap || haptics.default
+    if (typeof fn === 'function') fn()
+  } catch {}
+}
+
+const FALLBACK_IMAGE = 'https://i.pravatar.cc/100?img=4'
 
 export default function ProviderPage() {
   const { id } = useParams()
@@ -68,6 +85,22 @@ export default function ProviderPage() {
       })
   }, [id])
 
+  useEffect(() => {
+    return () => {
+      reviewPhotoPreviews.forEach(url => {
+        try { URL.revokeObjectURL(url) } catch {}
+      })
+    }
+  }, [reviewPhotoPreviews])
+
+  useEffect(() => {
+    if (bookingSuccess) triggerSuccessHaptic()
+  }, [bookingSuccess])
+
+  useEffect(() => {
+    if (lightboxImage) triggerHaptic()
+  }, [lightboxImage])
+
   const handleReviewPhotoSelect = (e) => {
     const newFiles = Array.from(e.target.files)
     const validFiles = []
@@ -90,10 +123,12 @@ export default function ProviderPage() {
   }
 
   const removeReviewPhoto = (index) => {
-    const newFiles = reviewPhotos.filter((_, i) => i !== index)
-    const newPreviews = reviewPhotoPreviews.filter((_, i) => i !== index)
-    setReviewPhotos(newFiles)
-    setReviewPhotoPreviews(newPreviews)
+    const url = reviewPhotoPreviews[index]
+    if (url) {
+      try { URL.revokeObjectURL(url) } catch {}
+    }
+    setReviewPhotos(prev => prev.filter((_, i) => i !== index))
+    setReviewPhotoPreviews(prev => prev.filter((_, i) => i !== index))
   }
 
   const uploadSinglePhoto = async (file) => {
@@ -146,11 +181,13 @@ export default function ProviderPage() {
         setErrorMessage('')
         setNewRating(0)
         setComment('')
+        reviewPhotoPreviews.forEach(url => { try { URL.revokeObjectURL(url) } catch {} })
         setReviewPhotos([])
         setReviewPhotoPreviews([])
         setReviews(prev => [...prev, data.review])
         setAverageRating(data.averageRating)
         addToast('Avis publié !', 'success')
+        triggerSuccessHaptic()
       } else {
         setErrorMessage(data.error || 'Erreur')
         addToast(data.error || 'Erreur', 'error')
@@ -181,6 +218,7 @@ export default function ProviderPage() {
         setReplyingTo(null)
         setReplyText('')
         addToast('Réponse publiée.', 'success')
+        triggerSuccessHaptic()
       } else {
         addToast(data.error || 'Erreur', 'error')
       }
@@ -247,6 +285,7 @@ export default function ProviderPage() {
         setProposalSuccess(true)
         setProposalMessage('')
         addToast('Proposition envoyée !', 'success')
+        triggerSuccessHaptic()
       } else {
         addToast(data.error || 'Erreur', 'error')
       }
@@ -257,8 +296,9 @@ export default function ProviderPage() {
     }
   }
 
-  const startConversation = async () => {
+  const startConversation = useCallback(async () => {
     if (!user) { navigate('/login'); return }
+    triggerHaptic()
     try {
       const res = await fetch(`${API_URL}/api/conversations`, {
         method: 'POST',
@@ -279,18 +319,29 @@ export default function ProviderPage() {
     } catch {
       addToast('Impossible de démarrer la conversation.', 'error')
     }
-  }
+  }, [user, navigate, addToast, pro])
 
   const handlePay = () => {
     if (!user) { navigate('/login'); return }
+    triggerHaptic()
     document.getElementById('booking-section')?.scrollIntoView({ behavior: 'smooth' })
   }
 
-  if (!pro) return <div className="min-h-screen bg-background text-foreground flex items-center justify-center">Chargement...</div>
+  if (!pro) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+        Chargement…
+      </div>
+    )
+  }
 
   const isDemand = pro.type === 'demand'
-  const isOwner = user && (pro.providerId === user.id || pro.providerName === user.name)
+  const isOwner = user && (
+    Number(pro.providerId) === Number(user.id) ||
+    pro.providerName === user.name
+  )
   const showFastBadge = pro.responseStats?.fastResponder === true
+  const hasPrice = pro.price != null && pro.price !== ''
 
   return (
     <PageTransition>
@@ -313,12 +364,12 @@ export default function ProviderPage() {
                   className="bg-card p-8 rounded-2xl text-center shadow-2xl"
                   onClick={e => e.stopPropagation()}
                 >
-                  <CheckCircle size={64} className="text-green-400 mx-auto mb-4" />
+                  <CheckCircle size={64} className="text-green-400 mx-auto mb-4 animate-bounce-in" />
                   <h3 className="text-xl font-bold mb-2">Réservation réussie !</h3>
                   <p className="text-muted-foreground">Le prestataire va examiner votre demande.</p>
                   <button
                     onClick={() => setBookingSuccess(false)}
-                    className="mt-6 bg-primary text-primary-foreground px-6 py-2 rounded-full font-semibold"
+                    className="mt-6 bg-primary text-primary-foreground px-6 py-2 rounded-full font-semibold press"
                   >
                     Ok
                   </button>
@@ -331,10 +382,10 @@ export default function ProviderPage() {
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-4">
               {pro.providerId ? (
                 <Link to={`/user/${pro.providerId}`}>
-                  <img src={pro.image || 'https://i.pravatar.cc/100?img=4'} alt={pro.title} className="w-16 h-16 md:w-20 md:h-20 rounded-full object-cover border-2 border-primary hover:scale-105 transition" />
+                  <img src={pro.image || FALLBACK_IMAGE} alt={pro.title} className="w-16 h-16 md:w-20 md:h-20 rounded-full object-cover border-2 border-primary hover:scale-105 transition" />
                 </Link>
               ) : (
-                <img src={pro.image || 'https://i.pravatar.cc/100?img=4'} alt={pro.title} className="w-16 h-16 md:w-20 md:h-20 rounded-full object-cover border-2 border-primary" />
+                <img src={pro.image || FALLBACK_IMAGE} alt={pro.title} className="w-16 h-16 md:w-20 md:h-20 rounded-full object-cover border-2 border-primary" />
               )}
               <div className="flex-1">
                 <div className="flex items-start justify-between gap-3">
@@ -369,16 +420,16 @@ export default function ProviderPage() {
                   <div className="flex gap-1 shrink-0">
                     {!isOwner && user && (
                       <button
-                        onClick={() => setShowBlock(true)}
-                        className="p-2 text-muted-foreground hover:text-red-400 transition"
+                        onClick={() => { triggerHaptic(); setShowBlock(true) }}
+                        className="p-2 text-muted-foreground hover:text-red-400 transition press"
                         aria-label="Bloquer"
                       >
                         <Ban size={18} />
                       </button>
                     )}
                     <button
-                      onClick={() => setShowReport(true)}
-                      className="p-2 text-muted-foreground hover:text-red-400 transition"
+                      onClick={() => { triggerHaptic(); setShowReport(true) }}
+                      className="p-2 text-muted-foreground hover:text-red-400 transition press"
                       aria-label="Signaler"
                     >
                       <Flag size={18} />
@@ -391,7 +442,7 @@ export default function ProviderPage() {
             <div className="mb-4">
               <h3 className="text-lg md:text-xl font-semibold">{isDemand ? 'Budget proposé' : 'Tarif'}</h3>
               <p className="text-primary font-medium">
-                {pro.price ? `${pro.price} €` : isDemand ? 'À discuter' : 'Non spécifié'}
+                {hasPrice ? `${pro.price} €` : isDemand ? 'À discuter' : 'Non spécifié'}
               </p>
               {!isDemand && (
                 <p className="text-xs text-muted-foreground mt-1">
@@ -402,11 +453,17 @@ export default function ProviderPage() {
 
             {!isOwner && (
               <div className="flex flex-col sm:flex-row gap-3">
-                <button onClick={startConversation} className="flex-1 bg-primary text-primary-foreground font-semibold py-3 px-6 rounded-full hover:bg-primary/90 transition text-sm md:text-base">
+                <button
+                  onClick={startConversation}
+                  className="flex-1 bg-primary text-primary-foreground font-semibold py-3 px-6 rounded-full hover:bg-primary/90 transition text-sm md:text-base press"
+                >
                   Envoyer un message
                 </button>
                 {!isDemand && (
-                  <button onClick={handlePay} className="flex-1 bg-green-600 text-white font-semibold py-3 px-6 rounded-full hover:bg-green-700 transition text-sm md:text-base">
+                  <button
+                    onClick={handlePay}
+                    className="flex-1 bg-green-600 text-white font-semibold py-3 px-6 rounded-full hover:bg-green-700 transition text-sm md:text-base press"
+                  >
                     Payer ce service
                   </button>
                 )}
@@ -421,7 +478,7 @@ export default function ProviderPage() {
                 {pro.gallery.map((imgUrl, idx) => (
                   <div
                     key={idx}
-                    className="relative rounded-lg overflow-hidden h-32 md:h-40 bg-muted group cursor-pointer"
+                    className="relative rounded-lg overflow-hidden h-32 md:h-40 bg-muted group cursor-pointer press"
                     onClick={() => loadedImages[idx] && setLightboxImage(imgUrl)}
                   >
                     <img
@@ -432,7 +489,7 @@ export default function ProviderPage() {
                       onError={() => setLoadedImages(prev => ({ ...prev, [idx]: false }))}
                     />
                     {!loadedImages[idx] && loadedImages[idx] !== false && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-muted animate-pulse">
+                      <div className="absolute inset-0 flex items-center justify-center bg-muted shimmer">
                         <ImageOff size={32} className="text-muted-foreground" />
                       </div>
                     )}
@@ -461,7 +518,7 @@ export default function ProviderPage() {
                   </p>
                 ) : proposalSuccess ? (
                   <div className="text-center py-6">
-                    <CheckCircle size={48} className="text-green-400 mx-auto mb-3" />
+                    <CheckCircle size={48} className="text-green-400 mx-auto mb-3 animate-bounce-in" />
                     <p className="text-foreground font-semibold">Proposition envoyée !</p>
                     <p className="text-sm text-muted-foreground mt-1">La personne examinera votre offre.</p>
                   </div>
@@ -492,8 +549,9 @@ export default function ProviderPage() {
                     <button
                       type="submit"
                       disabled={proposalSubmitting}
-                      className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-full hover:bg-primary/90 transition text-sm disabled:opacity-50"
+                      className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-full hover:bg-primary/90 transition text-sm disabled:opacity-50 press flex items-center justify-center gap-2"
                     >
+                      {proposalSubmitting && <Loader2 size={14} className="animate-spin" />}
                       {proposalSubmitting ? 'Envoi...' : 'Envoyer ma proposition'}
                     </button>
                   </form>
@@ -525,7 +583,7 @@ export default function ProviderPage() {
                       <textarea rows={3} placeholder="Décrivez votre besoin..." value={bookingMessage} onChange={(e) => setBookingMessage(e.target.value)} className="w-full bg-white/5 border border-border rounded-lg py-3 px-4 text-foreground placeholder-muted-foreground outline-none focus:border-primary transition resize-none text-sm" />
                     </div>
                     {bookingError && <p className="text-red-400 text-xs">{bookingError}</p>}
-                    <button type="submit" className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-full hover:bg-primary/90 transition text-sm">Réserver</button>
+                    <button type="submit" className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-full hover:bg-primary/90 transition text-sm press">Réserver</button>
                   </form>
                 ) : (
                   <p className="text-xs text-muted-foreground"><Link to="/login" className="text-primary hover:underline">Connectez-vous</Link> pour réserver.</p>
@@ -555,7 +613,7 @@ export default function ProviderPage() {
                         {review.photos.map((photoUrl, idx) => (
                           <div
                             key={idx}
-                            className="w-20 h-20 rounded-lg overflow-hidden cursor-pointer group"
+                            className="w-20 h-20 rounded-lg overflow-hidden cursor-pointer group press"
                             onClick={() => setLightboxImage(photoUrl)}
                           >
                             <img
@@ -599,14 +657,14 @@ export default function ProviderPage() {
                               <button
                                 onClick={() => handleReplySubmit(review._id)}
                                 disabled={replySubmitting || !replyText.trim()}
-                                className="flex items-center gap-1 bg-primary text-primary-foreground px-3 py-1.5 rounded-full text-xs font-semibold hover:bg-primary/90 transition disabled:opacity-50"
+                                className="flex items-center gap-1 bg-primary text-primary-foreground px-3 py-1.5 rounded-full text-xs font-semibold hover:bg-primary/90 transition disabled:opacity-50 press"
                               >
                                 <Send size={11} />
                                 {replySubmitting ? 'Envoi...' : 'Publier'}
                               </button>
                               <button
                                 onClick={() => { setReplyingTo(null); setReplyText('') }}
-                                className="text-xs text-muted-foreground hover:text-foreground transition"
+                                className="text-xs text-muted-foreground hover:text-foreground transition press"
                               >
                                 Annuler
                               </button>
@@ -614,8 +672,8 @@ export default function ProviderPage() {
                           </div>
                         ) : (
                           <button
-                            onClick={() => { setReplyingTo(review._id); setReplyText('') }}
-                            className="flex items-center gap-1 text-xs text-primary hover:underline"
+                            onClick={() => { triggerHaptic(); setReplyingTo(review._id); setReplyText('') }}
+                            className="flex items-center gap-1 text-xs text-primary hover:underline press"
                           >
                             <MessageSquare size={12} />
                             Répondre à cet avis
@@ -643,7 +701,8 @@ export default function ProviderPage() {
                             <button
                               type="button"
                               onClick={() => removeReviewPhoto(idx)}
-                              className="absolute top-0.5 right-0.5 bg-black/70 text-white p-0.5 rounded-full"
+                              className="absolute top-0.5 right-0.5 bg-black/70 text-white p-0.5 rounded-full press"
+                              aria-label="Retirer la photo"
                             >
                               <X size={11} />
                             </button>
@@ -653,7 +712,7 @@ export default function ProviderPage() {
                           <button
                             type="button"
                             onClick={() => reviewPhotoRef.current?.click()}
-                            className="w-16 h-16 rounded-lg border-2 border-dashed border-border flex items-center justify-center text-muted-foreground hover:border-primary transition"
+                            className="w-16 h-16 rounded-lg border-2 border-dashed border-border flex items-center justify-center text-muted-foreground hover:border-primary transition press"
                           >
                             <ImagePlus size={18} />
                           </button>
@@ -663,7 +722,7 @@ export default function ProviderPage() {
                       <button
                         type="button"
                         onClick={() => reviewPhotoRef.current?.click()}
-                        className="flex items-center gap-2 text-xs border border-dashed border-border rounded-lg px-3 py-2 text-muted-foreground hover:border-primary hover:text-primary transition"
+                        className="flex items-center gap-2 text-xs border border-dashed border-border rounded-lg px-3 py-2 text-muted-foreground hover:border-primary hover:text-primary transition press"
                       >
                         <ImagePlus size={14} />
                         Ajouter des photos
@@ -684,7 +743,7 @@ export default function ProviderPage() {
                   <button
                     type="submit"
                     disabled={reviewPhotoUploading}
-                    className="bg-primary text-primary-foreground font-semibold py-2 px-6 rounded-full hover:bg-primary/90 transition text-sm disabled:opacity-50 flex items-center gap-2"
+                    className="bg-primary text-primary-foreground font-semibold py-2 px-6 rounded-full hover:bg-primary/90 transition text-sm disabled:opacity-50 flex items-center gap-2 press"
                   >
                     {reviewPhotoUploading && <Loader2 size={14} className="animate-spin" />}
                     {reviewPhotoUploading ? 'Envoi...' : 'Publier'}
@@ -703,7 +762,9 @@ export default function ProviderPage() {
 
         {lightboxImage && (
           <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setLightboxImage(null)}>
-            <button className="absolute top-4 right-4 text-white bg-black/40 rounded-full p-2" onClick={() => setLightboxImage(null)}><X size={24} /></button>
+            <button className="absolute top-4 right-4 text-white bg-black/40 rounded-full p-2 press" onClick={() => setLightboxImage(null)} aria-label="Fermer">
+              <X size={24} />
+            </button>
             <img src={lightboxImage} alt="Vue agrandie" className="max-w-full max-h-full rounded-xl" onClick={(e) => e.stopPropagation()} />
           </div>
         )}
